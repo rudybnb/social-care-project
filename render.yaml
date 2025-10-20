@@ -1,5 +1,4 @@
 services:
-  # Backend API Service
   - type: web
     name: social-care-backend
     runtime: node
@@ -13,9 +12,7 @@ services:
         value: 10000
       - key: DATABASE_URL
         sync: false
-    healthCheckPath: /api/health
 
-  # Frontend Static Site
   - type: web
     name: social-care-frontend
     plan: free
@@ -24,13 +21,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: REACT_APP_API_URL
-        fromService:
-          type: web
-          name: social-care-backend
-          property: host
 
-# Database (PostgreSQL)
 databases:
   - name: social-care-db
     databaseName: socialcare
