@@ -15,10 +15,9 @@ services:
         sync: false # You'll set this in Render dashboard
     healthCheckPath: /api/health
 
-  # Frontend Web Service (Static Site)
-  - type: web
+  # Frontend Static Site
+  - type: static
     name: social-care-frontend
-    plan: free
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/build
     envVars:
