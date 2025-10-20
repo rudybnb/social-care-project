@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
@@ -19,7 +19,7 @@ const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL }) : undef
 export const db = pool ? drizzle(pool) : undefined;
 
 // Health check for Render
-app.get('/api/health', async (_req, res) => {
+app.get('/api/health', async (_req: Request, res: Response) => {
   try {
     // Check database connection if available
     if (db && pool) {
@@ -40,7 +40,7 @@ app.get('/api/health', async (_req, res) => {
 });
 
 // Placeholder auth routes
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', async (req: Request, res: Response) => {
   // TODO: Integrate Replit Auth. For now, accept role passed in body.
   const { email, role } = req.body || {};
   if (!email || !role) {
@@ -51,17 +51,17 @@ app.post('/api/auth/login', async (req, res) => {
   return res.json({ user, token: 'demo-token' });
 });
 
-app.get('/api/auth/me', async (_req, res) => {
+app.get('/api/auth/me', async (_req: Request, res: Response) => {
   // TODO: Validate token (Replit Auth). Returning demo user.
   res.json({ user: { id: 'u_demo', email: 'demo@example.com', role: 'admin', name: 'Demo User' } });
 });
 
 // Route placeholders
-app.use('/api/sites', (_req, res) => res.json({ message: 'sites API placeholder' }));
-app.use('/api/shifts', (_req, res) => res.json({ message: 'shifts API placeholder' }));
-app.use('/api/attendance', (_req, res) => res.json({ message: 'attendance API placeholder' }));
-app.use('/api/rooms', (_req, res) => res.json({ message: 'rooms API placeholder' }));
-app.use('/api/queries', (_req, res) => res.json({ message: 'queries API placeholder' }));
+app.use('/api/sites', (_req: Request, res: Response) => res.json({ message: 'sites API placeholder' }));
+app.use('/api/shifts', (_req: Request, res: Response) => res.json({ message: 'shifts API placeholder' }));
+app.use('/api/attendance', (_req: Request, res: Response) => res.json({ message: 'attendance API placeholder' }));
+app.use('/api/rooms', (_req: Request, res: Response) => res.json({ message: 'rooms API placeholder' }));
+app.use('/api/queries', (_req: Request, res: Response) => res.json({ message: 'queries API placeholder' }));
 
 app.listen(PORT, () => {
   console.log(`API server listening on http://localhost:${PORT}`);
