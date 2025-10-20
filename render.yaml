@@ -1,0 +1,39 @@
+services:
+  # Backend API Service
+  - type: web
+    name: social-care-backend
+    runtime: node
+    plan: free
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false # You'll set this in Render dashboard
+    healthCheckPath: /api/health
+
+  # Frontend Web Service
+  - type: web
+    name: social-care-frontend
+    runtime: node
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/build
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REACT_APP_API_URL
+        fromService:
+          type: web
+          name: social-care-backend
+          property: host
+
+# Database (PostgreSQL)
+databases:
+  - name: social-care-db
+    databaseName: socialcare
+    user: socialcare_user
+    plan: free
