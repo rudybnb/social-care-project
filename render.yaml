@@ -12,12 +12,13 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        sync: false # You'll set this in Render dashboard
+        sync: false
     healthCheckPath: /api/health
 
   # Frontend Static Site
   - type: web
     name: social-care-frontend
+    plan: free
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/build
     envVars:
