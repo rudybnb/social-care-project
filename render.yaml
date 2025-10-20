@@ -3,7 +3,7 @@ services:
     name: social-care-backend
     runtime: node
     plan: free
-    buildCommand: cd backend && npm ci && npm run build
+    buildCommand: cd backend && npm ci --include=dev && npm run build
     startCommand: cd backend && npm start
     envVars:
       - key: NODE_ENV
@@ -18,7 +18,7 @@ services:
   - type: web
     name: social-care-frontend
     runtime: static
-    buildCommand: cd frontend && npm ci && npm run build
+    buildCommand: cd frontend && npm ci --include=dev && npm run build
     staticPublishPath: frontend/build
     envVars:
       - key: NODE_ENV
