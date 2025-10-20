@@ -5,7 +5,7 @@
     "module": "ESNext",
     "target": "ES2020",
     "moduleResolution": "node",
-    "types": ["node", "@types/express", "@types/cors", "@types/pg"],
+    "types": ["node", "express", "cors", "pg"],
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,
