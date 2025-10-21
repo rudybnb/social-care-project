@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { IonButton, IonContent, IonHeader, IonInput, IonItem, IonLabel, IonList, IonPage, IonTitle, IonToolbar } from '@ionic/react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,9 +8,10 @@ const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const loginButtonRef = useRef<HTMLIonButtonElement>(null);
 
-  const onSubmit = async () => {
+  const handleLogin = async () => {
+    console.log('Login button clicked!');
+    
     if (!username || !password) {
       alert('Please enter both username and password');
       return;
@@ -19,9 +19,9 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
-      // Simple login logic - determine role based on username
       const role = username.toLowerCase().includes('admin') ? 'admin' : 'worker';
       await login(username, role);
+      console.log('Login successful, navigating to:', role);
       navigate(role === 'admin' ? '/admin' : '/worker');
     } catch (error) {
       console.error('Login failed:', error);
@@ -31,148 +31,194 @@ const Login: React.FC = () => {
     }
   };
 
-  // Native DOM event listener to bypass Ionic's event system
-  useEffect(() => {
-    const button = loginButtonRef.current;
-    if (!button) return;
-
-    // Get the actual button element inside the ion-button shadow DOM
-    const handleClick = (e: Event) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('Button clicked via native listener');
-      if (!loading) {
-        onSubmit();
-      }
-    };
-
-    const handleTouchEnd = (e: Event) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('Button touched via native listener');
-      if (!loading) {
-        onSubmit();
-      }
-    };
-
-    // Add multiple event listeners for maximum compatibility
-    button.addEventListener('click', handleClick, true);
-    button.addEventListener('touchend', handleTouchEnd, true);
-    
-    // Also try to access shadow DOM button
-    setTimeout(() => {
-      const shadowRoot = button.shadowRoot;
-      if (shadowRoot) {
-        const nativeButton = shadowRoot.querySelector('button');
-        if (nativeButton) {
-          nativeButton.addEventListener('click', handleClick, true);
-          nativeButton.addEventListener('touchend', handleTouchEnd, true);
-        }
-      }
-    }, 100);
-
-    return () => {
-      button.removeEventListener('click', handleClick, true);
-      button.removeEventListener('touchend', handleTouchEnd, true);
-      const shadowRoot = button.shadowRoot;
-      if (shadowRoot) {
-        const nativeButton = shadowRoot.querySelector('button');
-        if (nativeButton) {
-          nativeButton.removeEventListener('click', handleClick, true);
-          nativeButton.removeEventListener('touchend', handleTouchEnd, true);
-        }
-      }
-    };
-  }, [loading, username, password]);
-
-  const handleKeyPress = (e: any) => {
-    if (e.key === 'Enter') {
-      onSubmit();
-    }
-  };
-
   return (
-    <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonTitle>Social Care Homes</IonTitle>
-        </IonToolbar>
-      </IonHeader>
-      <IonContent className="ion-padding">
-        <div className="max-w-md mx-auto mt-20">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Social Care Homes</h1>
-            <h2 className="text-xl font-semibold text-gray-600 mb-2">Workforce Portal</h2>
-            <p className="text-gray-500">Sign in to access your schedule, attendance, payroll, and more</p>
-          </div>
-          
-          <IonList className="bg-white rounded-lg shadow-lg">
-            <IonItem>
-              <IonLabel position="stacked">Username</IonLabel>
-              <IonInput 
-                type="text" 
-                value={username} 
-                onIonChange={(e) => setUsername(e.detail.value || '')}
-                onKeyPress={handleKeyPress}
-                placeholder="Enter your username"
-              />
-            </IonItem>
-            <IonItem>
-              <IonLabel position="stacked">Password</IonLabel>
-              <IonInput 
-                type="password" 
-                value={password} 
-                onIonChange={(e) => setPassword(e.detail.value || '')}
-                onKeyPress={handleKeyPress}
-                placeholder="Enter your password"
-              />
-            </IonItem>
-          </IonList>
-          
-          <IonButton 
-            ref={loginButtonRef}
-            expand="block" 
-            disabled={loading}
-            className="mt-6"
-            size="large"
-            style={{ 
-              cursor: 'pointer', 
-              touchAction: 'manipulation',
-              pointerEvents: 'auto'
-            }}
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </IonButton>
-          
-          {/* Fallback native button for testing */}
-          <button
-            onClick={onSubmit}
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#f5f5f5',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px'
+    }}>
+      {/* Header */}
+      <div style={{
+        textAlign: 'center',
+        marginBottom: '40px'
+      }}>
+        <h1 style={{
+          fontSize: '32px',
+          fontWeight: 'bold',
+          color: '#333',
+          marginBottom: '10px'
+        }}>
+          Social Care Homes
+        </h1>
+        <h2 style={{
+          fontSize: '20px',
+          fontWeight: '600',
+          color: '#666',
+          marginBottom: '10px'
+        }}>
+          Workforce Portal
+        </h2>
+        <p style={{
+          fontSize: '14px',
+          color: '#999'
+        }}>
+          Sign in to access your schedule
+        </p>
+      </div>
+
+      {/* Login Form */}
+      <div style={{
+        width: '100%',
+        maxWidth: '400px',
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '30px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+      }}>
+        {/* Username Input */}
+        <div style={{ marginBottom: '25px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '14px',
+            fontWeight: '600',
+            color: '#333',
+            marginBottom: '8px'
+          }}>
+            Username
+          </label>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter your username"
             disabled={loading}
             style={{
               width: '100%',
               padding: '16px',
-              marginTop: '16px',
-              backgroundColor: '#3880ff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
               fontSize: '16px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              touchAction: 'manipulation'
+              border: '2px solid #ddd',
+              borderRadius: '8px',
+              boxSizing: 'border-box',
+              outline: 'none'
             }}
-          >
-            {loading ? 'Signing in...' : 'Native Sign In Button'}
-          </button>
-          
-          <div className="text-center mt-6 text-sm text-gray-500">
-            <p>Staff see the mobile interface after sign-in</p>
-            <p>Admins and managers see the management dashboard</p>
-            <p className="mt-2 text-xs text-blue-500">Try the native button if the Ionic button doesn't work</p>
-          </div>
+            onFocus={(e) => e.target.style.borderColor = '#3880ff'}
+            onBlur={(e) => e.target.style.borderColor = '#ddd'}
+          />
         </div>
-      </IonContent>
-    </IonPage>
+
+        {/* Password Input */}
+        <div style={{ marginBottom: '30px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '14px',
+            fontWeight: '600',
+            color: '#333',
+            marginBottom: '8px'
+          }}>
+            Password
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter your password"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '16px',
+              fontSize: '16px',
+              border: '2px solid #ddd',
+              borderRadius: '8px',
+              boxSizing: 'border-box',
+              outline: 'none'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#3880ff'}
+            onBlur={(e) => e.target.style.borderColor = '#ddd'}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !loading) {
+                handleLogin();
+              }
+            }}
+          />
+        </div>
+
+        {/* Large Sign In Button */}
+        <button
+          onClick={handleLogin}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            if (!loading) handleLogin();
+          }}
+          disabled={loading}
+          style={{
+            width: '100%',
+            padding: '20px',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            color: 'white',
+            backgroundColor: loading ? '#ccc' : '#3880ff',
+            border: 'none',
+            borderRadius: '12px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent',
+            minHeight: '60px'
+          }}
+        >
+          {loading ? 'Signing in...' : 'SIGN IN'}
+        </button>
+
+        {/* Instructions */}
+        <div style={{
+          marginTop: '25px',
+          padding: '15px',
+          backgroundColor: '#f0f9ff',
+          borderRadius: '8px',
+          fontSize: '13px',
+          color: '#666',
+          textAlign: 'center'
+        }}>
+          <p style={{ margin: '5px 0' }}>
+            <strong>Test Accounts:</strong>
+          </p>
+          <p style={{ margin: '5px 0' }}>
+            Username with "admin" → Admin Dashboard
+          </p>
+          <p style={{ margin: '5px 0' }}>
+            Any other username → Worker Dashboard
+          </p>
+        </div>
+      </div>
+
+      {/* Debug Info */}
+      <div style={{
+        marginTop: '30px',
+        padding: '15px',
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        fontSize: '12px',
+        color: '#666',
+        maxWidth: '400px',
+        width: '100%'
+      }}>
+        <p style={{ margin: '5px 0' }}>
+          <strong>Debug Info:</strong>
+        </p>
+        <p style={{ margin: '5px 0' }}>
+          Username: {username || '(empty)'}
+        </p>
+        <p style={{ margin: '5px 0' }}>
+          Password: {password ? '***' : '(empty)'}
+        </p>
+        <p style={{ margin: '5px 0' }}>
+          Status: {loading ? 'Loading...' : 'Ready'}
+        </p>
+      </div>
+    </div>
   );
 };
 

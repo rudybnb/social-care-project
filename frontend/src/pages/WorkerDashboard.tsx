@@ -1,168 +1,246 @@
-import React from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonGrid, IonRow, IonCol, IonCard, IonCardHeader, IonCardTitle, IonCardContent } from '@ionic/react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 const WorkerDashboard: React.FC = () => {
-  const navigate = useNavigate();
+  const { logout, user } = useAuth();
+  const [clockedIn, setClockedIn] = useState(false);
 
   const handleClockIn = () => {
-    alert('Clock In clicked - This would record your clock-in time');
+    console.log('Clock In clicked');
+    setClockedIn(true);
+    alert('Clocked In Successfully!\nTime: ' + new Date().toLocaleTimeString());
   };
 
   const handleClockOut = () => {
-    alert('Clock Out clicked - This would record your clock-out time');
+    console.log('Clock Out clicked');
+    if (window.confirm('Are you sure you want to clock out?')) {
+      setClockedIn(false);
+      alert('Clocked Out Successfully!\nTime: ' + new Date().toLocaleTimeString());
+    }
   };
 
-  const handleNavigation = (path: string, label: string) => {
-    alert(`${label} clicked - Would navigate to ${path}`);
-    // navigate(path);
+  const handleQuickLink = (link: string) => {
+    console.log('Quick link clicked:', link);
+    alert(`${link} clicked - Would navigate here`);
+  };
+
+  const handleLogout = () => {
+    console.log('Logout clicked');
+    if (window.confirm('Are you sure you want to logout?')) {
+      logout();
+    }
   };
 
   return (
-    <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonTitle>Worker Dashboard</IonTitle>
-        </IonToolbar>
-      </IonHeader>
-      <IonContent className="ion-padding">
-        <IonGrid>
-          <IonRow>
-            <IonCol size="12" sizeMd="6">
-              <IonCard>
-                <IonCardHeader>
-                  <IonCardTitle>Today</IonCardTitle>
-                </IonCardHeader>
-                <IonCardContent>
-                  <div className="space-y-2">
-                    <div>Shift: 08:00 - 16:00</div>
-                    <div>Room: A-103</div>
-                    <div>Status: Not clocked in</div>
-                    
-                    {/* Native buttons for better touch compatibility */}
-                    <button
-                      onClick={handleClockIn}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        marginTop: '8px',
-                        backgroundColor: '#3880ff',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        touchAction: 'manipulation'
-                      }}
-                    >
-                      Clock In
-                    </button>
-                    
-                    <button
-                      onClick={handleClockOut}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        marginTop: '8px',
-                        backgroundColor: '#92949c',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        touchAction: 'manipulation'
-                      }}
-                    >
-                      Clock Out
-                    </button>
-                  </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-            <IonCol size="12" sizeMd="6">
-              <IonCard>
-                <IonCardHeader>
-                  <IonCardTitle>Quick Links</IonCardTitle>
-                </IonCardHeader>
-                <IonCardContent>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleNavigation('/worker/attendance', 'Attendance')}
-                      style={{
-                        padding: '12px',
-                        backgroundColor: '#3880ff',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        touchAction: 'manipulation'
-                      }}
-                    >
-                      Attendance
-                    </button>
-                    
-                    <button
-                      onClick={() => handleNavigation('/worker/rooms', 'Rooms')}
-                      style={{
-                        padding: '12px',
-                        backgroundColor: '#3880ff',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        touchAction: 'manipulation'
-                      }}
-                    >
-                      Rooms
-                    </button>
-                    
-                    <button
-                      onClick={() => handleNavigation('/worker/queries', 'Queries')}
-                      style={{
-                        padding: '12px',
-                        backgroundColor: '#3880ff',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        touchAction: 'manipulation'
-                      }}
-                    >
-                      Queries
-                    </button>
-                    
-                    <button
-                      onClick={() => handleNavigation('/worker/shifts', 'Shifts')}
-                      style={{
-                        padding: '12px',
-                        backgroundColor: '#3880ff',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        touchAction: 'manipulation'
-                      }}
-                    >
-                      Shifts
-                    </button>
-                  </div>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-          </IonRow>
-        </IonGrid>
-      </IonContent>
-    </IonPage>
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#f5f5f5'
+    }}>
+      {/* Header */}
+      <div style={{
+        backgroundColor: '#3880ff',
+        color: 'white',
+        padding: '20px',
+        boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+      }}>
+        <h1 style={{
+          fontSize: '24px',
+          fontWeight: 'bold',
+          margin: '0 0 5px 0'
+        }}>
+          Worker Dashboard
+        </h1>
+        <p style={{
+          fontSize: '14px',
+          margin: 0,
+          opacity: 0.9
+        }}>
+          Welcome, {user?.name || 'Worker'}
+        </p>
+      </div>
+
+      {/* Status Card */}
+      <div style={{
+        margin: '20px',
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '25px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+      }}>
+        <h2 style={{
+          fontSize: '18px',
+          fontWeight: 'bold',
+          marginBottom: '15px',
+          color: '#333'
+        }}>
+          Today's Shift
+        </h2>
+        
+        <div style={{
+          backgroundColor: '#f0f9ff',
+          padding: '15px',
+          borderRadius: '8px',
+          marginBottom: '20px'
+        }}>
+          <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
+            <strong>Time:</strong> 08:00 - 16:00
+          </div>
+          <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
+            <strong>Room:</strong> A-103
+          </div>
+          <div style={{ fontSize: '14px', color: '#666' }}>
+            <strong>Status:</strong> {clockedIn ? 
+              <span style={{ color: '#10b981', fontWeight: 'bold' }}>✓ Clocked In</span> : 
+              <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Not Clocked In</span>
+            }
+          </div>
+        </div>
+
+        {/* Clock In/Out Buttons */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '15px'
+        }}>
+          <button
+            onClick={handleClockIn}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              handleClockIn();
+            }}
+            disabled={clockedIn}
+            style={{
+              padding: '20px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              color: 'white',
+              backgroundColor: clockedIn ? '#ccc' : '#10b981',
+              border: 'none',
+              borderRadius: '12px',
+              cursor: clockedIn ? 'not-allowed' : 'pointer',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+              minHeight: '70px'
+            }}
+          >
+            {clockedIn ? '✓ CLOCKED IN' : 'CLOCK IN'}
+          </button>
+
+          <button
+            onClick={handleClockOut}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              handleClockOut();
+            }}
+            disabled={!clockedIn}
+            style={{
+              padding: '20px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              color: 'white',
+              backgroundColor: !clockedIn ? '#ccc' : '#ef4444',
+              border: 'none',
+              borderRadius: '12px',
+              cursor: !clockedIn ? 'not-allowed' : 'pointer',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+              minHeight: '70px'
+            }}
+          >
+            CLOCK OUT
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Links */}
+      <div style={{
+        margin: '20px',
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '25px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+      }}>
+        <h2 style={{
+          fontSize: '18px',
+          fontWeight: 'bold',
+          marginBottom: '15px',
+          color: '#333'
+        }}>
+          Quick Links
+        </h2>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '15px'
+        }}>
+          {[
+            { label: 'Attendance', color: '#3880ff' },
+            { label: 'Rooms', color: '#10b981' },
+            { label: 'Queries', color: '#f59e0b' },
+            { label: 'My Shifts', color: '#8b5cf6' }
+          ].map((item, index) => (
+            <button
+              key={index}
+              onClick={() => handleQuickLink(item.label)}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleQuickLink(item.label);
+              }}
+              style={{
+                padding: '25px 15px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                color: 'white',
+                backgroundColor: item.color,
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
+                minHeight: '80px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center'
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Logout Button */}
+      <div style={{
+        padding: '20px',
+        paddingBottom: '40px'
+      }}>
+        <button
+          onClick={handleLogout}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            handleLogout();
+          }}
+          style={{
+            width: '100%',
+            padding: '20px',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            color: 'white',
+            backgroundColor: '#ef4444',
+            border: 'none',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent',
+            minHeight: '60px'
+          }}
+        >
+          LOGOUT
+        </button>
+      </div>
+    </div>
   );
 };
 
