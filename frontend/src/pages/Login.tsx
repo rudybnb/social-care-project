@@ -38,58 +38,55 @@ const Login: React.FC = () => {
       display: 'flex',
       flexDirection: 'column'
     }}>
-      {/* Purple Top Bar */}
+      {/* Purple Top Bar - Mobile Optimized */}
       <div style={{
         backgroundColor: '#9333ea',
-        padding: '12px 20px',
+        padding: '10px 12px',
         display: 'flex',
         alignItems: 'center',
-        gap: '10px'
+        gap: '8px',
+        overflowX: 'auto',
+        flexWrap: 'nowrap'
       }}>
-        <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>DEV MODE:</span>
+        <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>DEV MODE:</span>
         <button style={{
-          padding: '6px 16px',
+          padding: '6px 12px',
           backgroundColor: '#7c3aed',
           color: 'white',
           border: 'none',
           borderRadius: '6px',
-          fontSize: '13px',
-          fontWeight: '600'
+          fontSize: '11px',
+          fontWeight: '600',
+          whiteSpace: 'nowrap',
+          flexShrink: 0
         }}>
           Admin
         </button>
         <button style={{
-          padding: '6px 16px',
+          padding: '6px 12px',
           backgroundColor: '#7c3aed',
           color: 'white',
           border: 'none',
           borderRadius: '6px',
-          fontSize: '13px',
-          fontWeight: '600'
+          fontSize: '11px',
+          fontWeight: '600',
+          whiteSpace: 'nowrap',
+          flexShrink: 0
         }}>
           Manager
         </button>
         <button style={{
-          padding: '6px 16px',
+          padding: '6px 12px',
           backgroundColor: '#7c3aed',
           color: 'white',
           border: 'none',
           borderRadius: '6px',
-          fontSize: '13px',
-          fontWeight: '600'
+          fontSize: '11px',
+          fontWeight: '600',
+          whiteSpace: 'nowrap',
+          flexShrink: 0
         }}>
           Worker
-        </button>
-        <button style={{
-          padding: '6px 16px',
-          backgroundColor: '#7c3aed',
-          color: 'white',
-          border: 'none',
-          borderRadius: '6px',
-          fontSize: '13px',
-          fontWeight: '600'
-        }}>
-          Sample ZIP
         </button>
       </div>
 
@@ -99,7 +96,7 @@ const Login: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px'
+        padding: '16px'
       }}>
         {/* Login Card */}
         <div style={{
@@ -108,13 +105,13 @@ const Login: React.FC = () => {
           backgroundColor: '#2a2a2a',
           borderRadius: '12px',
           border: '1px solid #3a3a3a',
-          padding: '40px 35px',
+          padding: '32px 24px',
           textAlign: 'center'
         }}>
-          {/* Icon - Simple geometric shape instead of emoji */}
+          {/* Icon */}
           <div style={{
-            width: '60px',
-            height: '60px',
+            width: '56px',
+            height: '56px',
             margin: '0 auto 20px',
             backgroundColor: '#9333ea',
             borderRadius: '12px',
@@ -123,8 +120,8 @@ const Login: React.FC = () => {
             justifyContent: 'center'
           }}>
             <div style={{
-              width: '30px',
-              height: '30px',
+              width: '28px',
+              height: '28px',
               border: '3px solid white',
               borderRadius: '6px'
             }}></div>
@@ -132,25 +129,27 @@ const Login: React.FC = () => {
 
           {/* Title */}
           <h1 style={{
-            fontSize: '26px',
+            fontSize: '22px',
             fontWeight: 'bold',
             color: 'white',
-            margin: '0 0 10px 0'
+            margin: '0 0 8px 0',
+            lineHeight: '1.3'
           }}>
             Social Care Homes Workforce Portal
           </h1>
 
           {/* Subtitle */}
           <p style={{
-            fontSize: '14px',
+            fontSize: '13px',
             color: '#9ca3af',
-            margin: '0 0 30px 0'
+            margin: '0 0 28px 0',
+            lineHeight: '1.5'
           }}>
             Sign in to access your schedule, attendance, payroll, and more
           </p>
 
           {/* Username Input */}
-          <div style={{ marginBottom: '20px', textAlign: 'left' }}>
+          <div style={{ marginBottom: '18px', textAlign: 'left' }}>
             <label style={{
               display: 'block',
               fontSize: '14px',
@@ -167,8 +166,8 @@ const Login: React.FC = () => {
               disabled={loading}
               style={{
                 width: '100%',
-                padding: '12px',
-                fontSize: '15px',
+                padding: '14px',
+                fontSize: '16px',
                 backgroundColor: '#1a1a1a',
                 color: 'white',
                 border: '1px solid #3a3a3a',
@@ -182,7 +181,7 @@ const Login: React.FC = () => {
           </div>
 
           {/* Password Input */}
-          <div style={{ marginBottom: '25px', textAlign: 'left' }}>
+          <div style={{ marginBottom: '24px', textAlign: 'left' }}>
             <label style={{
               display: 'block',
               fontSize: '14px',
@@ -204,8 +203,8 @@ const Login: React.FC = () => {
               }}
               style={{
                 width: '100%',
-                padding: '12px',
-                fontSize: '15px',
+                padding: '14px',
+                fontSize: '16px',
                 backgroundColor: '#1a1a1a',
                 color: 'white',
                 border: '1px solid #3a3a3a',
@@ -228,7 +227,7 @@ const Login: React.FC = () => {
             disabled={loading}
             style={{
               width: '100%',
-              padding: '14px',
+              padding: '16px',
               fontSize: '16px',
               fontWeight: 'bold',
               color: 'white',
@@ -246,7 +245,7 @@ const Login: React.FC = () => {
 
           {/* Footer Text */}
           <div style={{
-            fontSize: '13px',
+            fontSize: '12px',
             color: '#6b7280',
             lineHeight: '1.6'
           }}>

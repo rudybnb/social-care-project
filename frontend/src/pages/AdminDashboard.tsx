@@ -8,12 +8,17 @@ import Directory from '../components/Directory';
 const AdminDashboard: React.FC = () => {
   const { logout, user } = useAuth();
   const [currentPage, setCurrentPage] = useState('overview');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
       logout();
     }
+  };
+
+  const handleMenuClick = (pageId: string) => {
+    setCurrentPage(pageId);
+    setSidebarOpen(false); // Close sidebar on mobile after selection
   };
 
   const menuItems = [
@@ -43,8 +48,8 @@ const AdminDashboard: React.FC = () => {
       case 'directory':
         return <Directory />;
       default:
-        return <div style={{ padding: '30px', color: 'white' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>
+        return <div style={{ padding: '20px', color: 'white' }}>
+          <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '12px' }}>
             {currentPage.charAt(0).toUpperCase() + currentPage.slice(1).replace('-', ' ')}
           </h2>
           <p style={{ color: '#9ca3af' }}>This page is under construction.</p>
@@ -53,34 +58,55 @@ const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#1a1a1a' }}>
+    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#1a1a1a', position: 'relative' }}>
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            zIndex: 999,
+            display: window.innerWidth > 768 ? 'none' : 'block'
+          }}
+        />
+      )}
+
       {/* Sidebar */}
       <div style={{
-        width: sidebarCollapsed ? '60px' : '220px',
+        width: '240px',
         backgroundColor: '#0f0f0f',
         borderRight: '1px solid #2a2a2a',
         display: 'flex',
         flexDirection: 'column',
-        transition: 'width 0.3s'
+        position: window.innerWidth <= 768 ? 'fixed' : 'relative',
+        left: sidebarOpen || window.innerWidth > 768 ? 0 : '-240px',
+        top: 0,
+        bottom: 0,
+        zIndex: 1000,
+        transition: 'left 0.3s ease',
+        overflowY: 'auto'
       }}>
         {/* Sidebar Header */}
         <div style={{
-          padding: '20px 16px',
+          padding: '18px 16px',
           borderBottom: '1px solid #2a2a2a',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
-          {!sidebarCollapsed && (
-            <span style={{ color: '#9ca3af', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-              Main Menu
-            </span>
-          )}
+          <span style={{ color: '#9ca3af', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            Main Menu
+          </span>
           <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            onClick={() => setSidebarOpen(false)}
             onTouchEnd={(e) => {
               e.preventDefault();
-              setSidebarCollapsed(!sidebarCollapsed);
+              setSidebarOpen(false);
             }}
             style={{
               background: 'none',
@@ -90,10 +116,11 @@ const AdminDashboard: React.FC = () => {
               cursor: 'pointer',
               padding: '4px',
               touchAction: 'manipulation',
-              lineHeight: 1
+              lineHeight: 1,
+              display: window.innerWidth <= 768 ? 'block' : 'none'
             }}
           >
-            {sidebarCollapsed ? '☰' : '×'}
+            ×
           </button>
         </div>
 
@@ -102,10 +129,10 @@ const AdminDashboard: React.FC = () => {
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setCurrentPage(item.id)}
+              onClick={() => handleMenuClick(item.id)}
               onTouchEnd={(e) => {
                 e.preventDefault();
-                setCurrentPage(item.id);
+                handleMenuClick(item.id);
               }}
               style={{
                 width: '100%',
@@ -123,52 +150,29 @@ const AdminDashboard: React.FC = () => {
                 transition: 'all 0.2s',
                 borderLeft: currentPage === item.id ? '3px solid #9333ea' : '3px solid transparent'
               }}
-              onMouseEnter={(e) => {
-                if (currentPage !== item.id) {
-                  e.currentTarget.style.backgroundColor = '#1a1a1a';
-                  e.currentTarget.style.color = 'white';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (currentPage !== item.id) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#9ca3af';
-                }
-              }}
             >
-              {!sidebarCollapsed && <span>{item.label}</span>}
-              {sidebarCollapsed && <span style={{ fontSize: '12px' }}>{item.label.substring(0, 2).toUpperCase()}</span>}
+              <span>{item.label}</span>
             </button>
           ))}
 
           {/* Administration Section */}
-          {!sidebarCollapsed && (
-            <div style={{
-              padding: '20px 20px 12px',
-              marginTop: '20px',
-              borderTop: '1px solid #2a2a2a'
-            }}>
-              <span style={{ color: '#6b7280', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                Administration
-              </span>
-            </div>
-          )}
-
-          {sidebarCollapsed && (
-            <div style={{
-              height: '1px',
-              backgroundColor: '#2a2a2a',
-              margin: '20px 10px'
-            }}></div>
-          )}
+          <div style={{
+            padding: '20px 20px 12px',
+            marginTop: '20px',
+            borderTop: '1px solid #2a2a2a'
+          }}>
+            <span style={{ color: '#6b7280', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+              Administration
+            </span>
+          </div>
 
           {adminItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setCurrentPage(item.id)}
+              onClick={() => handleMenuClick(item.id)}
               onTouchEnd={(e) => {
                 e.preventDefault();
-                setCurrentPage(item.id);
+                handleMenuClick(item.id);
               }}
               style={{
                 width: '100%',
@@ -186,21 +190,8 @@ const AdminDashboard: React.FC = () => {
                 transition: 'all 0.2s',
                 borderLeft: currentPage === item.id ? '3px solid #9333ea' : '3px solid transparent'
               }}
-              onMouseEnter={(e) => {
-                if (currentPage !== item.id) {
-                  e.currentTarget.style.backgroundColor = '#1a1a1a';
-                  e.currentTarget.style.color = 'white';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (currentPage !== item.id) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#9ca3af';
-                }
-              }}
             >
-              {!sidebarCollapsed && <span>{item.label}</span>}
-              {sidebarCollapsed && <span style={{ fontSize: '12px' }}>{item.label.substring(0, 2).toUpperCase()}</span>}
+              <span>{item.label}</span>
             </button>
           ))}
         </div>
@@ -213,49 +204,29 @@ const AdminDashboard: React.FC = () => {
           alignItems: 'center',
           gap: '12px'
         }}>
-          {!sidebarCollapsed ? (
-            <>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                backgroundColor: '#9333ea',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                flexShrink: 0
-              }}>
-                {(user?.name || 'Admin')[0].toUpperCase()}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: 'white', fontSize: '14px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {user?.name || 'Admin User'}
-                </div>
-                <div style={{ color: '#6b7280', fontSize: '12px' }}>
-                  Site Manager
-                </div>
-              </div>
-            </>
-          ) : (
-            <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '50%',
-              backgroundColor: '#9333ea',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              margin: '0 auto'
-            }}>
-              {(user?.name || 'Admin')[0].toUpperCase()}
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            backgroundColor: '#9333ea',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            flexShrink: 0
+          }}>
+            {(user?.name || 'Admin')[0].toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: 'white', fontSize: '14px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user?.name || 'Admin User'}
             </div>
-          )}
+            <div style={{ color: '#6b7280', fontSize: '12px' }}>
+              Site Manager
+            </div>
+          </div>
         </div>
       </div>
 
@@ -264,58 +235,79 @@ const AdminDashboard: React.FC = () => {
         {/* Top Bar */}
         <div style={{
           backgroundColor: '#9333ea',
-          padding: '14px 24px',
+          padding: '12px 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+          gap: '12px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>DEV MODE:</span>
-            <button style={{
-              padding: '6px 16px',
-              backgroundColor: '#7c3aed',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: '600'
-            }}>
-              Admin
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                setSidebarOpen(true);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'white',
+                fontSize: '24px',
+                cursor: 'pointer',
+                padding: '4px',
+                touchAction: 'manipulation',
+                lineHeight: 1,
+                display: window.innerWidth <= 768 ? 'block' : 'none'
+              }}
+            >
+              ☰
             </button>
-            <button style={{
-              padding: '6px 16px',
-              backgroundColor: '#7c3aed',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: '600'
-            }}>
-              Manager
-            </button>
-            <button style={{
-              padding: '6px 16px',
-              backgroundColor: '#7c3aed',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: '600'
-            }}>
-              Worker
-            </button>
-            <button style={{
-              padding: '6px 16px',
-              backgroundColor: '#7c3aed',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: '600'
-            }}>
-              Sample ZIP
-            </button>
+            <span style={{ color: 'white', fontSize: '13px', fontWeight: 'bold', display: window.innerWidth <= 480 ? 'none' : 'inline' }}>DEV MODE:</span>
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', flexWrap: 'nowrap' }}>
+              <button style={{
+                padding: '6px 12px',
+                backgroundColor: '#7c3aed',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: '600',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}>
+                Admin
+              </button>
+              <button style={{
+                padding: '6px 12px',
+                backgroundColor: '#7c3aed',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: '600',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                display: window.innerWidth <= 480 ? 'none' : 'block'
+              }}>
+                Manager
+              </button>
+              <button style={{
+                padding: '6px 12px',
+                backgroundColor: '#7c3aed',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: '600',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                display: window.innerWidth <= 480 ? 'none' : 'block'
+              }}>
+                Worker
+              </button>
+            </div>
           </div>
           <button
             onClick={handleLogout}
@@ -324,7 +316,7 @@ const AdminDashboard: React.FC = () => {
               handleLogout();
             }}
             style={{
-              padding: '8px 20px',
+              padding: '8px 16px',
               backgroundColor: '#7c3aed',
               color: 'white',
               border: 'none',
@@ -332,7 +324,9 @@ const AdminDashboard: React.FC = () => {
               fontSize: '13px',
               fontWeight: '600',
               cursor: 'pointer',
-              touchAction: 'manipulation'
+              touchAction: 'manipulation',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
             }}
           >
             Logout
