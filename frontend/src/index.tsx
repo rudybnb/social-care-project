@@ -15,8 +15,15 @@ import '@ionic/react/css/display.css';
 import '@ionic/react/css/flex-utils.css';
 import '@ionic/react/css/float-elements.css';
 import { AuthProvider } from './context/AuthContext';
+import { initializeTouchFix } from './utils/touchFix';
 
-setupIonicReact();
+setupIonicReact({
+  mode: 'md', // Force Material Design mode for consistency
+  rippleEffect: false, // Disable ripple effect which can interfere with touch
+});
+
+// Initialize touch fix for Android WebView
+initializeTouchFix();
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -33,3 +40,8 @@ root.render(
 // to log results (for example: reportWebVitals(console.log))
 // or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();
+
+// Log device info for debugging
+console.log('User Agent:', navigator.userAgent);
+console.log('Platform:', navigator.platform);
+console.log('Touch support:', 'ontouchstart' in window);

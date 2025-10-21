@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { IonButton, IonContent, IonHeader, IonInput, IonItem, IonLabel, IonList, IonPage, IonTitle, IonToolbar } from '@ionic/react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,7 @@ const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const loginButtonRef = useRef<HTMLIonButtonElement>(null);
 
   const onSubmit = async () => {
     if (!username || !password) {
@@ -30,12 +31,59 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault();
-    if (!loading) {
-      onSubmit();
-    }
-  };
+  // Native DOM event listener to bypass Ionic's event system
+  useEffect(() => {
+    const button = loginButtonRef.current;
+    if (!button) return;
+
+    // Get the actual button element inside the ion-button shadow DOM
+    const handleClick = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Button clicked via native listener');
+      if (!loading) {
+        onSubmit();
+      }
+    };
+
+    const handleTouchEnd = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Button touched via native listener');
+      if (!loading) {
+        onSubmit();
+      }
+    };
+
+    // Add multiple event listeners for maximum compatibility
+    button.addEventListener('click', handleClick, true);
+    button.addEventListener('touchend', handleTouchEnd, true);
+    
+    // Also try to access shadow DOM button
+    setTimeout(() => {
+      const shadowRoot = button.shadowRoot;
+      if (shadowRoot) {
+        const nativeButton = shadowRoot.querySelector('button');
+        if (nativeButton) {
+          nativeButton.addEventListener('click', handleClick, true);
+          nativeButton.addEventListener('touchend', handleTouchEnd, true);
+        }
+      }
+    }, 100);
+
+    return () => {
+      button.removeEventListener('click', handleClick, true);
+      button.removeEventListener('touchend', handleTouchEnd, true);
+      const shadowRoot = button.shadowRoot;
+      if (shadowRoot) {
+        const nativeButton = shadowRoot.querySelector('button');
+        if (nativeButton) {
+          nativeButton.removeEventListener('click', handleClick, true);
+          nativeButton.removeEventListener('touchend', handleTouchEnd, true);
+        }
+      }
+    };
+  }, [loading, username, password]);
 
   const handleKeyPress = (e: any) => {
     if (e.key === 'Enter') {
@@ -82,20 +130,45 @@ const Login: React.FC = () => {
           </IonList>
           
           <IonButton 
+            ref={loginButtonRef}
             expand="block" 
-            onClick={onSubmit}
-            onTouchStart={handleTouchStart}
             disabled={loading}
             className="mt-6"
             size="large"
-            style={{ cursor: 'pointer', touchAction: 'manipulation' }}
+            style={{ 
+              cursor: 'pointer', 
+              touchAction: 'manipulation',
+              pointerEvents: 'auto'
+            }}
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </IonButton>
           
+          {/* Fallback native button for testing */}
+          <button
+            onClick={onSubmit}
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '16px',
+              marginTop: '16px',
+              backgroundColor: '#3880ff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              touchAction: 'manipulation'
+            }}
+          >
+            {loading ? 'Signing in...' : 'Native Sign In Button'}
+          </button>
+          
           <div className="text-center mt-6 text-sm text-gray-500">
             <p>Staff see the mobile interface after sign-in</p>
             <p>Admins and managers see the management dashboard</p>
+            <p className="mt-2 text-xs text-blue-500">Try the native button if the Ionic button doesn't work</p>
           </div>
         </div>
       </IonContent>
@@ -104,3 +177,4 @@ const Login: React.FC = () => {
 };
 
 export default Login;
+

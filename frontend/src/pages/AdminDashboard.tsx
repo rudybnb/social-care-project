@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { IonContent, IonPage, IonButton, IonIcon } from '@ionic/react';
 import { 
   homeOutline, 
@@ -18,11 +18,67 @@ import { useAuth } from '../context/AuthContext';
 const AdminDashboard: React.FC = () => {
   const { logout, user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const logoutButtonRef = useRef<HTMLIonButtonElement>(null);
+  const sidebarButtonRef = useRef<HTMLIonButtonElement>(null);
 
   const handleMenuItemClick = (index: number) => {
     console.log(`Menu item ${index} clicked`);
-    // Add navigation logic here
+    alert(`Menu item ${index} clicked - Navigation would happen here`);
   };
+
+  const handleLogout = () => {
+    console.log('Logout clicked');
+    if (window.confirm('Are you sure you want to logout?')) {
+      logout();
+    }
+  };
+
+  const handleSidebarToggle = () => {
+    console.log('Sidebar toggle clicked');
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  // Native event listeners for logout button
+  useEffect(() => {
+    const button = logoutButtonRef.current;
+    if (!button) return;
+
+    const handleClick = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Logout button clicked via native listener');
+      handleLogout();
+    };
+
+    button.addEventListener('click', handleClick, true);
+    button.addEventListener('touchend', handleClick, true);
+
+    return () => {
+      button.removeEventListener('click', handleClick, true);
+      button.removeEventListener('touchend', handleClick, true);
+    };
+  }, []);
+
+  // Native event listeners for sidebar toggle button
+  useEffect(() => {
+    const button = sidebarButtonRef.current;
+    if (!button) return;
+
+    const handleClick = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Sidebar toggle clicked via native listener');
+      handleSidebarToggle();
+    };
+
+    button.addEventListener('click', handleClick, true);
+    button.addEventListener('touchend', handleClick, true);
+
+    return () => {
+      button.removeEventListener('click', handleClick, true);
+      button.removeEventListener('touchend', handleClick, true);
+    };
+  }, [sidebarOpen]);
 
   const menuItems = [
     { icon: homeOutline, label: 'Overview', active: true },
@@ -53,9 +109,10 @@ const AdminDashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               {sidebarOpen && <h2 className="text-lg font-semibold">Main Menu</h2>}
               <IonButton 
+                ref={sidebarButtonRef}
                 fill="clear" 
                 size="small"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
+                style={{ pointerEvents: 'auto', touchAction: 'manipulation' }}
               >
                 <IonIcon icon={sidebarOpen ? closeOutline : menuOutline} />
               </IonButton>
@@ -65,24 +122,22 @@ const AdminDashboard: React.FC = () => {
           {/* Menu Items */}
           <div className="flex-1 py-4">
             {menuItems.map((item, index) => (
-              <div 
+              <button
                 key={index}
-                className={`flex items-center px-4 py-3 mx-2 rounded cursor-pointer transition-colors ${
+                className={`flex items-center px-4 py-3 mx-2 rounded cursor-pointer transition-colors w-full text-left ${
                   item.active ? 'bg-purple-600' : 'hover:bg-gray-700'
                 }`}
                 onClick={() => handleMenuItemClick(index)}
-                onTouchStart={(e) => {
-                  e.currentTarget.style.opacity = '0.7';
+                style={{ 
+                  touchAction: 'manipulation', 
+                  cursor: 'pointer',
+                  border: 'none',
+                  backgroundColor: item.active ? '#9333ea' : 'transparent'
                 }}
-                onTouchEnd={(e) => {
-                  e.currentTarget.style.opacity = '1';
-                  handleMenuItemClick(index);
-                }}
-                style={{ touchAction: 'manipulation', cursor: 'pointer' }}
               >
                 <IonIcon icon={item.icon} className="text-xl" />
                 {sidebarOpen && <span className="ml-3">{item.label}</span>}
-              </div>
+              </button>
             ))}
           </div>
 
@@ -90,18 +145,30 @@ const AdminDashboard: React.FC = () => {
           {sidebarOpen && (
             <div className="px-4 py-2 border-t border-gray-700">
               <p className="text-sm text-gray-400 mb-2">Administration</p>
-              <div className="flex items-center px-2 py-2 rounded hover:bg-gray-700 cursor-pointer">
+              <button 
+                className="flex items-center px-2 py-2 rounded hover:bg-gray-700 cursor-pointer w-full text-left"
+                onClick={() => alert('Directory clicked')}
+                style={{ border: 'none', backgroundColor: 'transparent', touchAction: 'manipulation' }}
+              >
                 <IonIcon icon={peopleOutline} />
                 <span className="ml-3">Directory</span>
-              </div>
-              <div className="flex items-center px-2 py-2 rounded hover:bg-gray-700 cursor-pointer">
+              </button>
+              <button 
+                className="flex items-center px-2 py-2 rounded hover:bg-gray-700 cursor-pointer w-full text-left"
+                onClick={() => alert('Sites clicked')}
+                style={{ border: 'none', backgroundColor: 'transparent', touchAction: 'manipulation' }}
+              >
                 <IonIcon icon={locationOutline} />
                 <span className="ml-3">Sites</span>
-              </div>
-              <div className="flex items-center px-2 py-2 rounded hover:bg-gray-700 cursor-pointer">
+              </button>
+              <button 
+                className="flex items-center px-2 py-2 rounded hover:bg-gray-700 cursor-pointer w-full text-left"
+                onClick={() => alert('Settings clicked')}
+                style={{ border: 'none', backgroundColor: 'transparent', touchAction: 'manipulation' }}
+              >
                 <IonIcon icon={settingsOutline} />
                 <span className="ml-3">Settings</span>
-              </div>
+              </button>
             </div>
           )}
 
@@ -112,17 +179,40 @@ const AdminDashboard: React.FC = () => {
                 <p className="text-sm font-medium">{user?.name || 'Admin User'}</p>
                 <p className="text-xs text-gray-400">Site Manager</p>
                 <IonButton 
+                  ref={logoutButtonRef}
                   fill="clear" 
-                  size="small" 
-                  onClick={logout}
+                  size="small"
                   className="mt-2 text-red-400"
+                  style={{ pointerEvents: 'auto', touchAction: 'manipulation' }}
                 >
                   <IonIcon icon={logOutOutline} slot="start" />
                   Logout
                 </IonButton>
+                {/* Native logout button fallback */}
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    width: '100%',
+                    marginTop: '8px',
+                    padding: '8px',
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    touchAction: 'manipulation'
+                  }}
+                >
+                  Native Logout
+                </button>
               </div>
             ) : (
-              <IonButton fill="clear" size="small" onClick={logout}>
+              <IonButton 
+                ref={logoutButtonRef}
+                fill="clear" 
+                size="small"
+                style={{ pointerEvents: 'auto', touchAction: 'manipulation' }}
+              >
                 <IonIcon icon={logOutOutline} />
               </IonButton>
             )}
@@ -139,10 +229,24 @@ const AdminDashboard: React.FC = () => {
                   <h1 className="text-2xl font-bold text-white">Good afternoon, Admin</h1>
                   <p className="text-gray-400">Sunday, October 16, 2024 • Managing 3 locations</p>
                 </div>
-                <IonButton className="bg-purple-600">
-                  <IonIcon icon={addOutline} slot="start" />
+                <button
+                  onClick={() => alert('Create Shift clicked')}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: '#9333ea',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    touchAction: 'manipulation',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <IonIcon icon={addOutline} />
                   Create Shift
-                </IonButton>
+                </button>
               </div>
 
               {/* Stats Cards */}
@@ -245,10 +349,24 @@ const AdminDashboard: React.FC = () => {
                   <div className="flex flex-col items-center justify-center py-8">
                     <IonIcon icon={calendarOutline} className="text-4xl text-gray-600 mb-2" />
                     <p className="text-gray-400">No upcoming shifts scheduled</p>
-                    <IonButton fill="clear" className="mt-4 text-purple-400">
-                      <IonIcon icon={addOutline} slot="start" />
+                    <button
+                      onClick={() => alert('Create First Shift clicked')}
+                      style={{
+                        marginTop: '16px',
+                        padding: '8px 16px',
+                        backgroundColor: 'transparent',
+                        color: '#a78bfa',
+                        border: 'none',
+                        cursor: 'pointer',
+                        touchAction: 'manipulation',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <IonIcon icon={addOutline} />
                       Create First Shift
-                    </IonButton>
+                    </button>
                   </div>
                 </div>
 
@@ -274,3 +392,4 @@ const AdminDashboard: React.FC = () => {
 };
 
 export default AdminDashboard;
+
