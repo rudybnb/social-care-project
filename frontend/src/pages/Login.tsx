@@ -34,189 +34,222 @@ const Login: React.FC = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#f5f5f5',
+      backgroundColor: '#1a1a1a',
       display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px'
+      flexDirection: 'column'
     }}>
-      {/* Header */}
+      {/* Purple Top Bar */}
       <div style={{
-        textAlign: 'center',
-        marginBottom: '40px'
+        backgroundColor: '#9333ea',
+        padding: '12px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px'
       }}>
-        <h1 style={{
-          fontSize: '32px',
-          fontWeight: 'bold',
-          color: '#333',
-          marginBottom: '10px'
+        <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>DEV MODE:</span>
+        <button style={{
+          padding: '6px 16px',
+          backgroundColor: '#7c3aed',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          fontSize: '13px',
+          fontWeight: '600'
         }}>
-          Social Care Homes
-        </h1>
-        <h2 style={{
-          fontSize: '20px',
-          fontWeight: '600',
-          color: '#666',
-          marginBottom: '10px'
+          👤 Admin
+        </button>
+        <button style={{
+          padding: '6px 16px',
+          backgroundColor: '#7c3aed',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          fontSize: '13px',
+          fontWeight: '600'
         }}>
-          Workforce Portal
-        </h2>
-        <p style={{
-          fontSize: '14px',
-          color: '#999'
+          💼 Manager
+        </button>
+        <button style={{
+          padding: '6px 16px',
+          backgroundColor: '#7c3aed',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          fontSize: '13px',
+          fontWeight: '600'
         }}>
-          Sign in to access your schedule
-        </p>
+          👷 Worker
+        </button>
+        <button style={{
+          padding: '6px 16px',
+          backgroundColor: '#7c3aed',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          fontSize: '13px',
+          fontWeight: '600'
+        }}>
+          📥 Sample ZIP
+        </button>
       </div>
 
-      {/* Login Form */}
+      {/* Main Content */}
       <div style={{
-        width: '100%',
-        maxWidth: '400px',
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '30px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px'
       }}>
-        {/* Username Input */}
-        <div style={{ marginBottom: '25px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: '14px',
-            fontWeight: '600',
-            color: '#333',
-            marginBottom: '8px'
-          }}>
-            Username
-          </label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter your username"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '16px',
-              fontSize: '16px',
-              border: '2px solid #ddd',
-              borderRadius: '8px',
-              boxSizing: 'border-box',
-              outline: 'none'
-            }}
-            onFocus={(e) => e.target.style.borderColor = '#3880ff'}
-            onBlur={(e) => e.target.style.borderColor = '#ddd'}
-          />
-        </div>
-
-        {/* Password Input */}
-        <div style={{ marginBottom: '30px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: '14px',
-            fontWeight: '600',
-            color: '#333',
-            marginBottom: '8px'
-          }}>
-            Password
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '16px',
-              fontSize: '16px',
-              border: '2px solid #ddd',
-              borderRadius: '8px',
-              boxSizing: 'border-box',
-              outline: 'none'
-            }}
-            onFocus={(e) => e.target.style.borderColor = '#3880ff'}
-            onBlur={(e) => e.target.style.borderColor = '#ddd'}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && !loading) {
-                handleLogin();
-              }
-            }}
-          />
-        </div>
-
-        {/* Large Sign In Button */}
-        <button
-          onClick={handleLogin}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            if (!loading) handleLogin();
-          }}
-          disabled={loading}
-          style={{
-            width: '100%',
-            padding: '20px',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            color: 'white',
-            backgroundColor: loading ? '#ccc' : '#3880ff',
-            border: 'none',
-            borderRadius: '12px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            touchAction: 'manipulation',
-            WebkitTapHighlightColor: 'transparent',
-            minHeight: '60px'
-          }}
-        >
-          {loading ? 'Signing in...' : 'SIGN IN'}
-        </button>
-
-        {/* Instructions */}
+        {/* Login Card */}
         <div style={{
-          marginTop: '25px',
-          padding: '15px',
-          backgroundColor: '#f0f9ff',
-          borderRadius: '8px',
-          fontSize: '13px',
-          color: '#666',
+          width: '100%',
+          maxWidth: '420px',
+          backgroundColor: '#2a2a2a',
+          borderRadius: '12px',
+          border: '1px solid #3a3a3a',
+          padding: '40px 35px',
           textAlign: 'center'
         }}>
-          <p style={{ margin: '5px 0' }}>
-            <strong>Test Accounts:</strong>
-          </p>
-          <p style={{ margin: '5px 0' }}>
-            Username with "admin" → Admin Dashboard
-          </p>
-          <p style={{ margin: '5px 0' }}>
-            Any other username → Worker Dashboard
-          </p>
-        </div>
-      </div>
+          {/* Icon */}
+          <div style={{
+            width: '60px',
+            height: '60px',
+            margin: '0 auto 20px',
+            backgroundColor: '#9333ea',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '32px'
+          }}>
+            📋
+          </div>
 
-      {/* Debug Info */}
-      <div style={{
-        marginTop: '30px',
-        padding: '15px',
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        fontSize: '12px',
-        color: '#666',
-        maxWidth: '400px',
-        width: '100%'
-      }}>
-        <p style={{ margin: '5px 0' }}>
-          <strong>Debug Info:</strong>
-        </p>
-        <p style={{ margin: '5px 0' }}>
-          Username: {username || '(empty)'}
-        </p>
-        <p style={{ margin: '5px 0' }}>
-          Password: {password ? '***' : '(empty)'}
-        </p>
-        <p style={{ margin: '5px 0' }}>
-          Status: {loading ? 'Loading...' : 'Ready'}
-        </p>
+          {/* Title */}
+          <h1 style={{
+            fontSize: '26px',
+            fontWeight: 'bold',
+            color: 'white',
+            margin: '0 0 10px 0'
+          }}>
+            Social Care Homes Workforce Portal
+          </h1>
+
+          {/* Subtitle */}
+          <p style={{
+            fontSize: '14px',
+            color: '#9ca3af',
+            margin: '0 0 30px 0'
+          }}>
+            Sign in to access your schedule, attendance, payroll, and more
+          </p>
+
+          {/* Username Input */}
+          <div style={{ marginBottom: '20px', textAlign: 'left' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '600',
+              color: 'white',
+              marginBottom: '8px'
+            }}>
+              Username
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '15px',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                boxSizing: 'border-box',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#9333ea'}
+              onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+            />
+          </div>
+
+          {/* Password Input */}
+          <div style={{ marginBottom: '25px', textAlign: 'left' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '600',
+              color: 'white',
+              marginBottom: '8px'
+            }}>
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && !loading) {
+                  handleLogin();
+                }
+              }}
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '15px',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                boxSizing: 'border-box',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#9333ea'}
+              onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+            />
+          </div>
+
+          {/* Sign In Button */}
+          <button
+            onClick={handleLogin}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              if (!loading) handleLogin();
+            }}
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '14px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              color: 'white',
+              backgroundColor: loading ? '#7c3aed' : '#9333ea',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+              marginBottom: '20px'
+            }}
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+
+          {/* Footer Text */}
+          <div style={{
+            fontSize: '13px',
+            color: '#6b7280',
+            lineHeight: '1.6'
+          }}>
+            <p style={{ margin: '5px 0' }}>Staff see the mobile interface after sign-in</p>
+            <p style={{ margin: '5px 0' }}>Admins and managers see the management dashboard</p>
+          </div>
+        </div>
       </div>
     </div>
   );
