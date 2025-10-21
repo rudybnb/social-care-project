@@ -56,7 +56,7 @@ const Login: React.FC = () => {
           fontSize: '13px',
           fontWeight: '600'
         }}>
-          👤 Admin
+          Admin
         </button>
         <button style={{
           padding: '6px 16px',
@@ -67,7 +67,7 @@ const Login: React.FC = () => {
           fontSize: '13px',
           fontWeight: '600'
         }}>
-          💼 Manager
+          Manager
         </button>
         <button style={{
           padding: '6px 16px',
@@ -78,7 +78,7 @@ const Login: React.FC = () => {
           fontSize: '13px',
           fontWeight: '600'
         }}>
-          👷 Worker
+          Worker
         </button>
         <button style={{
           padding: '6px 16px',
@@ -89,7 +89,7 @@ const Login: React.FC = () => {
           fontSize: '13px',
           fontWeight: '600'
         }}>
-          📥 Sample ZIP
+          Sample ZIP
         </button>
       </div>
 
@@ -111,7 +111,7 @@ const Login: React.FC = () => {
           padding: '40px 35px',
           textAlign: 'center'
         }}>
-          {/* Icon */}
+          {/* Icon - Simple geometric shape instead of emoji */}
           <div style={{
             width: '60px',
             height: '60px',
@@ -120,10 +120,14 @@ const Login: React.FC = () => {
             borderRadius: '12px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '32px'
+            justifyContent: 'center'
           }}>
-            📋
+            <div style={{
+              width: '30px',
+              height: '30px',
+              border: '3px solid white',
+              borderRadius: '6px'
+            }}></div>
           </div>
 
           {/* Title */}

@@ -17,19 +17,19 @@ const AdminDashboard: React.FC = () => {
   };
 
   const menuItems = [
-    { id: 'overview', label: 'Overview', icon: '📊' },
-    { id: 'rota', label: 'Rota', icon: '📅' },
-    { id: 'attendance', label: 'Attendance', icon: '⏰' },
-    { id: 'room-scans', label: 'Room Scans', icon: '🏠' },
-    { id: 'payroll', label: 'Payroll', icon: '💰' },
-    { id: 'reports', label: 'Reports', icon: '📈' },
-    { id: 'queries', label: 'Queries', icon: '💬' }
+    { id: 'overview', label: 'Overview' },
+    { id: 'rota', label: 'Rota' },
+    { id: 'attendance', label: 'Attendance' },
+    { id: 'room-scans', label: 'Room Scans' },
+    { id: 'payroll', label: 'Payroll' },
+    { id: 'reports', label: 'Reports' },
+    { id: 'queries', label: 'Queries' }
   ];
 
   const adminItems = [
-    { id: 'directory', label: 'Directory', icon: '👥' },
-    { id: 'sites', label: 'Sites', icon: '🏢' },
-    { id: 'settings', label: 'Settings', icon: '⚙️' }
+    { id: 'directory', label: 'Directory' },
+    { id: 'sites', label: 'Sites' },
+    { id: 'settings', label: 'Settings' }
   ];
 
   const renderPage = () => {
@@ -43,9 +43,11 @@ const AdminDashboard: React.FC = () => {
       case 'directory':
         return <Directory />;
       default:
-        return <div style={{ padding: '20px', color: 'white' }}>
-          <h2>{currentPage.charAt(0).toUpperCase() + currentPage.slice(1)} Page</h2>
-          <p>This page is under construction.</p>
+        return <div style={{ padding: '30px', color: 'white' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>
+            {currentPage.charAt(0).toUpperCase() + currentPage.slice(1).replace('-', ' ')}
+          </h2>
+          <p style={{ color: '#9ca3af' }}>This page is under construction.</p>
         </div>;
     }
   };
@@ -54,7 +56,7 @@ const AdminDashboard: React.FC = () => {
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#1a1a1a' }}>
       {/* Sidebar */}
       <div style={{
-        width: sidebarCollapsed ? '60px' : '200px',
+        width: sidebarCollapsed ? '60px' : '220px',
         backgroundColor: '#0f0f0f',
         borderRight: '1px solid #2a2a2a',
         display: 'flex',
@@ -63,14 +65,14 @@ const AdminDashboard: React.FC = () => {
       }}>
         {/* Sidebar Header */}
         <div style={{
-          padding: '16px',
+          padding: '20px 16px',
           borderBottom: '1px solid #2a2a2a',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
           {!sidebarCollapsed && (
-            <span style={{ color: '#9ca3af', fontSize: '12px', fontWeight: '600' }}>
+            <span style={{ color: '#9ca3af', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
               Main Menu
             </span>
           )}
@@ -84,18 +86,19 @@ const AdminDashboard: React.FC = () => {
               background: 'none',
               border: 'none',
               color: '#9ca3af',
-              fontSize: '18px',
+              fontSize: '20px',
               cursor: 'pointer',
               padding: '4px',
-              touchAction: 'manipulation'
+              touchAction: 'manipulation',
+              lineHeight: 1
             }}
           >
-            {sidebarCollapsed ? '☰' : '✕'}
+            {sidebarCollapsed ? '☰' : '×'}
           </button>
         </div>
 
         {/* Menu Items */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
           {menuItems.map((item) => (
             <button
               key={item.id}
@@ -106,46 +109,57 @@ const AdminDashboard: React.FC = () => {
               }}
               style={{
                 width: '100%',
-                padding: '12px 16px',
+                padding: '14px 20px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
                 backgroundColor: currentPage === item.id ? '#9333ea' : 'transparent',
-                color: 'white',
+                color: currentPage === item.id ? 'white' : '#9ca3af',
                 border: 'none',
                 cursor: 'pointer',
                 fontSize: '14px',
+                fontWeight: currentPage === item.id ? '600' : '500',
                 textAlign: 'left',
                 touchAction: 'manipulation',
-                transition: 'background-color 0.2s'
+                transition: 'all 0.2s',
+                borderLeft: currentPage === item.id ? '3px solid #9333ea' : '3px solid transparent'
               }}
               onMouseEnter={(e) => {
                 if (currentPage !== item.id) {
                   e.currentTarget.style.backgroundColor = '#1a1a1a';
+                  e.currentTarget.style.color = 'white';
                 }
               }}
               onMouseLeave={(e) => {
                 if (currentPage !== item.id) {
                   e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#9ca3af';
                 }
               }}
             >
-              <span style={{ fontSize: '18px' }}>{item.icon}</span>
               {!sidebarCollapsed && <span>{item.label}</span>}
+              {sidebarCollapsed && <span style={{ fontSize: '12px' }}>{item.label.substring(0, 2).toUpperCase()}</span>}
             </button>
           ))}
 
           {/* Administration Section */}
           {!sidebarCollapsed && (
             <div style={{
-              padding: '16px 16px 8px',
-              marginTop: '16px',
+              padding: '20px 20px 12px',
+              marginTop: '20px',
               borderTop: '1px solid #2a2a2a'
             }}>
-              <span style={{ color: '#6b7280', fontSize: '12px', fontWeight: '600' }}>
+              <span style={{ color: '#6b7280', fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
                 Administration
               </span>
             </div>
+          )}
+
+          {sidebarCollapsed && (
+            <div style={{
+              height: '1px',
+              backgroundColor: '#2a2a2a',
+              margin: '20px 10px'
+            }}></div>
           )}
 
           {adminItems.map((item) => (
@@ -158,32 +172,35 @@ const AdminDashboard: React.FC = () => {
               }}
               style={{
                 width: '100%',
-                padding: '12px 16px',
+                padding: '14px 20px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
                 backgroundColor: currentPage === item.id ? '#9333ea' : 'transparent',
-                color: 'white',
+                color: currentPage === item.id ? 'white' : '#9ca3af',
                 border: 'none',
                 cursor: 'pointer',
                 fontSize: '14px',
+                fontWeight: currentPage === item.id ? '600' : '500',
                 textAlign: 'left',
                 touchAction: 'manipulation',
-                transition: 'background-color 0.2s'
+                transition: 'all 0.2s',
+                borderLeft: currentPage === item.id ? '3px solid #9333ea' : '3px solid transparent'
               }}
               onMouseEnter={(e) => {
                 if (currentPage !== item.id) {
                   e.currentTarget.style.backgroundColor = '#1a1a1a';
+                  e.currentTarget.style.color = 'white';
                 }
               }}
               onMouseLeave={(e) => {
                 if (currentPage !== item.id) {
                   e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#9ca3af';
                 }
               }}
             >
-              <span style={{ fontSize: '18px' }}>{item.icon}</span>
               {!sidebarCollapsed && <span>{item.label}</span>}
+              {sidebarCollapsed && <span style={{ fontSize: '12px' }}>{item.label.substring(0, 2).toUpperCase()}</span>}
             </button>
           ))}
         </div>
@@ -199,39 +216,40 @@ const AdminDashboard: React.FC = () => {
           {!sidebarCollapsed ? (
             <>
               <div style={{
-                width: '36px',
-                height: '36px',
+                width: '40px',
+                height: '40px',
                 borderRadius: '50%',
                 backgroundColor: '#9333ea',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'white',
-                fontSize: '14px',
-                fontWeight: 'bold'
+                fontSize: '16px',
+                fontWeight: 'bold',
+                flexShrink: 0
               }}>
                 {(user?.name || 'Admin')[0].toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: 'white', fontSize: '13px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ color: 'white', fontSize: '14px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {user?.name || 'Admin User'}
                 </div>
-                <div style={{ color: '#6b7280', fontSize: '11px' }}>
+                <div style={{ color: '#6b7280', fontSize: '12px' }}>
                   Site Manager
                 </div>
               </div>
             </>
           ) : (
             <div style={{
-              width: '36px',
-              height: '36px',
+              width: '40px',
+              height: '40px',
               borderRadius: '50%',
               backgroundColor: '#9333ea',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'white',
-              fontSize: '14px',
+              fontSize: '16px',
               fontWeight: 'bold',
               margin: '0 auto'
             }}>
@@ -246,12 +264,13 @@ const AdminDashboard: React.FC = () => {
         {/* Top Bar */}
         <div style={{
           backgroundColor: '#9333ea',
-          padding: '12px 20px',
+          padding: '14px 24px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          justifyContent: 'space-between',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>DEV MODE:</span>
             <button style={{
               padding: '6px 16px',
@@ -262,7 +281,7 @@ const AdminDashboard: React.FC = () => {
               fontSize: '13px',
               fontWeight: '600'
             }}>
-              👤 Admin
+              Admin
             </button>
             <button style={{
               padding: '6px 16px',
@@ -273,7 +292,7 @@ const AdminDashboard: React.FC = () => {
               fontSize: '13px',
               fontWeight: '600'
             }}>
-              💼 Manager
+              Manager
             </button>
             <button style={{
               padding: '6px 16px',
@@ -284,7 +303,7 @@ const AdminDashboard: React.FC = () => {
               fontSize: '13px',
               fontWeight: '600'
             }}>
-              👷 Worker
+              Worker
             </button>
             <button style={{
               padding: '6px 16px',
@@ -295,7 +314,7 @@ const AdminDashboard: React.FC = () => {
               fontSize: '13px',
               fontWeight: '600'
             }}>
-              📥 Sample ZIP
+              Sample ZIP
             </button>
           </div>
           <button
@@ -305,7 +324,7 @@ const AdminDashboard: React.FC = () => {
               handleLogout();
             }}
             style={{
-              padding: '6px 16px',
+              padding: '8px 20px',
               backgroundColor: '#7c3aed',
               color: 'white',
               border: 'none',
@@ -313,13 +332,10 @@ const AdminDashboard: React.FC = () => {
               fontSize: '13px',
               fontWeight: '600',
               cursor: 'pointer',
-              touchAction: 'manipulation',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
+              touchAction: 'manipulation'
             }}
           >
-            🚪 Logout
+            Logout
           </button>
         </div>
 
