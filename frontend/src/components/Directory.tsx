@@ -16,8 +16,9 @@ const Directory: React.FC = () => {
     otherDeductions: ''
   });
 
-  const staffMembers = [
+  const [staffMembers, setStaffMembers] = useState([
     {
+      id: 1,
       name: 'Admin User',
       role: 'Admin',
       site: 'All Sites',
@@ -28,6 +29,7 @@ const Directory: React.FC = () => {
       tax: '—'
     },
     {
+      id: 2,
       name: 'Site Manager',
       role: 'Site Manager',
       site: 'London Care Home',
@@ -37,11 +39,61 @@ const Directory: React.FC = () => {
       deductions: '£0.00',
       tax: '—'
     }
-  ];
+  ]);
 
   const handleSubmit = () => {
-    alert('Add Staff clicked - Form would be submitted');
-    console.log('Form data:', formData);
+    if (!formData.firstName || !formData.lastName) {
+      alert('Please enter at least first and last name');
+      return;
+    }
+
+    const newStaff = {
+      id: Date.now(),
+      name: `${formData.firstName} ${formData.lastName}`,
+      role: formData.role,
+      site: formData.site,
+      status: 'Active',
+      rates: `£/h ${formData.hourlyRate || '—'} • Night ${formData.nightRate || '—'} • OT ${formData.overtimeRate || '—'}`,
+      pension: formData.pension ? `${formData.pension}%` : '—',
+      deductions: formData.otherDeductions ? `£${formData.otherDeductions}` : '£0.00',
+      tax: formData.taxCode || '—'
+    };
+
+    setStaffMembers([...staffMembers, newStaff]);
+    
+    // Reset form
+    setFormData({
+      firstName: '',
+      lastName: '',
+      role: 'Worker',
+      site: 'All Sites',
+      employmentType: 'Full-time',
+      startDate: '',
+      taxCode: '',
+      nightRate: '',
+      hourlyRate: '',
+      overtimeRate: '',
+      pension: '',
+      otherDeductions: ''
+    });
+
+    alert(`Staff member ${newStaff.name} added successfully!`);
+  };
+
+  const handleDeactivate = (id: number, name: string) => {
+    if (window.confirm(`Are you sure you want to deactivate ${name}?`)) {
+      setStaffMembers(staffMembers.map(staff => 
+        staff.id === id ? { ...staff, status: 'Inactive' } : staff
+      ));
+      alert(`${name} has been deactivated`);
+    }
+  };
+
+  const handleDelete = (id: number, name: string) => {
+    if (window.confirm(`Are you sure you want to delete ${name}? This action cannot be undone.`)) {
+      setStaffMembers(staffMembers.filter(staff => staff.id !== id));
+      alert(`${name} has been deleted`);
+    }
   };
 
   return (
@@ -78,7 +130,7 @@ const Directory: React.FC = () => {
           {/* First Name */}
           <div>
             <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              First Name
+              First Name *
             </label>
             <input
               type="text"
@@ -104,7 +156,7 @@ const Directory: React.FC = () => {
           {/* Last Name */}
           <div>
             <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              Last Name
+              Last Name *
             </label>
             <input
               type="text"
@@ -215,8 +267,7 @@ const Directory: React.FC = () => {
               Start Date
             </label>
             <input
-              type="text"
-              placeholder="dd/mm/yyyy"
+              type="date"
               value={formData.startDate}
               onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
               style={{
@@ -426,13 +477,13 @@ const Directory: React.FC = () => {
         border: '1px solid #3a3a3a'
       }}>
         <h2 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '20px' }}>
-          Staff Members
+          Staff Members ({staffMembers.length})
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {staffMembers.map((staff, index) => (
+          {staffMembers.map((staff) => (
             <div
-              key={index}
+              key={staff.id}
               style={{
                 backgroundColor: '#1a1a1a',
                 borderRadius: '10px',
@@ -454,13 +505,13 @@ const Directory: React.FC = () => {
                   alignItems: 'center',
                   gap: '6px',
                   padding: '4px 10px',
-                  backgroundColor: '#10b98120',
-                  color: '#10b981',
+                  backgroundColor: staff.status === 'Active' ? '#10b98120' : '#6b728020',
+                  color: staff.status === 'Active' ? '#10b981' : '#6b7280',
                   borderRadius: '6px',
                   fontSize: '12px',
                   fontWeight: '600'
                 }}>
-                  <span style={{ width: '5px', height: '5px', backgroundColor: '#10b981', borderRadius: '50%', display: 'inline-block' }}></span>
+                  <span style={{ width: '5px', height: '5px', backgroundColor: staff.status === 'Active' ? '#10b981' : '#6b7280', borderRadius: '50%', display: 'inline-block' }}></span>
                   {staff.status}
                 </span>
               </div>
@@ -485,32 +536,34 @@ const Directory: React.FC = () => {
 
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
-                  onClick={() => alert(`Deactivate ${staff.name}`)}
+                  onClick={() => handleDeactivate(staff.id, staff.name)}
                   onTouchEnd={(e) => {
                     e.preventDefault();
-                    alert(`Deactivate ${staff.name}`);
+                    handleDeactivate(staff.id, staff.name);
                   }}
+                  disabled={staff.status === 'Inactive'}
                   style={{
                     flex: '1 1 auto',
                     minWidth: '120px',
                     padding: '10px 16px',
-                    backgroundColor: '#6b7280',
+                    backgroundColor: staff.status === 'Inactive' ? '#3a3a3a' : '#6b7280',
                     color: 'white',
                     border: 'none',
                     borderRadius: '7px',
                     fontSize: '13px',
                     fontWeight: '600',
-                    cursor: 'pointer',
-                    touchAction: 'manipulation'
+                    cursor: staff.status === 'Inactive' ? 'not-allowed' : 'pointer',
+                    touchAction: 'manipulation',
+                    opacity: staff.status === 'Inactive' ? 0.5 : 1
                   }}
                 >
-                  Deactivate
+                  {staff.status === 'Inactive' ? 'Deactivated' : 'Deactivate'}
                 </button>
                 <button
-                  onClick={() => alert(`Delete ${staff.name}`)}
+                  onClick={() => handleDelete(staff.id, staff.name)}
                   onTouchEnd={(e) => {
                     e.preventDefault();
-                    alert(`Delete ${staff.name}`);
+                    handleDelete(staff.id, staff.name);
                   }}
                   style={{
                     flex: '1 1 auto',
