@@ -19,6 +19,11 @@ const AdminDashboard: React.FC = () => {
   const { logout, user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  const handleMenuItemClick = (index: number) => {
+    console.log(`Menu item ${index} clicked`);
+    // Add navigation logic here
+  };
+
   const menuItems = [
     { icon: homeOutline, label: 'Overview', active: true },
     { icon: peopleOutline, label: 'Rota' },
@@ -65,6 +70,15 @@ const AdminDashboard: React.FC = () => {
                 className={`flex items-center px-4 py-3 mx-2 rounded cursor-pointer transition-colors ${
                   item.active ? 'bg-purple-600' : 'hover:bg-gray-700'
                 }`}
+                onClick={() => handleMenuItemClick(index)}
+                onTouchStart={(e) => {
+                  e.currentTarget.style.opacity = '0.7';
+                }}
+                onTouchEnd={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  handleMenuItemClick(index);
+                }}
+                style={{ touchAction: 'manipulation', cursor: 'pointer' }}
               >
                 <IonIcon icon={item.icon} className="text-xl" />
                 {sidebarOpen && <span className="ml-3">{item.label}</span>}

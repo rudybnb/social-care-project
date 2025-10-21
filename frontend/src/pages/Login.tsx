@@ -30,6 +30,13 @@ const Login: React.FC = () => {
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    if (!loading) {
+      onSubmit();
+    }
+  };
+
   const handleKeyPress = (e: any) => {
     if (e.key === 'Enter') {
       onSubmit();
@@ -76,10 +83,12 @@ const Login: React.FC = () => {
           
           <IonButton 
             expand="block" 
-            onClick={onSubmit} 
+            onClick={onSubmit}
+            onTouchStart={handleTouchStart}
             disabled={loading}
             className="mt-6"
             size="large"
+            style={{ cursor: 'pointer', touchAction: 'manipulation' }}
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </IonButton>
