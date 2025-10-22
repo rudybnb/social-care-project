@@ -413,9 +413,14 @@ const Overview: React.FC = () => {
         border: '1px solid #3a3a3a'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ color: 'white', fontSize: '17px', fontWeight: 'bold', margin: 0 }}>
-            Upcoming Shifts Calendar
-          </h3>
+          <div>
+            <h3 style={{ color: 'white', fontSize: '17px', fontWeight: 'bold', margin: 0, marginBottom: '4px' }}>
+              Upcoming Shifts Calendar
+            </h3>
+            <div style={{ color: '#9ca3af', fontSize: '13px' }}>
+              {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+            </div>
+          </div>
           <div style={{ color: '#9ca3af', fontSize: '13px' }}>
             Next 30 Days
           </div>
