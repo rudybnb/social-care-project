@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
+import { getSites, getStaff, subscribeToSitesChange, Site as SharedSite, StaffMember, getShifts, setShifts as setSharedShifts, subscribeToDataChange, addShift, getAllWorkers } from '../data/sharedData';
 
 interface Shift {
   id: string;
@@ -7,6 +8,7 @@ interface Shift {
   staffName: string;
   siteId: string;
   siteName: string;
+  siteColor: string;
   date: string;
   type: 'Day' | 'Night';
   startTime: string;
@@ -15,33 +17,73 @@ interface Shift {
   is24Hour: boolean;
   approved24HrBy?: string;
   notes?: string;
+  extended?: boolean;
+  extensionHours?: number;
+  extensionReason?: string;
+  extensionApprovedBy?: string;
+  extensionApprovalRequired?: boolean;
 }
 
 const Rota: React.FC = () => {
-  const sites = [
-    { id: 'SITE_A', name: 'Site A' },
-    { id: 'SITE_B', name: 'Site B' },
-    { id: 'SITE_C', name: 'Site C' }
-  ];
+  const [sites, setSites] = useState<SharedSite[]>(getSites());
+  const [staff, setStaff] = useState<Array<StaffMember | any>>(getAllWorkers());
 
-  const staff = Array.from({ length: 12 }, (_, i) => ({
-    id: `ST${String(i + 1).padStart(3, '0')}`,
-    name: `Staff ${i + 1}`
-  }));
+  // Subscribe to site changes from Sites page
+  useEffect(() => {
+    const unsubscribe = subscribeToSitesChange(() => {
+      setSites(getSites());
+    });
+    return unsubscribe;
+  }, []);
 
-  const [shifts, setShifts] = useState<Shift[]>([]);
+  // Subscribe to staff changes (including agency workers)
+  useEffect(() => {
+    const unsubscribe = subscribeToDataChange(() => {
+      setStaff(getAllWorkers());
+    });
+    return unsubscribe;
+  }, []);
+
+  const [shifts, setShifts] = useState<Shift[]>(getShifts());
+
+  // Subscribe to shift changes from other components
+  useEffect(() => {
+    const unsubscribe = subscribeToDataChange(() => {
+      setShifts(getShifts());
+    });
+    return unsubscribe;
+  }, []);
+
+  // Sync local shifts to shared data whenever they change
+  useEffect(() => {
+    setSharedShifts(shifts);
+  }, [shifts]);
+
   const [showAssignShift, setShowAssignShift] = useState(false);
   const [show24HrApproval, setShow24HrApproval] = useState(false);
   const [pending24HrShift, setPending24HrShift] = useState<any>(null);
   const [selectedWeek, setSelectedWeek] = useState(0);
 
   const [shiftForm, setShiftForm] = useState({
-    staffId: '',
+    dayStaffId: '',
+    nightStaffId: '',
     siteId: '',
     date: '',
-    type: 'Day' as 'Day' | 'Night',
     is24Hour: false,
     notes: ''
+  });
+
+  // Delete confirmation states
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [shiftToDelete, setShiftToDelete] = useState<Shift | null>(null);
+
+  // Shift extension states
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
+  const [selectedShiftForExtension, setSelectedShiftForExtension] = useState<Shift | null>(null);
+  const [extensionForm, setExtensionForm] = useState({
+    hours: '',
+    reason: '',
+    approvedBy: ''
   });
 
   const [approvalForm, setApprovalForm] = useState({
@@ -65,10 +107,24 @@ const Rota: React.FC = () => {
 
   const weekDates = getWeekDates(selectedWeek);
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const today = new Date().toISOString().split('T')[0];
+
+  // Check if a date is today
+  const isToday = (date: string) => date === today;
 
   // Rule validation functions
   const validateShift = (newShift: any): { valid: boolean; errors: string[] } => {
     const errors: string[] = [];
+
+    // NEW RULE: No past date assignments
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const shiftDate = new Date(newShift.date);
+    shiftDate.setHours(0, 0, 0, 0);
+    
+    if (shiftDate < today) {
+      errors.push(`INVALID DATE: Cannot assign shifts to past dates. Selected date: ${newShift.date}`);
+    }
 
     // R1: No same-shift duplication
     const duplicateShift = shifts.find(s => 
@@ -77,22 +133,35 @@ const Rota: React.FC = () => {
       s.type === newShift.type
     );
     if (duplicateShift) {
-      errors.push(`R1 VIOLATION: ${duplicateShift.staffName} is already assigned to ${newShift.type} shift at this site on this date.`);
+      errors.push(`CONFLICT: ${duplicateShift.staffName} is already assigned to ${newShift.type} shift at this site on this date.`);
     }
 
-    // R2: Site exclusivity per day
-    const sameDayShift = shifts.find(s => 
+    // NEW RULE: Same worker cannot work same time at different sites
+    const sameTimeShift = shifts.find(s => 
       s.date === newShift.date && 
       s.staffId === newShift.staffId &&
+      s.type === newShift.type &&
       s.siteId !== newShift.siteId
     );
-    if (sameDayShift) {
-      errors.push(`R2 VIOLATION: ${newShift.staffName} is already assigned to ${sameDayShift.siteName} on this date.`);
+    if (sameTimeShift) {
+      errors.push(`TIME CONFLICT: ${newShift.staffName} is already working ${newShift.type} shift at ${sameTimeShift.siteName} on this date.`);
     }
 
-    // R3: Shift limit (handled by 24-hour approval)
+    // R2: Site exclusivity per day (only if not 24-hour shift)
+    if (!newShift.is24Hour) {
+      const sameDayShift = shifts.find(s => 
+        s.date === newShift.date && 
+        s.staffId === newShift.staffId &&
+        s.siteId !== newShift.siteId
+      );
+      if (sameDayShift) {
+        errors.push(`CONFLICT: ${newShift.staffName} is already assigned to ${sameDayShift.siteName} on this date.`);
+      }
+    }
+
+    // R3: 24-hour shift requires admin approval
     if (newShift.is24Hour && !newShift.approved24HrBy) {
-      errors.push(`R3 VIOLATION: 24-hour shifts require manager approval.`);
+      errors.push(`24-hour shifts require admin or site manager approval.`);
     }
 
     // R5: Rest period (12 hours minimum)
@@ -104,66 +173,203 @@ const Rota: React.FC = () => {
       const hoursDiff = Math.abs((newShiftStart.getTime() - existingEnd.getTime()) / (1000 * 60 * 60));
       
       if (hoursDiff < 12 && hoursDiff > 0) {
-        errors.push(`R5 VIOLATION: Only ${hoursDiff.toFixed(1)} hours rest since last shift. Minimum 12 hours required.`);
+        errors.push(`REST PERIOD: Only ${hoursDiff.toFixed(1)} hours rest since last shift. Minimum 12 hours required.`);
       }
     }
 
     return { valid: errors.length === 0, errors };
   };
 
-  const handleAssignShift = () => {
-    if (!shiftForm.staffId || !shiftForm.siteId || !shiftForm.date) {
-      alert('Please fill in all required fields');
+  const handleAssignShift = async () => {
+    // NEW RULE: Must assign both Day and Night shifts together
+    if (!shiftForm.dayStaffId || !shiftForm.nightStaffId || !shiftForm.siteId || !shiftForm.date) {
+      alert('Please fill in all required fields\n\nYou must assign BOTH Day and Night shifts to complete the 24-hour cycle.');
       return;
     }
 
-    const selectedStaff = staff.find(s => s.id === shiftForm.staffId);
-    const selectedSite = sites.find(s => s.id === shiftForm.siteId);
+    // Check if same worker assigned to both shifts
+    if (shiftForm.dayStaffId === shiftForm.nightStaffId && !shiftForm.is24Hour) {
+      alert('ERROR: Same worker cannot work both Day and Night shifts unless it\'s a 24-hour shift approved by admin.');
+      return;
+    }
 
-    const startTime = shiftForm.type === 'Day' ? '08:00' : '20:00';
-    const endTime = shiftForm.type === 'Day' ? '20:00' : '08:00';
+    const dayStaff = staff.find(s => String(s.id) === String(shiftForm.dayStaffId));
+    const nightStaff = staff.find(s => String(s.id) === String(shiftForm.nightStaffId));
+    const selectedSite = sites.find(s => String(s.id) === String(shiftForm.siteId));
 
-    const newShift = {
-      id: `SHIFT_${Date.now()}`,
-      staffId: shiftForm.staffId,
-      staffName: selectedStaff?.name || '',
+    if (!dayStaff || !nightStaff || !selectedSite) {
+      alert('Invalid staff or site selection');
+      return;
+    }
+
+    // CHECK IF DAY SHIFT HAS ALREADY PASSED (for same-day assignments)
+    const shiftDate = new Date(shiftForm.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const shiftDateOnly = new Date(shiftDate);
+    shiftDateOnly.setHours(0, 0, 0, 0);
+    
+    // If assigning for today and current time is past 20:00 (8pm)
+    if (shiftDateOnly.getTime() === today.getTime()) {
+      const currentHour = new Date().getHours();
+      if (currentHour >= 20) {
+        alert(`❌ CANNOT ASSIGN DAY SHIFT\n\nIt is currently ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}.\n\nDay shifts (08:00-20:00) have already finished for today.\n\nYou can only assign Night shifts (20:00-08:00) for today.`);
+        return;
+      }
+    }
+    
+    // AGENCY WORKER VALIDATION
+    
+    // Check day staff if they're an agency worker
+    const isDayAgency = 'agencyName' in dayStaff;
+    
+    // VALIDATE HOURLY RATE FOR DAY STAFF (if agency)
+    if (isDayAgency) {
+      const hourlyRate = dayStaff.hourlyRate?.trim();
+      if (!hourlyRate || hourlyRate === '' || hourlyRate === '0' || hourlyRate === '0.00') {
+        alert(`❌ CANNOT ASSIGN ${dayStaff.name}\n\nThis agency worker does not have an hourly rate configured.\n\nPlease set their hourly rate in the Directory before assigning shifts.`);
+        return;
+      }
+      
+      // Validate it's a valid number
+      const rateNum = parseFloat(hourlyRate);
+      if (isNaN(rateNum) || rateNum <= 0) {
+        alert(`❌ CANNOT ASSIGN ${dayStaff.name}\n\nThis agency worker has an invalid hourly rate: "${hourlyRate}"\n\nPlease update their hourly rate in the Directory.`);
+        return;
+      }
+    }
+    if (isDayAgency && dayStaff.startDate) {
+      const startDate = new Date(dayStaff.startDate);
+      const endDate = dayStaff.endDate ? new Date(dayStaff.endDate) : null;
+      
+      if (shiftDate < startDate) {
+        alert(`❌ CANNOT ASSIGN ${dayStaff.name}\n\nThis agency worker's contract starts on ${new Date(dayStaff.startDate).toLocaleDateString('en-GB')}.\n\nShift date (${shiftDate.toLocaleDateString('en-GB')}) is before their start date.`);
+        return;
+      }
+      
+      if (endDate && shiftDate > endDate) {
+        alert(`❌ CANNOT ASSIGN ${dayStaff.name}\n\nThis agency worker's contract ended on ${endDate.toLocaleDateString('en-GB')}.\n\nShift date (${shiftDate.toLocaleDateString('en-GB')}) is after their end date.`);
+        return;
+      }
+    }
+    
+    // Check night staff if they're an agency worker
+    const isNightAgency = 'agencyName' in nightStaff;
+    
+    // VALIDATE HOURLY RATE FOR NIGHT STAFF (if agency)
+    if (isNightAgency) {
+      const hourlyRate = nightStaff.hourlyRate?.trim();
+      if (!hourlyRate || hourlyRate === '' || hourlyRate === '0' || hourlyRate === '0.00') {
+        alert(`❌ CANNOT ASSIGN ${nightStaff.name}\n\nThis agency worker does not have an hourly rate configured.\n\nPlease set their hourly rate in the Directory before assigning shifts.`);
+        return;
+      }
+      
+      // Validate it's a valid number
+      const rateNum = parseFloat(hourlyRate);
+      if (isNaN(rateNum) || rateNum <= 0) {
+        alert(`❌ CANNOT ASSIGN ${nightStaff.name}\n\nThis agency worker has an invalid hourly rate: "${hourlyRate}"\n\nPlease update their hourly rate in the Directory.`);
+        return;
+      }
+    }
+    if (isNightAgency && nightStaff.startDate) {
+      const startDate = new Date(nightStaff.startDate);
+      const endDate = nightStaff.endDate ? new Date(nightStaff.endDate) : null;
+      
+      if (shiftDate < startDate) {
+        alert(`❌ CANNOT ASSIGN ${nightStaff.name}\n\nThis agency worker's contract starts on ${new Date(nightStaff.startDate).toLocaleDateString('en-GB')}.\n\nShift date (${shiftDate.toLocaleDateString('en-GB')}) is before their start date.`);
+        return;
+      }
+      
+      if (endDate && shiftDate > endDate) {
+        alert(`❌ CANNOT ASSIGN ${nightStaff.name}\n\nThis agency worker's contract ended on ${endDate.toLocaleDateString('en-GB')}.\n\nShift date (${shiftDate.toLocaleDateString('en-GB')}) is after their end date.`);
+        return;
+      }
+    }
+
+    // Create Day shift
+    const dayShift: Shift = {
+      id: `SHIFT_DAY_${Date.now()}`,
+      staffId: shiftForm.dayStaffId,
+      staffName: dayStaff.name,
       siteId: shiftForm.siteId,
-      siteName: selectedSite?.name || '',
+      siteName: selectedSite.name,
+      siteColor: selectedSite.color,
       date: shiftForm.date,
-      type: shiftForm.type,
-      startTime,
-      endTime,
+      type: 'Day',
+      startTime: '08:00',
+      endTime: '20:00',
       duration: 12,
-      is24Hour: shiftForm.is24Hour,
+      is24Hour: false,
       notes: shiftForm.notes
     };
 
-    // If 24-hour shift, require approval
-    if (shiftForm.is24Hour) {
-      setPending24HrShift(newShift);
+    // Create Night shift
+    const nightShift: Shift = {
+      id: `SHIFT_NIGHT_${Date.now()}`,
+      staffId: shiftForm.nightStaffId,
+      staffName: nightStaff.name,
+      siteId: shiftForm.siteId,
+      siteName: selectedSite.name,
+      siteColor: selectedSite.color,
+      date: shiftForm.date,
+      type: 'Night',
+      startTime: '20:00',
+      endTime: '08:00',
+      duration: 12,
+      is24Hour: false,
+      notes: shiftForm.notes
+    };
+
+    // If 24-hour shift (same worker), require approval
+    if (shiftForm.is24Hour && shiftForm.dayStaffId === shiftForm.nightStaffId) {
+      const combined24HrShift = {
+        ...dayShift,
+        is24Hour: true,
+        duration: 24,
+        endTime: '08:00',
+        nightShift: nightShift
+      };
+      setPending24HrShift(combined24HrShift);
       setShow24HrApproval(true);
       return;
     }
 
-    // Validate against rules
-    const validation = validateShift(newShift);
-    
-    if (!validation.valid) {
-      alert(`CANNOT ASSIGN SHIFT:\n\n${validation.errors.join('\n\n')}`);
+    // Validate Day shift
+    const dayValidation = validateShift(dayShift);
+    if (!dayValidation.valid) {
+      alert(`CANNOT ASSIGN DAY SHIFT:\n\n${dayValidation.errors.join('\n\n')}`);
       return;
     }
 
-    setShifts([...shifts, newShift]);
+    // Validate Night shift
+    const nightValidation = validateShift(nightShift);
+    if (!nightValidation.valid) {
+      alert(`CANNOT ASSIGN NIGHT SHIFT:\n\n${nightValidation.errors.join('\n\n')}`);
+      return;
+    }
+
+    // Both shifts valid, assign them
+    console.log('Creating shifts:', { dayShift, nightShift });
+    console.log('Current shifts before:', shifts);
+    
+    // Add shifts to shared data store
+    await addShift(dayShift);
+    await addShift(nightShift);
+    
+    // Update local state
+    const newShifts = [...shifts, dayShift, nightShift];
+    console.log('New shifts after:', newShifts);
+    setShifts(newShifts);
     setShowAssignShift(false);
     setShiftForm({
-      staffId: '',
+      dayStaffId: '',
+      nightStaffId: '',
       siteId: '',
       date: '',
-      type: 'Day',
       is24Hour: false,
       notes: ''
     });
-    alert(`Shift assigned successfully!\n\n${newShift.staffName} → ${newShift.siteName}\n${newShift.date} (${newShift.type} Shift)`);
+    alert(`24-HOUR CYCLE COMPLETED!\n\nDay Shift: ${dayStaff.name}\nNight Shift: ${nightStaff.name}\nSite: ${selectedSite.name}\nDate: ${shiftForm.date}`);
   };
 
   const handleApprove24Hr = () => {
@@ -172,7 +378,7 @@ const Rota: React.FC = () => {
       return;
     }
 
-    const approvedShift = {
+    const approvedShift: Shift = {
       ...pending24HrShift,
       approved24HrBy: approvalForm.approvedBy,
       notes: `24HR APPROVED: ${approvalForm.reason}. ${pending24HrShift.notes || ''}`
@@ -192,42 +398,224 @@ const Rota: React.FC = () => {
     setPending24HrShift(null);
     setApprovalForm({ approvedBy: '', reason: '' });
     setShiftForm({
-      staffId: '',
+      dayStaffId: '',
+      nightStaffId: '',
       siteId: '',
       date: '',
-      type: 'Day',
       is24Hour: false,
       notes: ''
     });
     alert(`24-hour shift approved and assigned!\n\nApproved by: ${approvalForm.approvedBy}`);
   };
 
-  const getShiftForSlot = (date: string, siteId: string, type: 'Day' | 'Night') => {
-    return shifts.find(s => s.date === date && s.siteId === siteId && s.type === type);
+  const handleDeleteShift = () => {
+    if (!shiftToDelete) return;
+
+    // Check if removing this shift leaves the 24-hour cycle incomplete
+    const oppositeShiftType = shiftToDelete.type === 'Day' ? 'Night' : 'Day';
+    const oppositeShift = shifts.find(s => 
+      s.date === shiftToDelete.date && 
+      s.siteId === shiftToDelete.siteId && 
+      s.type === oppositeShiftType
+    );
+
+    if (oppositeShift) {
+      // There's an opposite shift, so removing would break the 24-hour cycle
+      const options = [
+        `Option 1: Assign a replacement worker for the ${shiftToDelete.type} shift`,
+        `Option 2: Approve ${oppositeShift.staffName} for 24-hour shift`,
+        `Option 3: Cancel removal (keep current assignment)`
+      ];
+      
+      const choice = window.prompt(
+        `⚠️ COVERAGE REQUIRED\n\n` +
+        `Removing this shift will break the 24-hour cycle at ${shiftToDelete.siteName} on ${shiftToDelete.date}.\n\n` +
+        `Current coverage:\n` +
+        `• ${shiftToDelete.type} Shift: ${shiftToDelete.staffName} (being removed)\n` +
+        `• ${oppositeShiftType} Shift: ${oppositeShift.staffName} (will remain)\n\n` +
+        `Choose an option:\n` +
+        `1 = Assign replacement worker\n` +
+        `2 = Approve ${oppositeShift.staffName} for 24hr shift\n` +
+        `3 = Cancel removal\n\n` +
+        `Enter 1, 2, or 3:`
+      );
+
+      if (choice === '1') {
+        // Remove shift and open assignment modal pre-filled
+        setShifts(shifts.filter(s => s.id !== shiftToDelete.id));
+        setShiftForm({
+          dayStaffId: shiftToDelete.type === 'Day' ? '' : oppositeShift.staffId,
+          nightStaffId: shiftToDelete.type === 'Night' ? '' : oppositeShift.staffId,
+          siteId: shiftToDelete.siteId,
+          date: shiftToDelete.date,
+          is24Hour: false,
+          notes: `Replacement for removed shift`
+        });
+        setShowDeleteConfirm(false);
+        setShiftToDelete(null);
+        setShowAssignShift(true);
+        return;
+      } else if (choice === '2') {
+        // Remove shift and convert opposite to 24-hour with approval
+        const updated24HrShift = {
+          ...oppositeShift,
+          is24Hour: true,
+          duration: 24,
+          startTime: '08:00',
+          endTime: '08:00',
+          notes: `Converted to 24hr after ${shiftToDelete.type} shift removal`
+        };
+        setPending24HrShift(updated24HrShift);
+        setShifts(shifts.filter(s => s.id !== shiftToDelete.id && s.id !== oppositeShift.id));
+        setShowDeleteConfirm(false);
+        setShiftToDelete(null);
+        setShow24HrApproval(true);
+        return;
+      } else {
+        // Cancel
+        setShowDeleteConfirm(false);
+        setShiftToDelete(null);
+        return;
+      }
+    } else {
+      // No opposite shift exists, removing would leave NO coverage
+      alert(
+        `❌ CANNOT REMOVE SHIFT\n\n` +
+        `This is the ONLY shift assigned at ${shiftToDelete.siteName} on ${shiftToDelete.date}.\n\n` +
+        `Removing it would leave NO COVERAGE for that day.\n\n` +
+        `You must assign a replacement before removing this shift.`
+      );
+      setShowDeleteConfirm(false);
+      setShiftToDelete(null);
+      return;
+    }
   };
 
-  const getStaffRotationBalance = (staffId: string) => {
+  const confirmDeleteShift = (shift: Shift) => {
+    setShiftToDelete(shift);
+    setShowDeleteConfirm(true);
+  };
+
+  const getShiftForSlot = (date: string, siteId: string, type: 'Day' | 'Night') => {
+    console.log('🔍 getShiftForSlot called:', { date, siteId, type });
+    console.log('📋 All shifts:', shifts);
+    const matchingShifts = shifts.filter(s => {
+      const dateMatch = s.date === date;
+      const siteMatch = String(s.siteId) === String(siteId);
+      const typeMatch = s.type === type;
+      console.log(`  Checking shift ${s.id}:`, { 
+        shiftDate: s.date, 
+        dateMatch, 
+        shiftSiteId: s.siteId, 
+        siteMatch, 
+        shiftType: s.type, 
+        typeMatch,
+        allMatch: dateMatch && siteMatch && typeMatch
+      });
+      return dateMatch && siteMatch && typeMatch;
+    });
+    console.log('✅ Matching shifts found:', matchingShifts);
+    return matchingShifts[0];
+  };
+
+  const getStaffRotationBalance = (staffId: string | number) => {
     const staffShifts = shifts.filter(s => s.staffId === staffId);
-    const siteCount = {
-      SITE_A: staffShifts.filter(s => s.siteId === 'SITE_A').length,
-      SITE_B: staffShifts.filter(s => s.siteId === 'SITE_B').length,
-      SITE_C: staffShifts.filter(s => s.siteId === 'SITE_C').length
-    };
+    const siteCount: { [key: string]: number } = {};
+    
+    sites.forEach(site => {
+      siteCount[site.id] = staffShifts.filter(s => s.siteId === site.id).length;
+    });
+    
     const total = staffShifts.length;
-    return { siteCount, total, balanced: Math.max(...Object.values(siteCount)) - Math.min(...Object.values(siteCount)) <= 1 };
+    const counts = Object.values(siteCount);
+    const balanced = counts.length > 0 ? (Math.max(...counts) - Math.min(...counts) <= 1) : true;
+    
+    return { siteCount, total, balanced };
+  };
+
+  // Shift Extension Handlers
+  const handleExtendShift = (shift: Shift) => {
+    setSelectedShiftForExtension(shift);
+    setExtensionForm({ hours: '', reason: '', approvedBy: '' });
+    setShowExtensionModal(true);
+  };
+
+  const handleSubmitExtension = () => {
+    if (!selectedShiftForExtension || !extensionForm.hours) {
+      alert('Please enter extension hours');
+      return;
+    }
+
+    const extensionHours = parseFloat(extensionForm.hours);
+    if (isNaN(extensionHours) || extensionHours <= 0 || extensionHours > 12) {
+      alert('Extension hours must be between 0 and 12');
+      return;
+    }
+
+    // Check if approval is required (>3 hours)
+    const requiresApproval = extensionHours > 3;
+
+    if (requiresApproval && (!extensionForm.approvedBy || !extensionForm.reason)) {
+      alert(
+        `⚠️ OVERTIME APPROVAL REQUIRED\n\n` +
+        `Extension of ${extensionHours} hours exceeds 3-hour limit.\n\n` +
+        `Please provide:\n` +
+        `• Approver name (Admin/Manager)\n` +
+        `• Reason for extension`
+      );
+      return;
+    }
+
+    // Update the shift with extension
+    const updatedShifts = shifts.map(s => {
+      if (s.id === selectedShiftForExtension.id) {
+        return {
+          ...s,
+          extended: true,
+          extensionHours,
+          extensionReason: extensionForm.reason || 'Extension requested',
+          extensionApprovedBy: requiresApproval ? extensionForm.approvedBy : 'Auto-approved (<3hrs)',
+          extensionApprovalRequired: requiresApproval,
+          duration: s.duration + extensionHours
+        };
+      }
+      return s;
+    });
+
+    setShifts(updatedShifts);
+    setShowExtensionModal(false);
+    setSelectedShiftForExtension(null);
+    setExtensionForm({ hours: '', reason: '', approvedBy: '' });
+
+    alert(
+      `✅ SHIFT EXTENDED\n\n` +
+      `Staff: ${selectedShiftForExtension.staffName}\n` +
+      `Extension: +${extensionHours} hours\n` +
+      `New Duration: ${selectedShiftForExtension.duration + extensionHours} hours\n` +
+      `${requiresApproval ? `Approved by: ${extensionForm.approvedBy}` : 'Auto-approved'}`
+    );
   };
 
   return (
     <div style={{ padding: '20px 16px', maxWidth: '1600px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '16px' }}>
+      {/* Sticky Header */}
+      <div style={{
+        position: 'sticky',
+        top: 0,
+        backgroundColor: '#1a1a1a',
+        zIndex: 100,
+        paddingTop: '16px',
+        paddingBottom: '16px',
+        marginBottom: '24px',
+        borderBottom: '2px solid #3a3a3a'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div>
-            <h1 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', margin: '0 0 6px 0' }}>
+            <h2 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>
               Rota Management
-            </h1>
-            <p style={{ color: '#9ca3af', fontSize: '13px', margin: 0 }}>
-              3 Sites • 12 Staff • 12-hour shifts (Day: 08:00-20:00, Night: 20:00-08:00)
+            </h2>
+            <p style={{ color: '#9ca3af', fontSize: '14px' }}>
+              {new Date(weekDates[0]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - {new Date(weekDates[6]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
           </div>
           <button
@@ -254,7 +642,7 @@ const Rota: React.FC = () => {
         </div>
 
         {/* Week Navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
             onClick={() => setSelectedWeek(selectedWeek - 1)}
             onTouchEnd={(e) => {
@@ -299,62 +687,42 @@ const Rota: React.FC = () => {
             Next →
           </button>
         </div>
-
-        {/* Rules Summary */}
-        <div style={{
-          backgroundColor: '#2a2a2a',
-          borderRadius: '10px',
-          padding: '16px',
-          border: '1px solid #3a3a3a'
-        }}>
-          <h3 style={{ color: 'white', fontSize: '14px', fontWeight: 'bold', marginBottom: '12px' }}>
-            Active Rules
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px', fontSize: '12px' }}>
-            <div style={{ color: '#9ca3af' }}>
-              <span style={{ color: '#10b981', fontWeight: '600' }}>R1:</span> No duplicate shifts
-            </div>
-            <div style={{ color: '#9ca3af' }}>
-              <span style={{ color: '#10b981', fontWeight: '600' }}>R2:</span> One site per day
-            </div>
-            <div style={{ color: '#9ca3af' }}>
-              <span style={{ color: '#10b981', fontWeight: '600' }}>R3:</span> 12hr max (24hr approved)
-            </div>
-            <div style={{ color: '#9ca3af' }}>
-              <span style={{ color: '#10b981', fontWeight: '600' }}>R4:</span> Rotation balance
-            </div>
-            <div style={{ color: '#9ca3af' }}>
-              <span style={{ color: '#10b981', fontWeight: '600' }}>R5:</span> 12hr rest minimum
-            </div>
-            <div style={{ color: '#9ca3af' }}>
-              <span style={{ color: '#10b981', fontWeight: '600' }}>R6:</span> Manager override
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Rota Grid */}
       <div style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: '1200px' }}>
-          {sites.map((site) => (
+          {sites.filter(site => site.status === 'Active').map((site) => (
             <div key={site.id} style={{ marginBottom: '24px' }}>
-              <h2 style={{
-                color: 'white',
-                fontSize: '18px',
-                fontWeight: 'bold',
-                marginBottom: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
+              <div style={{
+                display: 'inline-block',
+                padding: '8px 16px',
+                backgroundColor: '#2a2a2a',
+                borderRadius: '8px',
+                border: `2px solid ${site.color}`,
+                marginBottom: '12px'
               }}>
-                <div style={{
-                  width: '10px',
-                  height: '10px',
-                  backgroundColor: site.id === 'SITE_A' ? '#9333ea' : site.id === 'SITE_B' ? '#10b981' : '#6366f1',
-                  borderRadius: '50%'
-                }}></div>
-                {site.name}
-              </h2>
+                <h2 style={{
+                  color: 'white',
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  margin: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <div style={{
+                    width: '12px',
+                    height: '12px',
+                    backgroundColor: site.color,
+                    borderRadius: '50%'
+                  }}></div>
+                  {site.name}
+                </h2>
+                <p style={{ color: '#9ca3af', fontSize: '12px', margin: '4px 0 0 22px' }}>
+                  {site.address}, {site.location}, {site.postcode}
+                </p>
+              </div>
               
               <div style={{
                 backgroundColor: '#2a2a2a',
@@ -363,104 +731,286 @@ const Rota: React.FC = () => {
                 overflow: 'hidden'
               }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
-                  {weekDates.map((date, index) => (
-                    <div
-                      key={date}
-                      style={{
-                        borderRight: index < 6 ? '1px solid #3a3a3a' : 'none'
-                      }}
-                    >
-                      {/* Day Header */}
-                      <div style={{
-                        padding: '12px 10px',
-                        backgroundColor: '#1a1a1a',
-                        borderBottom: '1px solid #3a3a3a',
-                        textAlign: 'center'
-                      }}>
-                        <div style={{ color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '2px' }}>
-                          {dayNames[index]}
-                        </div>
-                        <div style={{ color: '#9ca3af', fontSize: '11px' }}>
-                          {new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                        </div>
-                      </div>
-
-                      {/* Day Shift */}
-                      <div style={{
-                        padding: '10px 8px',
-                        borderBottom: '1px solid #3a3a3a',
-                        minHeight: '70px'
-                      }}>
-                        <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '600', marginBottom: '6px' }}>
-                          DAY
-                        </div>
-                        {(() => {
-                          const shift = getShiftForSlot(date, site.id, 'Day');
-                          return shift ? (
-                            <div style={{
-                              backgroundColor: '#9333ea20',
-                              padding: '6px 8px',
-                              borderRadius: '6px',
-                              border: '1px solid #9333ea40'
+                  {weekDates.map((date, index) => {
+                    const isTodayDate = isToday(date);
+                    return (
+                      <div
+                        key={date}
+                        style={{
+                          borderRight: index < 6 ? '1px solid #3a3a3a' : 'none',
+                          backgroundColor: isTodayDate ? '#9333ea15' : 'transparent'
+                        }}
+                      >
+                        {/* Day Header */}
+                        <div style={{
+                          padding: '12px 10px',
+                          backgroundColor: isTodayDate ? '#9333ea30' : '#1a1a1a',
+                          textAlign: 'center',
+                          border: isTodayDate ? '2px solid #9333ea' : 'none',
+                          borderBottom: '1px solid #3a3a3a'
+                        }}>
+                          <div style={{ 
+                            color: isTodayDate ? '#9333ea' : 'white', 
+                            fontSize: '13px', 
+                            fontWeight: '600', 
+                            marginBottom: '2px' 
+                          }}>
+                            {dayNames[index]}
+                          </div>
+                          <div style={{ color: isTodayDate ? '#9333ea' : '#9ca3af', fontSize: '11px' }}>
+                            {new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          </div>
+                          {isTodayDate && (
+                            <div style={{ 
+                              color: '#9333ea', 
+                              fontSize: '10px', 
+                              fontWeight: '600', 
+                              marginTop: '4px' 
                             }}>
-                              <div style={{ color: 'white', fontSize: '12px', fontWeight: '600', marginBottom: '2px' }}>
-                                {shift.staffName}
-                              </div>
-                              <div style={{ color: '#9ca3af', fontSize: '10px' }}>
-                                08:00-20:00
-                              </div>
-                              {shift.is24Hour && (
-                                <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
-                                  24HR APPROVED
-                                </div>
-                              )}
+                              TODAY
                             </div>
-                          ) : (
-                            <div style={{ color: '#6b7280', fontSize: '11px', fontStyle: 'italic' }}>
-                              Unassigned
-                            </div>
-                          );
-                        })()}
-                      </div>
-
-                      {/* Night Shift */}
-                      <div style={{
-                        padding: '10px 8px',
-                        minHeight: '70px'
-                      }}>
-                        <div style={{ color: '#6366f1', fontSize: '11px', fontWeight: '600', marginBottom: '6px' }}>
-                          NIGHT
+                          )}
+                          {/* Coverage Badge */}
+                          {(() => {
+                            const dayShift = getShiftForSlot(date, site.id, 'Day');
+                            const nightShift = getShiftForSlot(date, site.id, 'Night');
+                            const coverage = (dayShift ? 1 : 0) + (nightShift ? 1 : 0);
+                            const bgColor = coverage === 2 ? '#10b98120' : coverage === 1 ? '#f59e0b20' : '#ef444420';
+                            const textColor = coverage === 2 ? '#10b981' : coverage === 1 ? '#f59e0b' : '#ef4444';
+                            return (
+                              <div style={{
+                                marginTop: '6px',
+                                padding: '2px 6px',
+                                backgroundColor: bgColor,
+                                border: `1px solid ${textColor}40`,
+                                borderRadius: '4px',
+                                display: 'inline-block'
+                              }}>
+                                <span style={{ color: textColor, fontSize: '10px', fontWeight: '700' }}>
+                                  {coverage}/2
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
-                        {(() => {
-                          const shift = getShiftForSlot(date, site.id, 'Night');
-                          return shift ? (
-                            <div style={{
-                              backgroundColor: '#6366f120',
-                              padding: '6px 8px',
-                              borderRadius: '6px',
-                              border: '1px solid #6366f140'
-                            }}>
-                              <div style={{ color: 'white', fontSize: '12px', fontWeight: '600', marginBottom: '2px' }}>
-                                {shift.staffName}
-                              </div>
-                              <div style={{ color: '#9ca3af', fontSize: '10px' }}>
-                                20:00-08:00
-                              </div>
-                              {shift.is24Hour && (
-                                <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
-                                  24HR APPROVED
+
+                        {/* Day Shift */}
+                        <div style={{
+                          padding: '10px 8px',
+                          borderBottom: '1px solid #3a3a3a',
+                          minHeight: '90px'
+                        }}>
+                          <div style={{ color: '#fbbf24', fontSize: '11px', fontWeight: '600', marginBottom: '6px' }}>
+                            DAY
+                          </div>
+                          {(() => {
+                            const shift = getShiftForSlot(date, site.id, 'Day');
+                            return shift ? (
+                              <div>
+                                <div style={{
+                                  backgroundColor: `${site.color}20`,
+                                  padding: '6px 8px',
+                                  borderRadius: '6px',
+                                  border: `1px solid ${site.color}40`,
+                                  marginBottom: '6px'
+                                }}>
+                                  <div style={{ 
+                                    color: shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white', 
+                                    fontSize: '12px', 
+                                    fontWeight: '600', 
+                                    marginBottom: '2px' 
+                                  }}>
+                                    {shift.staffName}
+                                    {shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) && (
+                                      <span style={{
+                                        marginLeft: '4px',
+                                        padding: '1px 4px',
+                                        backgroundColor: '#10b98130',
+                                        borderRadius: '3px',
+                                        fontSize: '9px',
+                                        fontWeight: '700',
+                                        letterSpacing: '0.3px'
+                                      }}>
+                                        AGENCY
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div style={{ color: '#9ca3af', fontSize: '10px' }}>
+                                    08:00-20:00
+                                  </div>
+                                  {shift.is24Hour && (
+                                    <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
+                                      24HR APPROVED
+                                    </div>
+                                  )}
+                                  {shift.extended && (
+                                    <div style={{ color: '#10b981', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
+                                      +{shift.extensionHours}h EXTENDED
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div style={{ color: '#6b7280', fontSize: '11px', fontStyle: 'italic' }}>
-                              Unassigned
-                            </div>
-                          );
-                        })()}
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  <button
+                                    onClick={() => handleExtendShift(shift)}
+                                    onTouchEnd={(e) => {
+                                      e.preventDefault();
+                                      handleExtendShift(shift);
+                                    }}
+                                    style={{
+                                      flex: 1,
+                                      padding: '4px',
+                                      backgroundColor: '#10b981',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      fontSize: '10px',
+                                      fontWeight: '600',
+                                      cursor: 'pointer',
+                                      touchAction: 'manipulation'
+                                    }}
+                                  >
+                                    Extend
+                                  </button>
+                                  <button
+                                    onClick={() => confirmDeleteShift(shift)}
+                                    onTouchEnd={(e) => {
+                                      e.preventDefault();
+                                      confirmDeleteShift(shift);
+                                    }}
+                                    style={{
+                                      flex: 1,
+                                      padding: '4px',
+                                      backgroundColor: '#6b7280',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      fontSize: '10px',
+                                      fontWeight: '600',
+                                      cursor: 'pointer',
+                                      touchAction: 'manipulation'
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ color: '#6b7280', fontSize: '11px', fontStyle: 'italic' }}>
+                                Unassigned
+                              </div>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Night Shift */}
+                        <div style={{
+                          padding: '10px 8px',
+                          minHeight: '90px'
+                        }}>
+                          <div style={{ color: '#6366f1', fontSize: '11px', fontWeight: '600', marginBottom: '6px' }}>
+                            NIGHT
+                          </div>
+                          {(() => {
+                            const shift = getShiftForSlot(date, site.id, 'Night');
+                            return shift ? (
+                              <div>
+                                <div style={{
+                                  backgroundColor: `${site.color}20`,
+                                  padding: '6px 8px',
+                                  borderRadius: '6px',
+                                  border: `1px solid ${site.color}40`,
+                                  marginBottom: '6px'
+                                }}>
+                                  <div style={{ 
+                                    color: shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white', 
+                                    fontSize: '12px', 
+                                    fontWeight: '600', 
+                                    marginBottom: '2px' 
+                                  }}>
+                                    {shift.staffName}
+                                    {shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) && (
+                                      <span style={{
+                                        marginLeft: '4px',
+                                        padding: '1px 4px',
+                                        backgroundColor: '#10b98130',
+                                        borderRadius: '3px',
+                                        fontSize: '9px',
+                                        fontWeight: '700',
+                                        letterSpacing: '0.3px'
+                                      }}>
+                                        AGENCY
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div style={{ color: '#9ca3af', fontSize: '10px' }}>
+                                    20:00-08:00
+                                  </div>
+                                  {shift.is24Hour && (
+                                    <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
+                                      24HR APPROVED
+                                    </div>
+                                  )}
+                                  {shift.extended && (
+                                    <div style={{ color: '#10b981', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
+                                      +{shift.extensionHours}h EXTENDED
+                                    </div>
+                                  )}
+                                </div>
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  <button
+                                    onClick={() => handleExtendShift(shift)}
+                                    onTouchEnd={(e) => {
+                                      e.preventDefault();
+                                      handleExtendShift(shift);
+                                    }}
+                                    style={{
+                                      flex: 1,
+                                      padding: '4px',
+                                      backgroundColor: '#10b981',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      fontSize: '10px',
+                                      fontWeight: '600',
+                                      cursor: 'pointer',
+                                      touchAction: 'manipulation'
+                                    }}
+                                  >
+                                    Extend
+                                  </button>
+                                  <button
+                                    onClick={() => confirmDeleteShift(shift)}
+                                    onTouchEnd={(e) => {
+                                      e.preventDefault();
+                                      confirmDeleteShift(shift);
+                                    }}
+                                    style={{
+                                      flex: 1,
+                                      padding: '4px',
+                                      backgroundColor: '#6b7280',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      fontSize: '10px',
+                                      fontWeight: '600',
+                                      cursor: 'pointer',
+                                      touchAction: 'manipulation'
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ color: '#6b7280', fontSize: '11px', fontStyle: 'italic' }}>
+                                Unassigned
+                              </div>
+                            );
+                          })()}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -477,9 +1027,9 @@ const Rota: React.FC = () => {
         marginTop: '24px'
       }}>
         <h3 style={{ color: 'white', fontSize: '17px', fontWeight: 'bold', marginBottom: '16px' }}>
-          Staff Rotation Balance (R4)
+          Staff Rotation Balance
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
           {staff.map((s) => {
             const balance = getStaffRotationBalance(s.id);
             return (
@@ -503,7 +1053,11 @@ const Rota: React.FC = () => {
                   </span>
                 </div>
                 <div style={{ fontSize: '11px', color: '#9ca3af' }}>
-                  Site A: {balance.siteCount.SITE_A} • Site B: {balance.siteCount.SITE_B} • Site C: {balance.siteCount.SITE_C}
+                  {sites.map(site => (
+                    <span key={site.id} style={{ marginRight: '8px' }}>
+                      {site.name.split(' ')[0]}: {balance.siteCount[site.id] || 0}
+                    </span>
+                  ))}
                 </div>
                 <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
                   Total shifts: {balance.total}
@@ -515,30 +1069,81 @@ const Rota: React.FC = () => {
       </div>
 
       {/* Assign Shift Modal */}
-      <Modal isOpen={showAssignShift} onClose={() => setShowAssignShift(false)} title="Assign Shift">
+      <Modal isOpen={showAssignShift} onClose={() => setShowAssignShift(false)} title="Assign 24-Hour Cycle (Day + Night)">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{
+            backgroundColor: '#9333ea20',
+            padding: '12px',
+            borderRadius: '8px',
+            border: '1px solid #9333ea40'
+          }}>
+            <div style={{ color: '#9333ea', fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>
+              24-Hour Cycle Required
+            </div>
+            <div style={{ color: '#9ca3af', fontSize: '12px' }}>
+              You must assign BOTH Day and Night shifts (with different workers) to complete the 24-hour coverage.
+            </div>
+          </div>
+
           <div>
             <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              Staff Member *
+              Day Shift Staff (08:00-20:00) *
             </label>
             <select
-              value={shiftForm.staffId}
-              onChange={(e) => setShiftForm({ ...shiftForm, staffId: e.target.value })}
+              value={shiftForm.dayStaffId}
+              onChange={(e) => setShiftForm({ ...shiftForm, dayStaffId: e.target.value })}
               style={{
                 width: '100%',
                 padding: '12px',
                 backgroundColor: '#1a1a1a',
                 color: 'white',
-                border: '1px solid #3a3a3a',
+                border: '1px solid #fbbf2440',
                 borderRadius: '8px',
                 fontSize: '14px',
                 outline: 'none'
               }}
             >
-              <option value="">Select staff...</option>
-              {staff.map(s => (
-                <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
-              ))}
+              <option value="">Select Day shift staff...</option>
+              {staff.filter(s => s.status === 'Active').map(s => {
+                // Check if this is an agency worker (has agencyName property)
+                const isAgency = 'agencyName' in s;
+                return (
+                  <option key={s.id} value={s.id}>
+                    {s.name} {isAgency ? '(AGENCY)' : ''}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+              Night Shift Staff (20:00-08:00) *
+            </label>
+            <select
+              value={shiftForm.nightStaffId}
+              onChange={(e) => setShiftForm({ ...shiftForm, nightStaffId: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: '1px solid #6366f140',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none'
+              }}
+            >
+              <option value="">Select Night shift staff...</option>
+              {staff.filter(s => s.status === 'Active').map(s => {
+                // Check if this is an agency worker (has agencyName property)
+                const isAgency = 'agencyName' in s;
+                return (
+                  <option key={s.id} value={s.id}>
+                    {s.name} {isAgency ? '(AGENCY)' : ''}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -561,7 +1166,7 @@ const Rota: React.FC = () => {
               }}
             >
               <option value="">Select site...</option>
-              {sites.map(s => (
+              {sites.filter(s => s.status === 'Active').map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
@@ -589,28 +1194,7 @@ const Rota: React.FC = () => {
             />
           </div>
 
-          <div>
-            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              Shift Type *
-            </label>
-            <select
-              value={shiftForm.type}
-              onChange={(e) => setShiftForm({ ...shiftForm, type: e.target.value as 'Day' | 'Night' })}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#1a1a1a',
-                color: 'white',
-                border: '1px solid #3a3a3a',
-                borderRadius: '8px',
-                fontSize: '14px',
-                outline: 'none'
-              }}
-            >
-              <option value="Day">Day Shift (08:00-20:00)</option>
-              <option value="Night">Night Shift (20:00-08:00)</option>
-            </select>
-          </div>
+
 
           <div style={{
             backgroundColor: '#f59e0b20',
@@ -712,7 +1296,7 @@ const Rota: React.FC = () => {
             border: '1px solid #f59e0b40'
           }}>
             <div style={{ color: '#f59e0b', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
-              Manager Approval Required (R6)
+              Manager Approval Required
             </div>
             <div style={{ color: '#9ca3af', fontSize: '13px' }}>
               This 24-hour shift requires authorization from an admin or site manager before it can be assigned.
@@ -836,6 +1420,247 @@ const Rota: React.FC = () => {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Remove Shift">
+        {shiftToDelete && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{
+              backgroundColor: '#f59e0b20',
+              padding: '16px',
+              borderRadius: '8px',
+              border: '1px solid #f59e0b40'
+            }}>
+              <div style={{ color: '#f59e0b', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                Are you sure you want to remove this shift?
+              </div>
+              <div style={{ color: '#9ca3af', fontSize: '13px', lineHeight: '1.8' }}>
+                <div><strong>Staff:</strong> {shiftToDelete.staffName}</div>
+                <div><strong>Site:</strong> {shiftToDelete.siteName}</div>
+                <div><strong>Date:</strong> {shiftToDelete.date}</div>
+                <div><strong>Shift:</strong> {shiftToDelete.type} ({shiftToDelete.startTime}-{shiftToDelete.endTime})</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  setShowDeleteConfirm(false);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: '#4b5563',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  touchAction: 'manipulation'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteShift}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  handleDeleteShift();
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  touchAction: 'manipulation'
+                }}
+              >
+                Remove Shift
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Shift Extension Modal */}
+      <Modal isOpen={showExtensionModal} onClose={() => setShowExtensionModal(false)} title="Extend Shift">
+        {selectedShiftForExtension && (
+          <div>
+            <h2 style={{ color: 'white', fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' }}>
+              ⏱️ Extend Shift
+            </h2>
+
+            <div style={{
+              backgroundColor: '#1a1a1a',
+              padding: '16px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              border: '1px solid #3a3a3a'
+            }}>
+              <div style={{ color: '#9ca3af', fontSize: '13px', lineHeight: '1.8' }}>
+                <div><strong style={{ color: 'white' }}>Staff:</strong> {selectedShiftForExtension.staffName}</div>
+                <div><strong style={{ color: 'white' }}>Site:</strong> {selectedShiftForExtension.siteName}</div>
+                <div><strong style={{ color: 'white' }}>Date:</strong> {selectedShiftForExtension.date}</div>
+                <div><strong style={{ color: 'white' }}>Shift:</strong> {selectedShiftForExtension.type} ({selectedShiftForExtension.startTime}-{selectedShiftForExtension.endTime})</div>
+                <div><strong style={{ color: 'white' }}>Current Duration:</strong> {selectedShiftForExtension.duration} hours</div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: 'white', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                Extension Hours * <span style={{ color: '#9ca3af', fontSize: '12px', fontWeight: '400' }}>(0.5 - 12 hours)</span>
+              </label>
+              <input
+                type="number"
+                step="0.5"
+                min="0.5"
+                max="12"
+                placeholder="e.g., 2.5"
+                value={extensionForm.hours}
+                onChange={(e) => setExtensionForm({ ...extensionForm, hours: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '2px solid #10b981',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box',
+                  outline: 'none'
+                }}
+              />
+              {parseFloat(extensionForm.hours) > 3 && (
+                <div style={{ color: '#f59e0b', fontSize: '11px', marginTop: '6px', fontWeight: '600' }}>
+                  ⚠️ Extension {'>'}  3 hours requires manager approval
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: 'white', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                Reason for Extension {parseFloat(extensionForm.hours) > 3 && '*'}
+              </label>
+              <textarea
+                placeholder="e.g., Covering late arrival, Emergency situation"
+                value={extensionForm.reason}
+                onChange={(e) => setExtensionForm({ ...extensionForm, reason: e.target.value })}
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box',
+                  outline: 'none',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+
+            {parseFloat(extensionForm.hours) > 3 && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', color: 'white', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                  Approved By (Admin/Manager) *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., John Smith (Site Manager)"
+                  value={extensionForm.approvedBy}
+                  onChange={(e) => setExtensionForm({ ...extensionForm, approvedBy: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '2px solid #f59e0b',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            )}
+
+            <div style={{
+              backgroundColor: '#3b82f620',
+              border: '1px solid #3b82f640',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '20px'
+            }}>
+              <div style={{ color: '#3b82f6', fontSize: '12px', lineHeight: '1.6' }}>
+                <div style={{ fontWeight: '600', marginBottom: '4px' }}>ℹ️ Extension Rules:</div>
+                <div>• Extensions under 3 hours: Auto-approved</div>
+                <div>• Extensions over 3 hours: Requires manager approval</div>
+                <div>• Maximum extension: 12 hours</div>
+                <div>• Must maintain 12-hour rest period before next shift</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => {
+                  setShowExtensionModal(false);
+                  setExtensionForm({ hours: '', reason: '', approvedBy: '' });
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  setShowExtensionModal(false);
+                  setExtensionForm({ hours: '', reason: '', approvedBy: '' });
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: '#4b5563',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  touchAction: 'manipulation'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitExtension}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  handleSubmitExtension();
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  touchAction: 'manipulation'
+                }}
+              >
+                Extend Shift
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

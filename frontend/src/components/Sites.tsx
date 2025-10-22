@@ -1,70 +1,98 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
+import { getSites, addSite, updateSite, deleteSite, notifySitesChanged, Site } from '../data/sharedData';
 
 const Sites: React.FC = () => {
+  const [sites, setSites] = useState<Site[]>(getSites());
   const [showAddSite, setShowAddSite] = useState(false);
+  const [showEditSite, setShowEditSite] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
-  const [selectedSite, setSelectedSite] = useState<any>(null);
+  const [selectedSite, setSelectedSite] = useState<Site | null>(null);
+  
   const [siteForm, setSiteForm] = useState({
     name: '',
     location: '',
-    postCode: ''
+    postcode: '',
+    address: ''
   });
 
-  const [sites, setSites] = useState([
-    {
-      id: 1,
-      name: 'Kent Care Home',
-      location: 'Kent',
-      postCode: 'CT1 1AA',
-      status: 'Active',
-      statusColor: '#9333ea',
-      hasQR: false
-    },
-    {
-      id: 2,
-      name: 'London Care Home',
-      location: 'London',
-      postCode: 'SW1A 1AA',
-      status: 'Active',
-      statusColor: '#10b981',
-      hasQR: false
-    },
-    {
-      id: 3,
-      name: 'Essex Care Home',
-      location: 'Essex',
-      postCode: 'CM1 1AA',
-      status: 'Active',
-      statusColor: '#6366f1',
-      hasQR: false
-    }
-  ]);
+  // Refresh sites list
+  const refreshSites = () => {
+    setSites(getSites());
+  };
 
   const handleAddSite = () => {
-    if (!siteForm.name || !siteForm.location || !siteForm.postCode) {
+    if (!siteForm.name || !siteForm.location || !siteForm.postcode || !siteForm.address) {
       alert('Please fill in all fields');
       return;
     }
 
-    const colors = ['#9333ea', '#6366f1', '#8b5cf6', '#a855f7', '#c084fc'];
-    const newSite = {
-      id: Date.now(),
-      ...siteForm,
+    const colors = ['#8b7ab8', '#7ab8a8', '#a87ab8', '#b88b7a', '#7a8bb8', '#b8a87a'];
+    const newSite: Site = {
+      id: `SITE_${Date.now()}`,
+      name: siteForm.name,
+      location: siteForm.location,
+      postcode: siteForm.postcode,
+      address: siteForm.address,
       status: 'Active',
-      statusColor: colors[Math.floor(Math.random() * colors.length)],
-      hasQR: false
+      qrGenerated: false,
+      color: colors[Math.floor(Math.random() * colors.length)]
     };
 
-    setSites([...sites, newSite]);
+    addSite(newSite);
+    notifySitesChanged();
+    refreshSites();
     setShowAddSite(false);
-    setSiteForm({ name: '', location: '', postCode: '' });
+    setSiteForm({ name: '', location: '', postcode: '', address: '' });
     alert(`Site "${newSite.name}" added successfully!`);
   };
 
-  const handleGenerateQR = (site: any) => {
+  const handleEditSite = () => {
+    if (!selectedSite || !siteForm.name || !siteForm.location || !siteForm.postcode || !siteForm.address) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    updateSite(selectedSite.id, {
+      name: siteForm.name,
+      location: siteForm.location,
+      postcode: siteForm.postcode,
+      address: siteForm.address
+    });
+    
+    notifySitesChanged();
+    refreshSites();
+    setShowEditSite(false);
+    setSelectedSite(null);
+    setSiteForm({ name: '', location: '', postcode: '', address: '' });
+    alert(`Site updated successfully!`);
+  };
+
+  const handleDeleteSite = (site: Site) => {
+    if (window.confirm(`Are you sure you want to delete "${site.name}"?\n\nThis will remove it from the Rota as well.`)) {
+      deleteSite(site.id);
+      notifySitesChanged();
+      refreshSites();
+      alert(`Site "${site.name}" deleted successfully!`);
+    }
+  };
+
+  const openEditModal = (site: Site) => {
     setSelectedSite(site);
-    setSites(sites.map(s => s.id === site.id ? { ...s, hasQR: true } : s));
+    setSiteForm({
+      name: site.name,
+      location: site.location,
+      postcode: site.postcode,
+      address: site.address
+    });
+    setShowEditSite(true);
+  };
+
+  const handleGenerateQR = (site: Site) => {
+    setSelectedSite(site);
+    updateSite(site.id, { qrGenerated: true });
+    notifySitesChanged();
+    refreshSites();
     setShowQRCode(true);
   };
 
@@ -106,8 +134,8 @@ const Sites: React.FC = () => {
       {/* Sites Grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-        gap: '16px'
+        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+        gap: '20px'
       }}>
         {sites.map((site) => (
           <div
@@ -115,94 +143,102 @@ const Sites: React.FC = () => {
             style={{
               backgroundColor: '#2a2a2a',
               borderRadius: '12px',
-              padding: '24px 20px',
-              border: '1px solid #3a3a3a',
-              position: 'relative'
+              padding: '20px',
+              border: `2px solid ${site.color}`,
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
             }}
           >
             {/* Site Header */}
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '16px' }}>
               <div style={{
                 width: '48px',
                 height: '48px',
-                backgroundColor: site.statusColor,
+                backgroundColor: `${site.color}30`,
                 borderRadius: '10px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginRight: '14px',
-                flexShrink: 0
+                border: `2px solid ${site.color}`
               }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={site.color} strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" />
+                  <rect x="14" y="3" width="7" height="7" />
+                  <rect x="3" y="14" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" />
                 </svg>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h3 style={{ color: 'white', fontSize: '17px', fontWeight: 'bold', margin: '0 0 4px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ color: 'white', fontSize: '17px', fontWeight: 'bold', margin: '0 0 6px 0' }}>
                   {site.name}
                 </h3>
-                <p style={{ color: '#9ca3af', fontSize: '13px', margin: 0 }}>
-                  {site.location}
-                </p>
+                <div style={{
+                  display: 'inline-block',
+                  padding: '4px 10px',
+                  backgroundColor: site.status === 'Active' ? '#10b98120' : '#6b728020',
+                  color: site.status === 'Active' ? '#10b981' : '#6b7280',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: '600'
+                }}>
+                  ● {site.status}
+                </div>
               </div>
             </div>
 
             {/* Site Details */}
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#9ca3af', fontSize: '13px' }}>Post Code</span>
-                <span style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>{site.postCode}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#9ca3af', fontSize: '13px' }}>Status</span>
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '5px 12px',
-                  backgroundColor: `${site.statusColor}20`,
-                  color: site.statusColor,
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  fontWeight: '600'
-                }}>
-                  <span style={{ width: '6px', height: '6px', backgroundColor: site.statusColor, borderRadius: '50%', display: 'inline-block' }}></span>
-                  {site.status}
-                </span>
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" style={{ marginRight: '8px', marginTop: '2px', flexShrink: 0 }}>
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <div>
+                  <div style={{ color: 'white', fontSize: '13px', marginBottom: '2px' }}>
+                    {site.address}
+                  </div>
+                  <div style={{ color: '#9ca3af', fontSize: '12px' }}>
+                    {site.location}, {site.postcode}
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* QR Code Section */}
             <div style={{
               backgroundColor: '#1a1a1a',
-              borderRadius: '10px',
-              padding: '16px',
-              border: '1px solid #2a2a2a'
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '16px',
+              border: '1px solid #3a3a3a'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-                <div style={{
-                  width: '32px',
-                  height: '32px',
-                  backgroundColor: site.hasQR ? '#10b981' : '#9333ea',
-                  borderRadius: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: '10px'
-                }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                    <rect x="3" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="14" width="7" height="7"></rect>
-                    <rect x="3" y="14" width="7" height="7"></rect>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={site.qrGenerated ? '#10b981' : '#6b7280'} strokeWidth="2" style={{ marginRight: '10px' }}>
+                    <rect x="3" y="3" width="7" height="7" />
+                    <rect x="14" y="3" width="7" height="7" />
+                    <rect x="3" y="14" width="7" height="7" />
+                    <rect x="14" y="14" width="7" height="7" />
                   </svg>
+                  <span style={{ color: site.qrGenerated ? '#10b981' : '#6b7280', fontSize: '12px', fontWeight: '600' }}>
+                    Clock-in QR
+                  </span>
                 </div>
-                <span style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>Clock-in QR Code</span>
+                <span style={{
+                  padding: '3px 8px',
+                  backgroundColor: site.qrGenerated ? '#10b98120' : '#6b728020',
+                  color: site.qrGenerated ? '#10b981' : '#6b7280',
+                  borderRadius: '4px',
+                  fontSize: '10px',
+                  fontWeight: '600'
+                }}>
+                  {site.qrGenerated ? 'Generated' : 'Not generated'}
+                </span>
               </div>
-              <p style={{ color: '#9ca3af', fontSize: '12px', margin: '0 0 12px 0' }}>
-                {site.hasQR ? 'QR code generated' : 'Not generated'}
-              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <button
                 onClick={() => handleGenerateQR(site)}
                 onTouchEnd={(e) => {
@@ -210,19 +246,61 @@ const Sites: React.FC = () => {
                   handleGenerateQR(site);
                 }}
                 style={{
-                  padding: '10px 16px',
-                  backgroundColor: site.hasQR ? '#10b981' : '#9333ea',
+                  padding: '10px',
+                  backgroundColor: site.qrGenerated ? '#4b5563' : '#10b981',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '7px',
+                  borderRadius: '6px',
                   fontSize: '13px',
                   fontWeight: '600',
                   cursor: 'pointer',
                   touchAction: 'manipulation',
-                  width: '100%'
+                  gridColumn: '1 / -1'
                 }}
               >
-                {site.hasQR ? 'View QR Code' : 'Generate QR Code'}
+                {site.qrGenerated ? 'View QR Code' : 'Generate QR Code'}
+              </button>
+              
+              <button
+                onClick={() => openEditModal(site)}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  openEditModal(site);
+                }}
+                style={{
+                  padding: '10px',
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  touchAction: 'manipulation'
+                }}
+              >
+                Edit
+              </button>
+
+              <button
+                onClick={() => handleDeleteSite(site)}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  handleDeleteSite(site);
+                }}
+                style={{
+                  padding: '10px',
+                  backgroundColor: '#7a7a7a',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  touchAction: 'manipulation'
+                }}
+              >
+                Delete
               </button>
             </div>
           </div>
@@ -238,9 +316,32 @@ const Sites: React.FC = () => {
             </label>
             <input
               type="text"
-              placeholder="e.g., Brighton Care Home"
+              placeholder="e.g., Thamesmead Care Home"
               value={siteForm.name}
               onChange={(e) => setSiteForm({ ...siteForm, name: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                outline: 'none'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+              Address *
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., 65 Nickelby Close"
+              value={siteForm.address}
+              onChange={(e) => setSiteForm({ ...siteForm, address: e.target.value })}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -261,7 +362,7 @@ const Sites: React.FC = () => {
             </label>
             <input
               type="text"
-              placeholder="e.g., Brighton"
+              placeholder="e.g., Thamesmead"
               value={siteForm.location}
               onChange={(e) => setSiteForm({ ...siteForm, location: e.target.value })}
               style={{
@@ -280,13 +381,13 @@ const Sites: React.FC = () => {
 
           <div>
             <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              Post Code *
+              Postcode *
             </label>
             <input
               type="text"
-              placeholder="e.g., BN1 1AA"
-              value={siteForm.postCode}
-              onChange={(e) => setSiteForm({ ...siteForm, postCode: e.target.value })}
+              placeholder="e.g., SE28 8LY"
+              value={siteForm.postcode}
+              onChange={(e) => setSiteForm({ ...siteForm, postcode: e.target.value })}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -348,71 +449,209 @@ const Sites: React.FC = () => {
         </div>
       </Modal>
 
-      {/* QR Code Modal */}
-      <Modal isOpen={showQRCode} onClose={() => setShowQRCode(false)} title={`QR Code - ${selectedSite?.name}`}>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '24px' }}>
-            Staff can scan this QR code to clock in at {selectedSite?.name}
-          </p>
-          
-          {/* QR Code Placeholder */}
-          <div style={{
-            width: '250px',
-            height: '250px',
-            margin: '0 auto 24px',
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            boxSizing: 'border-box'
-          }}>
-            <div style={{
-              width: '100%',
-              height: '100%',
-              background: `
-                repeating-linear-gradient(0deg, #000 0px, #000 10px, transparent 10px, transparent 20px),
-                repeating-linear-gradient(90deg, #000 0px, #000 10px, transparent 10px, transparent 20px)
-              `,
-              borderRadius: '8px'
-            }}></div>
+      {/* Edit Site Modal */}
+      <Modal isOpen={showEditSite} onClose={() => setShowEditSite(false)} title="Edit Site">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div>
+            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+              Site Name *
+            </label>
+            <input
+              type="text"
+              value={siteForm.name}
+              onChange={(e) => setSiteForm({ ...siteForm, name: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                outline: 'none'
+              }}
+            />
           </div>
 
-          <div style={{
-            backgroundColor: '#1a1a1a',
-            padding: '16px',
-            borderRadius: '8px',
-            marginBottom: '20px'
-          }}>
-            <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '4px' }}>Site ID</div>
-            <div style={{ color: 'white', fontSize: '16px', fontWeight: '600', fontFamily: 'monospace' }}>
-              SITE-{selectedSite?.id}
-            </div>
+          <div>
+            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+              Address *
+            </label>
+            <input
+              type="text"
+              value={siteForm.address}
+              onChange={(e) => setSiteForm({ ...siteForm, address: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                outline: 'none'
+              }}
+            />
           </div>
 
-          <button
-            onClick={() => alert('Download functionality would save QR code as image')}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              alert('Download functionality would save QR code as image');
-            }}
-            style={{
-              padding: '12px 28px',
-              backgroundColor: '#9333ea',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '15px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              touchAction: 'manipulation',
-              width: '100%'
-            }}
-          >
-            Download QR Code
-          </button>
+          <div>
+            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+              Location *
+            </label>
+            <input
+              type="text"
+              value={siteForm.location}
+              onChange={(e) => setSiteForm({ ...siteForm, location: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                outline: 'none'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+              Postcode *
+            </label>
+            <input
+              type="text"
+              value={siteForm.postcode}
+              onChange={(e) => setSiteForm({ ...siteForm, postcode: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                outline: 'none'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+            <button
+              onClick={() => setShowEditSite(false)}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                setShowEditSite(false);
+              }}
+              style={{
+                flex: 1,
+                padding: '12px',
+                backgroundColor: '#4b5563',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                touchAction: 'manipulation'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleEditSite}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleEditSite();
+              }}
+              style={{
+                flex: 1,
+                padding: '12px',
+                backgroundColor: '#9333ea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                touchAction: 'manipulation'
+              }}
+            >
+              Save Changes
+            </button>
+          </div>
         </div>
+      </Modal>
+
+      {/* QR Code Modal */}
+      <Modal isOpen={showQRCode} onClose={() => setShowQRCode(false)} title="Site QR Code">
+        {selectedSite && (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              backgroundColor: 'white',
+              padding: '30px',
+              borderRadius: '12px',
+              marginBottom: '20px',
+              display: 'inline-block'
+            }}>
+              <div style={{
+                width: '200px',
+                height: '200px',
+                backgroundColor: '#f3f4f6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '8px',
+                border: '2px solid #e5e7eb'
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" />
+                    <rect x="14" y="3" width="7" height="7" />
+                    <rect x="3" y="14" width="7" height="7" />
+                    <rect x="14" y="14" width="7" height="7" />
+                  </svg>
+                  <div style={{ color: '#6b7280', fontSize: '12px', marginTop: '10px' }}>
+                    QR Code
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
+              {selectedSite.name}
+            </h3>
+            <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '20px' }}>
+              {selectedSite.address}, {selectedSite.location}, {selectedSite.postcode}
+            </p>
+            <p style={{ color: '#6b7280', fontSize: '12px', marginBottom: '20px' }}>
+              Staff can scan this QR code to clock in/out at this location
+            </p>
+            <button
+              onClick={() => setShowQRCode(false)}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                setShowQRCode(false);
+              }}
+              style={{
+                padding: '12px 32px',
+                backgroundColor: '#9333ea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                touchAction: 'manipulation'
+              }}
+            >
+              Close
+            </button>
+          </div>
+        )}
       </Modal>
     </div>
   );

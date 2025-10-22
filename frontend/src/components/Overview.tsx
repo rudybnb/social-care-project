@@ -1,47 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
+import { sharedSites, getStaff, subscribeToDataChange, StaffMember, getAgencyWorkers, getShifts } from '../data/sharedData';
 
 const Overview: React.FC = () => {
-  const [showCreateShift, setShowCreateShift] = useState(false);
+
+  const [sites] = sharedSites; // Use shared sites
+  const [staff, setStaff] = useState<StaffMember[]>(getStaff());
+  const [agencyWorkers, setAgencyWorkers] = useState(getAgencyWorkers());
   const [shifts, setShifts] = useState<any[]>([]);
-  const [shiftForm, setShiftForm] = useState({
-    site: 'Kent Care Home',
-    staff: '',
-    date: '',
-    startTime: '',
-    endTime: '',
-    type: 'Day'
-  });
-
-  const careHomes = [
-    { name: 'Kent Care Home', location: 'Kent', staff: 'Test Worker', shifts: shifts.filter(s => s.site === 'Kent Care Home').length, color: '#9333ea' },
-    { name: 'London Care Home', location: 'London', staff: 'Site Manager', shifts: shifts.filter(s => s.site === 'London Care Home').length, color: '#6366f1' },
-    { name: 'Essex Care Home', location: 'Essex', staff: '', shifts: shifts.filter(s => s.site === 'Essex Care Home').length, color: '#8b5cf6' }
-  ];
-
-  const handleCreateShift = () => {
-    if (!shiftForm.staff || !shiftForm.date || !shiftForm.startTime || !shiftForm.endTime) {
-      alert('Please fill in all fields');
-      return;
-    }
-
-    const newShift = {
-      id: Date.now(),
-      ...shiftForm
-    };
-
-    setShifts([...shifts, newShift]);
-    setShowCreateShift(false);
-    setShiftForm({
-      site: 'Kent Care Home',
-      staff: '',
-      date: '',
-      startTime: '',
-      endTime: '',
-      type: 'Day'
+  
+  // Subscribe to all data changes (staff, agency workers, shifts)
+  useEffect(() => {
+    // Initial load
+    setShifts(getShifts());
+    
+    const unsubscribe = subscribeToDataChange(() => {
+      setStaff(getStaff());
+      setAgencyWorkers(getAgencyWorkers());
+      setShifts(getShifts());
     });
-    alert('Shift created successfully!');
-  };
+    return unsubscribe;
+  }, []);
+
+
+
+  // Get today's date for filtering
+  const today = new Date().toISOString().split('T')[0];
+  const todayDate = new Date(today);
+  const todayShifts = shifts.filter(s => s.date === today);
+  
+  // DEBUG: Log shifts data
+  console.log('📊 Overview Debug:');
+  console.log('Total shifts:', shifts.length);
+  console.log('All shifts:', shifts);
+  console.log('Today:', today);
+  console.log('Sites:', sites);
+  
+  // Get upcoming shifts (today and future)
+  const upcomingShifts = shifts.filter(s => {
+    const shiftDate = new Date(s.date);
+    return shiftDate >= todayDate;
+  }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 10); // Show next 10 shifts
+  
+  // DEBUG: Log upcoming shifts
+  console.log('📅 Upcoming Shifts:', upcomingShifts.map(s => ({
+    date: s.date,
+    type: s.type,
+    staff: s.staffName,
+    site: s.siteName
+  })));
+
+  const careHomes = sites.filter(s => s.status === 'Active').map(site => ({
+    id: site.id,
+    name: site.name,
+    location: site.location,
+    address: site.address,
+    postcode: site.postcode,
+    shifts: shifts.filter(s => String(s.siteId) === String(site.id)).length,
+    todayShifts: todayShifts.filter(s => String(s.siteId) === String(site.id)).length,
+    color: site.color
+  }));
+
+
 
   return (
     <div style={{ padding: '20px 16px', maxWidth: '1400px', margin: '0 auto' }}>
@@ -73,29 +93,7 @@ const Overview: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowCreateShift(true)}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            setShowCreateShift(true);
-          }}
-          style={{
-            padding: '12px 24px',
-            backgroundColor: '#9333ea',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '15px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            touchAction: 'manipulation',
-            boxShadow: '0 2px 8px rgba(147, 51, 234, 0.3)',
-            width: '100%',
-            maxWidth: '200px'
-          }}
-        >
-          + Create Shift
-        </button>
+
       </div>
 
       {/* Stats Cards */}
@@ -131,13 +129,13 @@ const Overview: React.FC = () => {
             </div>
           </div>
           <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '6px', fontWeight: '500' }}>
-            Total Staff
+            Permanent Staff
           </div>
           <div style={{ color: 'white', fontSize: '28px', fontWeight: 'bold', marginBottom: '2px' }}>
-            4
+            {staff.filter(s => s.status === 'Active').length}
           </div>
           <div style={{ color: '#6b7280', fontSize: '11px' }}>
-            Across all sites
+            Active employees
           </div>
         </div>
 
@@ -151,7 +149,7 @@ const Overview: React.FC = () => {
             <div style={{
               width: '40px',
               height: '40px',
-              backgroundColor: '#fbbf24',
+              backgroundColor: '#10b981',
               borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
@@ -159,20 +157,21 @@ const Overview: React.FC = () => {
               flexShrink: 0
             }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <line x1="17" y1="11" x2="23" y2="11"></line>
               </svg>
             </div>
           </div>
           <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '6px', fontWeight: '500' }}>
-            Clocked In
+            Agency Workers
           </div>
           <div style={{ color: 'white', fontSize: '28px', fontWeight: 'bold', marginBottom: '2px' }}>
-            0
+            {agencyWorkers.filter(w => w.status === 'Active').length}
           </div>
-          <div style={{ color: '#fbbf24', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ width: '5px', height: '5px', backgroundColor: '#fbbf24', borderRadius: '50%', display: 'inline-block' }}></span>
-            Live now
+          <div style={{ color: '#10b981', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '5px', height: '5px', backgroundColor: '#10b981', borderRadius: '50%', display: 'inline-block' }}></span>
+            Active contracts
           </div>
         </div>
 
@@ -240,10 +239,10 @@ const Overview: React.FC = () => {
             Today's Shifts
           </div>
           <div style={{ color: 'white', fontSize: '28px', fontWeight: 'bold', marginBottom: '2px' }}>
-            {shifts.length}
+            {todayShifts.length}
           </div>
           <div style={{ color: '#6b7280', fontSize: '11px' }}>
-            {shifts.length} in progress
+            {todayShifts.length} in progress
           </div>
         </div>
       </div>
@@ -330,7 +329,7 @@ const Overview: React.FC = () => {
             Upcoming Shifts
           </h3>
         </div>
-        {shifts.length === 0 ? (
+        {upcomingShifts.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '32px 16px' }}>
             <div style={{
               width: '56px',
@@ -352,212 +351,111 @@ const Overview: React.FC = () => {
             <p style={{ color: '#9ca3af', marginBottom: '14px', fontSize: '13px' }}>No upcoming shifts scheduled</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {shifts.map((shift) => (
-              <div key={shift.id} style={{
-                backgroundColor: '#1a1a1a',
-                padding: '16px',
-                borderRadius: '8px',
-                border: '1px solid #2a2a2a'
-              }}>
-                <div style={{ color: 'white', fontSize: '15px', fontWeight: '600', marginBottom: '6px' }}>
-                  {shift.staff} - {shift.site}
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '12px',
+            maxHeight: '500px',
+            overflowY: 'auto',
+            paddingRight: '4px'
+          }}>
+            {upcomingShifts.map((shift) => {
+              // Check if staff member is agency worker (check both staff and agencyWorkers arrays)
+              const isAgency = agencyWorkers.find(w => w.name === shift.staffName) || 
+                               staff.find(s => s.name === shift.staffName && 'agencyName' in s);
+              const shiftTypeColor = shift.type === 'Day' ? '#fbbf24' : '#8b5cf6';
+              const shiftTypeBg = shift.type === 'Day' ? '#fbbf2420' : '#8b5cf620';
+              
+              return (
+                <div key={shift.id} style={{
+                  backgroundColor: '#1a1a1a',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  border: '1px solid #2a2a2a',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px'
+                }}>
+                  {/* Date Badge */}
+                  <div style={{
+                    minWidth: '60px',
+                    textAlign: 'center',
+                    padding: '8px',
+                    backgroundColor: `${shift.siteColor}20`,
+                    borderRadius: '8px',
+                    border: `2px solid ${shift.siteColor}`
+                  }}>
+                    <div style={{ color: shift.siteColor, fontSize: '11px', fontWeight: '600', marginBottom: '2px' }}>
+                      {new Date(shift.date).toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()}
+                    </div>
+                    <div style={{ color: 'white', fontSize: '18px', fontWeight: 'bold' }}>
+                      {new Date(shift.date).getDate()}
+                    </div>
+                    <div style={{ color: '#9ca3af', fontSize: '10px' }}>
+                      {new Date(shift.date).toLocaleDateString('en-GB', { month: 'short' })}
+                    </div>
+                  </div>
+                  
+                  {/* Shift Details */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                      <span style={{ 
+                        color: isAgency ? '#10b981' : 'white', 
+                        fontSize: '15px', 
+                        fontWeight: '600' 
+                      }}>
+                        {shift.staffName}
+                      </span>
+                      {isAgency && (
+                        <span style={{
+                          padding: '2px 6px',
+                          backgroundColor: '#10b98120',
+                          color: '#10b981',
+                          borderRadius: '4px',
+                          fontSize: '9px',
+                          fontWeight: '700',
+                          letterSpacing: '0.5px'
+                        }}>
+                          AGENCY
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <div style={{
+                          width: '8px',
+                          height: '8px',
+                          backgroundColor: shift.siteColor,
+                          borderRadius: '50%'
+                        }}></div>
+                        <span style={{ color: '#9ca3af', fontSize: '13px' }}>{shift.siteName}</span>
+                      </div>
+                      <span style={{ color: '#6b7280', fontSize: '13px' }}>•</span>
+                      <span style={{ color: '#9ca3af', fontSize: '13px' }}>{shift.startTime} - {shift.endTime}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Shift Type Badge */}
+                  <div style={{
+                    padding: '6px 12px',
+                    backgroundColor: shiftTypeBg,
+                    border: `1px solid ${shiftTypeColor}40`,
+                    borderRadius: '6px',
+                    minWidth: '70px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ color: shiftTypeColor, fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px' }}>
+                      {shift.type === 'Day' ? '☀️ DAY' : '🌙 NIGHT'}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ color: '#9ca3af', fontSize: '13px' }}>
-                  {shift.date} • {shift.startTime} - {shift.endTime} • {shift.type} Shift
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Create Shift Modal */}
-      <Modal isOpen={showCreateShift} onClose={() => setShowCreateShift(false)} title="Create New Shift">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              Site
-            </label>
-            <select
-              value={shiftForm.site}
-              onChange={(e) => setShiftForm({ ...shiftForm, site: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#1a1a1a',
-                color: 'white',
-                border: '1px solid #3a3a3a',
-                borderRadius: '8px',
-                fontSize: '14px',
-                outline: 'none'
-              }}
-            >
-              <option>Kent Care Home</option>
-              <option>London Care Home</option>
-              <option>Essex Care Home</option>
-            </select>
-          </div>
 
-          <div>
-            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              Staff Member
-            </label>
-            <input
-              type="text"
-              placeholder="Enter staff name"
-              value={shiftForm.staff}
-              onChange={(e) => setShiftForm({ ...shiftForm, staff: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#1a1a1a',
-                color: 'white',
-                border: '1px solid #3a3a3a',
-                borderRadius: '8px',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-                outline: 'none'
-              }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              Date
-            </label>
-            <input
-              type="date"
-              value={shiftForm.date}
-              onChange={(e) => setShiftForm({ ...shiftForm, date: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#1a1a1a',
-                color: 'white',
-                border: '1px solid #3a3a3a',
-                borderRadius: '8px',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-                outline: 'none'
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div>
-              <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                Start Time
-              </label>
-              <input
-                type="time"
-                value={shiftForm.startTime}
-                onChange={(e) => setShiftForm({ ...shiftForm, startTime: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  backgroundColor: '#1a1a1a',
-                  color: 'white',
-                  border: '1px solid #3a3a3a',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  boxSizing: 'border-box',
-                  outline: 'none'
-                }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                End Time
-              </label>
-              <input
-                type="time"
-                value={shiftForm.endTime}
-                onChange={(e) => setShiftForm({ ...shiftForm, endTime: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  backgroundColor: '#1a1a1a',
-                  color: 'white',
-                  border: '1px solid #3a3a3a',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  boxSizing: 'border-box',
-                  outline: 'none'
-                }}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              Shift Type
-            </label>
-            <select
-              value={shiftForm.type}
-              onChange={(e) => setShiftForm({ ...shiftForm, type: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#1a1a1a',
-                color: 'white',
-                border: '1px solid #3a3a3a',
-                borderRadius: '8px',
-                fontSize: '14px',
-                outline: 'none'
-              }}
-            >
-              <option>Day</option>
-              <option>Night</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-            <button
-              onClick={() => setShowCreateShift(false)}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                setShowCreateShift(false);
-              }}
-              style={{
-                flex: 1,
-                padding: '12px',
-                backgroundColor: '#4b5563',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '15px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                touchAction: 'manipulation'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleCreateShift}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                handleCreateShift();
-              }}
-              style={{
-                flex: 1,
-                padding: '12px',
-                backgroundColor: '#9333ea',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '15px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                touchAction: 'manipulation'
-              }}
-            >
-              Create Shift
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

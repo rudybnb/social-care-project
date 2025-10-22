@@ -4,6 +4,7 @@ import Overview from '../components/Overview';
 import Rota from '../components/Rota';
 import Sites from '../components/Sites';
 import Directory from '../components/Directory';
+import Payroll from '../components/Payroll';
 
 const AdminDashboard: React.FC = () => {
   const { logout, user } = useAuth();
@@ -47,6 +48,8 @@ const AdminDashboard: React.FC = () => {
         return <Sites />;
       case 'directory':
         return <Directory />;
+      case 'payroll':
+        return <Payroll />;
       default:
         return <div style={{ padding: '20px', color: 'white' }}>
           <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '12px' }}>
