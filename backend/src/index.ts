@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { users, staff, sites, shifts } from './schema';
+import { users, staff, sites, shifts } from './schema.js';
 import { eq } from 'drizzle-orm';
 
 dotenv.config();
