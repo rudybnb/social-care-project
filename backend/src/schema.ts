@@ -1,30 +1,70 @@
-import { pgTable, serial, text, timestamp, integer, boolean, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, integer, boolean, uuid, decimal } from 'drizzle-orm/pg-core';
 
+// Staff members (enhanced from users table)
+export const staff = pgTable('staff', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  role: text('role').notNull(), // 'Admin' | 'Site Manager' | 'Worker'
+  site: text('site').notNull(),
+  status: text('status').notNull().default('Active'), // 'Active' | 'Inactive'
+  standardRate: decimal('standard_rate', { precision: 10, scale: 2 }).notNull().default('12.50'),
+  enhancedRate: text('enhanced_rate').default('—'),
+  nightRate: text('night_rate').default('—'),
+  rates: text('rates').notNull(), // Display string for rates
+  pension: text('pension').default('—'),
+  deductions: text('deductions').default('£0.00'),
+  tax: text('tax').default('—'),
+  weeklyHours: integer('weekly_hours').default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Sites/Care Homes
+export const sites = pgTable('sites', {
+  id: text('id').primaryKey(), // e.g., 'SITE_001'
+  name: text('name').notNull(),
+  location: text('location').notNull(),
+  postcode: text('postcode').notNull(),
+  address: text('address').notNull(),
+  status: text('status').notNull().default('Active'), // 'Active' | 'Inactive'
+  qrGenerated: boolean('qr_generated').default(false),
+  color: text('color').notNull(), // Hex color for UI
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Shifts
+export const shifts = pgTable('shifts', {
+  id: text('id').primaryKey(), // e.g., 'SHIFT_DAY_1234567890'
+  staffId: text('staff_id').notNull(),
+  staffName: text('staff_name').notNull(),
+  siteId: text('site_id').notNull(),
+  siteName: text('site_name').notNull(),
+  siteColor: text('site_color').notNull(),
+  date: text('date').notNull(), // YYYY-MM-DD format
+  type: text('type').notNull(), // 'Day' | 'Night'
+  startTime: text('start_time').notNull(), // HH:MM format
+  endTime: text('end_time').notNull(), // HH:MM format
+  duration: integer('duration').notNull(), // hours
+  is24Hour: boolean('is_24_hour').default(false),
+  approved24HrBy: text('approved_24hr_by'),
+  notes: text('notes'),
+  extended: boolean('extended').default(false),
+  extensionHours: integer('extension_hours'),
+  extensionReason: text('extension_reason'),
+  extensionApprovedBy: text('extension_approved_by'),
+  extensionApprovalRequired: boolean('extension_approval_required').default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Legacy tables (keep for compatibility)
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: text('email').notNull().unique(),
   name: text('name').notNull(),
   role: text('role').notNull(), // 'admin' | 'worker'
   status: text('status').default('active'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
-
-export const sites = pgTable('sites', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: text('name').notNull(),
-  address: text('address'),
-  settings: text('settings'), // JSON string
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
-
-export const shifts = pgTable('shifts', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  siteId: uuid('site_id').notNull(),
-  userId: uuid('user_id').notNull(),
-  startTime: timestamp('start_time').notNull(),
-  endTime: timestamp('end_time').notNull(),
-  recurring: boolean('recurring').default(false),
-  status: text('status').default('scheduled'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -78,3 +118,4 @@ export const queryMessages = pgTable('query_messages', {
   message: text('message').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
