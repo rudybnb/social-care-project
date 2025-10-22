@@ -15,6 +15,7 @@ interface Shift {
   endTime: string;
   duration: number;
   is24Hour: boolean;
+  isBank?: boolean; // True if this is a BANK placeholder shift
   approved24HrBy?: string;
   notes?: string;
   extended?: boolean;
@@ -193,8 +194,15 @@ const Rota: React.FC = () => {
       return;
     }
 
-    const dayStaff = staff.find(s => String(s.id) === String(shiftForm.dayStaffId));
-    const nightStaff = staff.find(s => String(s.id) === String(shiftForm.nightStaffId));
+    // Handle BANK placeholder or regular staff
+    const dayStaff = shiftForm.dayStaffId === 'BANK' 
+      ? { id: 'BANK', name: 'BANK (Placeholder)', status: 'Active' } 
+      : staff.find(s => String(s.id) === String(shiftForm.dayStaffId));
+    
+    const nightStaff = shiftForm.nightStaffId === 'BANK' 
+      ? { id: 'BANK', name: 'BANK (Placeholder)', status: 'Active' } 
+      : staff.find(s => String(s.id) === String(shiftForm.nightStaffId));
+    
     const selectedSite = sites.find(s => String(s.id) === String(shiftForm.siteId));
 
     if (!dayStaff || !nightStaff || !selectedSite) {
@@ -220,8 +228,8 @@ const Rota: React.FC = () => {
     
     // AGENCY WORKER VALIDATION
     
-    // Check day staff if they're an agency worker
-    const isDayAgency = 'agencyName' in dayStaff;
+    // Check day staff if they're an agency worker (skip for BANK)
+    const isDayAgency = dayStaff.id !== 'BANK' && 'agencyName' in dayStaff;
     
     // VALIDATE HOURLY RATE FOR DAY STAFF (if agency)
     if (isDayAgency) {
@@ -253,8 +261,8 @@ const Rota: React.FC = () => {
       }
     }
     
-    // Check night staff if they're an agency worker
-    const isNightAgency = 'agencyName' in nightStaff;
+    // Check night staff if they're an agency worker (skip for BANK)
+    const isNightAgency = nightStaff.id !== 'BANK' && 'agencyName' in nightStaff;
     
     // VALIDATE HOURLY RATE FOR NIGHT STAFF (if agency)
     if (isNightAgency) {
@@ -300,6 +308,7 @@ const Rota: React.FC = () => {
       endTime: '20:00',
       duration: 12,
       is24Hour: false,
+      isBank: shiftForm.dayStaffId === 'BANK',
       notes: shiftForm.notes
     };
 
@@ -317,6 +326,7 @@ const Rota: React.FC = () => {
       endTime: '08:00',
       duration: 12,
       is24Hour: false,
+      isBank: shiftForm.nightStaffId === 'BANK',
       notes: shiftForm.notes
     };
 
@@ -815,13 +825,35 @@ const Rota: React.FC = () => {
                                   marginBottom: '6px'
                                 }}>
                                   <div style={{ 
-                                    color: shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white', 
+                                    color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'), 
                                     fontSize: '12px', 
                                     fontWeight: '600', 
                                     marginBottom: '2px' 
                                   }}>
-                                    {shift.staffName}
-                                    {shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) && (
+                                    {shift.isBank ? '🏦 ' : ''}{shift.staffName}
+                                    {shift.isBank && (() => {
+                                      const shiftDate = new Date(shift.date);
+                                      const tomorrow = new Date();
+                                      tomorrow.setDate(tomorrow.getDate() + 1);
+                                      tomorrow.setHours(0, 0, 0, 0);
+                                      const isUrgent = shiftDate <= tomorrow;
+                                      return (
+                                        <span style={{
+                                          marginLeft: '4px',
+                                          padding: '1px 4px',
+                                          backgroundColor: isUrgent ? '#ef444420' : '#f59e0b20',
+                                          border: `1px solid ${isUrgent ? '#ef4444' : '#f59e0b'}`,
+                                          borderRadius: '3px',
+                                          fontSize: '9px',
+                                          fontWeight: '700',
+                                          letterSpacing: '0.3px',
+                                          color: isUrgent ? '#ef4444' : '#f59e0b'
+                                        }}>
+                                          {isUrgent ? '⚠️ URGENT' : 'PENDING'}
+                                        </span>
+                                      );
+                                    })()}
+                                    {!shift.isBank && shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) && (
                                       <span style={{
                                         marginLeft: '4px',
                                         padding: '1px 4px',
@@ -922,13 +954,35 @@ const Rota: React.FC = () => {
                                   marginBottom: '6px'
                                 }}>
                                   <div style={{ 
-                                    color: shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white', 
+                                    color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'), 
                                     fontSize: '12px', 
                                     fontWeight: '600', 
                                     marginBottom: '2px' 
                                   }}>
-                                    {shift.staffName}
-                                    {shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) && (
+                                    {shift.isBank ? '🏦 ' : ''}{shift.staffName}
+                                    {shift.isBank && (() => {
+                                      const shiftDate = new Date(shift.date);
+                                      const tomorrow = new Date();
+                                      tomorrow.setDate(tomorrow.getDate() + 1);
+                                      tomorrow.setHours(0, 0, 0, 0);
+                                      const isUrgent = shiftDate <= tomorrow;
+                                      return (
+                                        <span style={{
+                                          marginLeft: '4px',
+                                          padding: '1px 4px',
+                                          backgroundColor: isUrgent ? '#ef444420' : '#f59e0b20',
+                                          border: `1px solid ${isUrgent ? '#ef4444' : '#f59e0b'}`,
+                                          borderRadius: '3px',
+                                          fontSize: '9px',
+                                          fontWeight: '700',
+                                          letterSpacing: '0.3px',
+                                          color: isUrgent ? '#ef4444' : '#f59e0b'
+                                        }}>
+                                          {isUrgent ? '⚠️ URGENT' : 'PENDING'}
+                                        </span>
+                                      );
+                                    })()}
+                                    {!shift.isBank && shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) && (
                                       <span style={{
                                         marginLeft: '4px',
                                         padding: '1px 4px',
@@ -1104,6 +1158,9 @@ const Rota: React.FC = () => {
               }}
             >
               <option value="">Select Day shift staff...</option>
+              <option value="BANK" style={{ backgroundColor: '#f59e0b20', color: '#f59e0b', fontWeight: 'bold' }}>
+                🏦 BANK (Placeholder - Must be filled by day before)
+              </option>
               {staff.filter(s => s.status === 'Active').map(s => {
                 // Check if this is an agency worker (has agencyName property)
                 const isAgency = 'agencyName' in s;
@@ -1135,6 +1192,9 @@ const Rota: React.FC = () => {
               }}
             >
               <option value="">Select Night shift staff...</option>
+              <option value="BANK" style={{ backgroundColor: '#f59e0b20', color: '#f59e0b', fontWeight: 'bold' }}>
+                🏦 BANK (Placeholder - Must be filled by day before)
+              </option>
               {staff.filter(s => s.status === 'Active').map(s => {
                 // Check if this is an agency worker (has agencyName property)
                 const isAgency = 'agencyName' in s;

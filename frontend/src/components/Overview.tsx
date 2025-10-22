@@ -36,11 +36,14 @@ const Overview: React.FC = () => {
   console.log('Today:', today);
   console.log('Sites:', sites);
   
-  // Get upcoming shifts (today and future)
+  // Get upcoming shifts (today and future) - 1 month
+  const oneMonthFromNow = new Date(todayDate);
+  oneMonthFromNow.setDate(todayDate.getDate() + 30);
+  
   const upcomingShifts = shifts.filter(s => {
     const shiftDate = new Date(s.date);
-    return shiftDate >= todayDate;
-  }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 10); // Show next 10 shifts
+    return shiftDate >= todayDate && shiftDate <= oneMonthFromNow;
+  }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Show all shifts in next 30 days
   
   // DEBUG: Log upcoming shifts
   console.log('📅 Upcoming Shifts:', upcomingShifts.map(s => ({
@@ -309,9 +312,92 @@ const Overview: React.FC = () => {
                 </div>
                 <div>
                   <div style={{ color: '#9ca3af', fontSize: '11px', marginBottom: '4px' }}>Today's shifts</div>
-                  <div style={{ color: 'white', fontSize: '15px', fontWeight: '600' }}>{home.shifts}</div>
+                  <div style={{ color: 'white', fontSize: '15px', fontWeight: '600' }}>{home.todayShifts}</div>
                 </div>
               </div>
+              
+              {/* Upcoming Shifts for this site */}
+              {(() => {
+                const siteUpcomingShifts = upcomingShifts.filter(s => String(s.siteId) === String(home.id)).slice(0, 5);
+                if (siteUpcomingShifts.length === 0) return null;
+                
+                return (
+                  <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #3a3a3a' }}>
+                    <div style={{ color: '#9ca3af', fontSize: '12px', fontWeight: '600', marginBottom: '12px' }}>
+                      Upcoming Shifts (Next 5)
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {siteUpcomingShifts.map((shift) => {
+                        const isAgency = agencyWorkers.find(w => w.name === shift.staffName) || 
+                                         staff.find(s => s.name === shift.staffName && 'agencyName' in s);
+                        const shiftTypeColor = shift.type === 'Day' ? '#fbbf24' : '#8b5cf6';
+                        const shiftTypeBg = shift.type === 'Day' ? '#fbbf2420' : '#8b5cf620';
+                        const isBank = shift.isBank || shift.staffId === 'BANK';
+                        
+                        return (
+                          <div key={shift.id} style={{
+                            backgroundColor: '#1a1a1a',
+                            padding: '10px 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #2a2a2a',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px'
+                          }}>
+                            {/* Date */}
+                            <div style={{
+                              minWidth: '45px',
+                              textAlign: 'center',
+                              padding: '6px',
+                              backgroundColor: `${home.color}20`,
+                              borderRadius: '6px',
+                              border: `1px solid ${home.color}40`
+                            }}>
+                              <div style={{ color: home.color, fontSize: '10px', fontWeight: '600' }}>
+                                {new Date(shift.date).toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()}
+                              </div>
+                              <div style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>
+                                {new Date(shift.date).getDate()}
+                              </div>
+                            </div>
+                            
+                            {/* Shift Info */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ 
+                                color: isBank ? '#f59e0b' : (isAgency ? '#10b981' : 'white'), 
+                                fontSize: '13px', 
+                                fontWeight: '600',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {isBank ? '🏦 ' : ''}{shift.staffName}
+                              </div>
+                              <div style={{ color: '#9ca3af', fontSize: '11px' }}>
+                                {shift.startTime} - {shift.endTime}
+                              </div>
+                            </div>
+                            
+                            {/* Shift Type Badge */}
+                            <div style={{
+                              padding: '4px 8px',
+                              backgroundColor: shiftTypeBg,
+                              border: `1px solid ${shiftTypeColor}40`,
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: '700',
+                              color: shiftTypeColor,
+                              flexShrink: 0
+                            }}>
+                              {shift.type === 'Day' ? '☀️' : '🌙'}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>
