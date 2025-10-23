@@ -3,8 +3,8 @@ services:
     name: social-care-backend
     runtime: node
     plan: free
-    buildCommand: cd backend && npm ci --include=dev && bash deploy.sh
-    startCommand: cd backend && npm start
+    buildCommand: cd backend && pnpm install --frozen-lockfile && bash deploy.sh
+    startCommand: cd backend && pnpm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -18,7 +18,7 @@ services:
   - type: web
     name: social-care-frontend
     runtime: static
-    buildCommand: cd frontend && npm ci --include=dev && npm run build
+    buildCommand: cd frontend && pnpm install --frozen-lockfile && pnpm run build
     staticPublishPath: frontend/build
     envVars:
       - key: NODE_ENV
