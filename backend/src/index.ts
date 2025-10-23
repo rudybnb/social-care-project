@@ -301,7 +301,7 @@ app.post('/api/auth/staff/login', async (req: Request, res: Response) => {
     const user = staffMember[0];
     
     // Check password (in production, use bcrypt for hashing)
-    if (user.password !== password) {
+    if (!user.password || user.password !== password) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
@@ -376,7 +376,7 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
     
     // Verify QR code matches the site
     const site = await db.select().from(sites).where(eq(sites.id, shift[0].siteId));
-    if (site.length === 0 || site[0].qrCode !== qrCode) {
+    if (site.length === 0 || !site[0].qrCode || site[0].qrCode !== qrCode) {
       return res.status(400).json({ error: 'Invalid QR code for this site' });
     }
     
@@ -426,7 +426,7 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
     
     // Verify QR code matches the site
     const site = await db.select().from(sites).where(eq(sites.id, shift[0].siteId));
-    if (site.length === 0 || site[0].qrCode !== qrCode) {
+    if (site.length === 0 || !site[0].qrCode || site[0].qrCode !== qrCode) {
       return res.status(400).json({ error: 'Invalid QR code for this site' });
     }
     
