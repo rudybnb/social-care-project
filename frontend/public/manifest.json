@@ -20,7 +20,10 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#6366f1",
+  "background_color": "#1a1a1a",
+  "orientation": "portrait",
+  "scope": "/",
+  "prefer_related_applications": false
 }
 
