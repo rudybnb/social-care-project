@@ -83,14 +83,14 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose, shiftInfo }) => 
       left: 0,
       right: 0,
       bottom: 0,
-      background: 'rgba(0, 0, 0, 0.95)',
+      background: 'rgba(0, 0, 0, 0.8)',
       zIndex: 9999,
       display: 'flex',
       flexDirection: 'column'
     }}>
       {/* Header */}
       <div style={{
-        background: '#9333ea',
+        background: '#2563eb',
         padding: '16px',
         color: 'white',
         display: 'flex',
@@ -126,7 +126,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose, shiftInfo }) => 
             style={{
               borderRadius: '16px',
               overflow: 'hidden',
-              border: success ? '3px solid #10b981' : error ? '3px solid #ef4444' : '3px solid #9333ea'
+              border: success ? '3px solid #10b981' : error ? '3px solid #ef4444' : '3px solid #2563eb'
             }}
           />
           
@@ -150,18 +150,18 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose, shiftInfo }) => 
 
         {/* Shift Info */}
         <div style={{
-          background: '#2a2a2a',
+          background: '#ffffff',
           borderRadius: '12px',
           padding: '16px',
           width: '100%',
           maxWidth: '400px',
-          border: '1px solid #3a3a3a',
+          border: '1px solid #e5e7eb',
           marginBottom: '16px'
         }}>
-          <div style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
+          <div style={{ color: '#111827', fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
             {shiftInfo.siteName}
           </div>
-          <div style={{ color: '#9ca3af', fontSize: '14px' }}>
+          <div style={{ color: '#6b7280', fontSize: '14px' }}>
             {shiftInfo.type === 'Day' ? '☀️ Day Shift' : '🌙 Night Shift'} • {shiftInfo.startTime} - {shiftInfo.endTime}
           </div>
         </div>
@@ -169,7 +169,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose, shiftInfo }) => 
         {/* Instructions */}
         {!error && !success && (
           <div style={{
-            color: '#9ca3af',
+            color: '#d1d5db',
             fontSize: '14px',
             textAlign: 'center',
             maxWidth: '320px'
@@ -189,8 +189,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose, shiftInfo }) => 
         {/* Error Message */}
         {error && (
           <div style={{
-            background: '#7f1d1d',
-            color: '#fca5a5',
+            background: '#fee2e2',
+            color: '#ef4444',
             padding: '16px',
             borderRadius: '12px',
             width: '100%',
@@ -207,8 +207,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose, shiftInfo }) => 
         {/* Success Message */}
         {success && (
           <div style={{
-            background: '#065f46',
-            color: '#6ee7b7',
+            background: '#d1fae5',
+            color: '#065f46',
             padding: '16px',
             borderRadius: '12px',
             width: '100%',

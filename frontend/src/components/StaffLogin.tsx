@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { IonPage, IonContent, IonInput, IonButton, IonIcon, IonSpinner } from '@ionic/react';
 import { person, lockClosed } from 'ionicons/icons';
+import logo from '../assets/logo.jpeg';
 
 interface StaffLoginProps {
   onLogin: (staffId: string, staffName: string) => void;
@@ -50,62 +51,32 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
 
   return (
     <IonPage>
-      <IonContent style={{ '--background': '#1a1a1a' }}>
+      <IonContent style={{ '--background': '#ffffff' }}>
         <div style={{
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
           minHeight: '100vh',
-          padding: '24px'
+          padding: '24px',
+          background: '#ffffff'
         }}>
           {/* Logo/Header */}
-          <div style={{
-            background: 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
-            width: '80px',
-            height: '80px',
-            borderRadius: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '24px',
-            boxShadow: '0 8px 16px rgba(147, 51, 234, 0.3)'
-          }}>
-            <IonIcon icon={person} style={{ fontSize: '40px', color: 'white' }} />
-          </div>
-
-          <h1 style={{
-            color: 'white',
-            fontSize: '28px',
-            fontWeight: 'bold',
-            marginBottom: '8px',
-            textAlign: 'center'
-          }}>
-            Staff Portal
-          </h1>
-
-          <p style={{
-            color: '#9ca3af',
-            fontSize: '14px',
-            marginBottom: '32px',
-            textAlign: 'center'
-          }}>
-            Sign in to view your shifts and clock in/out
-          </p>
+          <img src={logo} alt="Ecclesia Family Centre Logo" style={{ width: '250px', marginBottom: '24px' }} />
 
           {/* Login Form */}
           <div style={{
             width: '100%',
             maxWidth: '400px',
-            background: '#2a2a2a',
+            background: '#f3f4f6',
             borderRadius: '16px',
             padding: '24px',
-            border: '1px solid #3a3a3a'
+            border: '1px solid #e5e7eb'
           }}>
             {error && (
               <div style={{
-                background: '#7f1d1d',
-                color: '#fca5a5',
+                background: '#fee2e2',
+                color: '#ef4444',
                 padding: '12px',
                 borderRadius: '8px',
                 marginBottom: '16px',
@@ -119,7 +90,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
             <div style={{ marginBottom: '16px' }}>
               <label style={{
                 display: 'block',
-                color: '#9ca3af',
+                color: '#4b5563',
                 fontSize: '13px',
                 fontWeight: '500',
                 marginBottom: '8px'
@@ -127,21 +98,21 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
                 Username
               </label>
               <div style={{
-                background: '#1a1a1a',
+                background: '#ffffff',
                 borderRadius: '8px',
-                border: '1px solid #3a3a3a',
+                border: '1px solid #d1d5db',
                 display: 'flex',
                 alignItems: 'center',
                 padding: '0 12px'
               }}>
-                <IonIcon icon={person} style={{ color: '#6b7280', marginRight: '8px' }} />
+                <IonIcon icon={person} style={{ color: '#9ca3af', marginRight: '8px' }} />
                 <IonInput
                   value={username}
                   onIonChange={e => setUsername(e.detail.value!)}
                   placeholder="Enter your username"
                   style={{
-                    '--color': 'white',
-                    '--placeholder-color': '#6b7280'
+                    '--color': '#111827',
+                    '--placeholder-color': '#9ca3af'
                   }}
                   onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
                 />
@@ -151,7 +122,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
             <div style={{ marginBottom: '24px' }}>
               <label style={{
                 display: 'block',
-                color: '#9ca3af',
+                color: '#4b5563',
                 fontSize: '13px',
                 fontWeight: '500',
                 marginBottom: '8px'
@@ -159,22 +130,22 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
                 Password
               </label>
               <div style={{
-                background: '#1a1a1a',
+                background: '#ffffff',
                 borderRadius: '8px',
-                border: '1px solid #3a3a3a',
+                border: '1px solid #d1d5db',
                 display: 'flex',
                 alignItems: 'center',
                 padding: '0 12px'
               }}>
-                <IonIcon icon={lockClosed} style={{ color: '#6b7280', marginRight: '8px' }} />
+                <IonIcon icon={lockClosed} style={{ color: '#9ca3af', marginRight: '8px' }} />
                 <IonInput
                   type="password"
                   value={password}
                   onIonChange={e => setPassword(e.detail.value!)}
                   placeholder="Enter your password"
                   style={{
-                    '--color': 'white',
-                    '--placeholder-color': '#6b7280'
+                    '--color': '#111827',
+                    '--placeholder-color': '#9ca3af'
                   }}
                   onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
                 />
@@ -186,7 +157,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
               onClick={handleLogin}
               disabled={loading}
               style={{
-                '--background': 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
+                '--background': '#2563eb',
                 '--border-radius': '8px',
                 height: '48px',
                 fontWeight: 'bold',
@@ -203,7 +174,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
             marginTop: '24px',
             textAlign: 'center'
           }}>
-            Social Care Management System v2.0
+            Ecclesia Family Centre App
           </div>
         </div>
       </IonContent>

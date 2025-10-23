@@ -62,7 +62,7 @@ const StaffProgress: React.FC<StaffProgressProps> = ({ shifts, staffName }) => {
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar style={{ '--background': '#9333ea' }}>
+        <IonToolbar style={{ '--background': '#2563eb', '--color': 'white' }}>
           <IonButtons slot="start">
             <IonBackButton defaultHref="/staff" />
           </IonButtons>
@@ -70,10 +70,10 @@ const StaffProgress: React.FC<StaffProgressProps> = ({ shifts, staffName }) => {
         </IonToolbar>
       </IonHeader>
 
-      <IonContent style={{ '--background': '#1a1a1a' }}>
+      <IonContent style={{ '--background': '#f3f4f6' }}>
         {/* Header */}
         <div style={{
-          background: 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
+          background: '#2563eb',
           padding: '24px',
           color: 'white'
         }}>
@@ -94,70 +94,70 @@ const StaffProgress: React.FC<StaffProgressProps> = ({ shifts, staffName }) => {
             marginBottom: '16px'
           }}>
             <div style={{
-              background: '#2a2a2a',
+              background: '#ffffff',
               borderRadius: '12px',
               padding: '16px',
-              border: '1px solid #3a3a3a'
+              border: '1px solid #e5e7eb'
             }}>
-              <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
+              <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '8px' }}>
                 This Week
               </div>
-              <div style={{ color: '#fbbf24', fontSize: '32px', fontWeight: 'bold', marginBottom: '4px' }}>
+              <div style={{ color: '#f59e0b', fontSize: '32px', fontWeight: 'bold', marginBottom: '4px' }}>
                 {thisWeekHours}
               </div>
-              <div style={{ color: '#9ca3af', fontSize: '13px' }}>
+              <div style={{ color: '#6b7280', fontSize: '13px' }}>
                 {thisWeekShifts.length} shifts completed
               </div>
             </div>
 
             <div style={{
-              background: '#2a2a2a',
+              background: '#ffffff',
               borderRadius: '12px',
               padding: '16px',
-              border: '1px solid #3a3a3a'
+              border: '1px solid #e5e7eb'
             }}>
-              <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
+              <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '8px' }}>
                 This Month
               </div>
               <div style={{ color: '#10b981', fontSize: '32px', fontWeight: 'bold', marginBottom: '4px' }}>
                 {thisMonthHours}
               </div>
-              <div style={{ color: '#9ca3af', fontSize: '13px' }}>
+              <div style={{ color: '#6b7280', fontSize: '13px' }}>
                 {thisMonthShifts.length} shifts completed
               </div>
             </div>
           </div>
 
           <div style={{
-            background: '#2a2a2a',
+            background: '#ffffff',
             borderRadius: '12px',
             padding: '16px',
-            border: '1px solid #3a3a3a',
+            border: '1px solid #e5e7eb',
             marginBottom: '24px'
           }}>
-            <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
+            <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '8px' }}>
               Total Hours Worked
             </div>
-            <div style={{ color: '#9333ea', fontSize: '48px', fontWeight: 'bold', marginBottom: '4px' }}>
+            <div style={{ color: '#2563eb', fontSize: '48px', fontWeight: 'bold', marginBottom: '4px' }}>
               {totalHours}
             </div>
-            <div style={{ color: '#9ca3af', fontSize: '13px' }}>
+            <div style={{ color: '#6b7280', fontSize: '13px' }}>
               Across {completedShifts.length} completed shifts
             </div>
           </div>
 
           {/* Shift History */}
-          <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>
+          <h3 style={{ color: '#111827', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>
             Shift History
           </h3>
 
           {monthKeys.length === 0 ? (
             <div style={{
-              background: '#2a2a2a',
+              background: '#ffffff',
               borderRadius: '12px',
               padding: '24px',
               textAlign: 'center',
-              border: '1px solid #3a3a3a'
+              border: '1px solid #e5e7eb'
             }}>
               <div style={{ color: '#6b7280', fontSize: '14px' }}>
                 No completed shifts yet
@@ -178,17 +178,17 @@ const StaffProgress: React.FC<StaffProgressProps> = ({ shifts, staffName }) => {
                     alignItems: 'center',
                     marginBottom: '8px'
                   }}>
-                    <div style={{ color: 'white', fontSize: '15px', fontWeight: 'bold' }}>
+                    <div style={{ color: '#111827', fontSize: '15px', fontWeight: 'bold' }}>
                       {monthName}
                     </div>
-                    <div style={{ color: '#9ca3af', fontSize: '13px' }}>
+                    <div style={{ color: '#6b7280', fontSize: '13px' }}>
                       {monthHours} hours • {monthShifts.length} shifts
                     </div>
                   </div>
 
                   {monthShifts.sort((a, b) => b.date.localeCompare(a.date)).map(shift => (
                     <div key={shift.id} style={{
-                      background: '#2a2a2a',
+                      background: '#ffffff',
                       borderRadius: '8px',
                       padding: '12px',
                       marginBottom: '8px',
@@ -197,10 +197,10 @@ const StaffProgress: React.FC<StaffProgressProps> = ({ shifts, staffName }) => {
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                         <div>
-                          <div style={{ color: 'white', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>
+                          <div style={{ color: '#111827', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>
                             {shift.siteName}
                           </div>
-                          <div style={{ color: '#9ca3af', fontSize: '13px' }}>
+                          <div style={{ color: '#6b7280', fontSize: '13px' }}>
                             {new Date(shift.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
                           </div>
                         </div>
@@ -214,7 +214,7 @@ const StaffProgress: React.FC<StaffProgressProps> = ({ shifts, staffName }) => {
                         gridTemplateColumns: '1fr 1fr',
                         gap: '8px',
                         fontSize: '12px',
-                        color: '#9ca3af'
+                        color: '#6b7280'
                       }}>
                         <div>
                           <div style={{ marginBottom: '2px' }}>Clock In:</div>
