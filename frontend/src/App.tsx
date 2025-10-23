@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import WorkerDashboard from './pages/WorkerDashboard';
+import StaffApp from './components/StaffApp';
 import { useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ role, children }: { role?: 'admin' | 'worker'; children: React.ReactElement }) {
@@ -18,6 +19,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
+      <Route path="/staff" element={<StaffApp />} />
       <Route
         path="/admin/*"
         element={

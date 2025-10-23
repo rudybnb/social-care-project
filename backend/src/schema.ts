@@ -4,6 +4,8 @@ import { pgTable, serial, text, timestamp, integer, boolean, uuid, decimal } fro
 export const staff = pgTable('staff', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
+  username: text('username').unique(), // For staff login
+  password: text('password'), // Hashed password for staff login
   role: text('role').notNull(), // 'Admin' | 'Site Manager' | 'Worker'
   site: text('site').notNull(),
   status: text('status').notNull().default('Active'), // 'Active' | 'Inactive'
@@ -27,6 +29,7 @@ export const sites = pgTable('sites', {
   postcode: text('postcode').notNull(),
   address: text('address').notNull(),
   status: text('status').notNull().default('Active'), // 'Active' | 'Inactive'
+  qrCode: text('qr_code'), // QR code data for clock-in
   qrGenerated: boolean('qr_generated').default(false),
   color: text('color').notNull(), // Hex color for UI
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -46,6 +49,7 @@ export const shifts = pgTable('shifts', {
   startTime: text('start_time').notNull(), // HH:MM format
   endTime: text('end_time').notNull(), // HH:MM format
   duration: integer('duration').notNull(), // hours
+  isBank: boolean('is_bank').default(false), // BANK placeholder flag
   is24Hour: boolean('is_24_hour').default(false),
   approved24HrBy: text('approved_24hr_by'),
   notes: text('notes'),
@@ -54,6 +58,10 @@ export const shifts = pgTable('shifts', {
   extensionReason: text('extension_reason'),
   extensionApprovedBy: text('extension_approved_by'),
   extensionApprovalRequired: boolean('extension_approval_required').default(false),
+  clockedIn: boolean('clocked_in').default(false), // Staff clocked in
+  clockInTime: timestamp('clock_in_time'), // Actual clock-in time
+  clockedOut: boolean('clocked_out').default(false), // Staff clocked out
+  clockOutTime: timestamp('clock_out_time'), // Actual clock-out time
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

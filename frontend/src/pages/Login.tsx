@@ -237,10 +237,31 @@ const Login: React.FC = () => {
               cursor: loading ? 'not-allowed' : 'pointer',
               touchAction: 'manipulation',
               WebkitTapHighlightColor: 'transparent',
-              marginBottom: '20px'
+              marginBottom: '12px'
             }}
           >
             {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+
+          {/* Staff Login Button */}
+          <button
+            onClick={() => navigate('/staff')}
+            style={{
+              width: '100%',
+              padding: '16px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              color: '#9333ea',
+              backgroundColor: 'transparent',
+              border: '2px solid #9333ea',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+              marginBottom: '20px'
+            }}
+          >
+            Staff Login
           </button>
 
           {/* Footer Text */}

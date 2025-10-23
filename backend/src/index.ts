@@ -279,8 +279,45 @@ app.delete('/api/shifts/:id', async (req: Request, res: Response) => {
   }
 });
 
-// ==================== AUTH ROUTES (Legacy) ====================
+// ==================== AUTH ROUTES ====================
 
+// Staff login (username/password)
+app.post('/api/auth/staff/login', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+    
+    // Find staff by username
+    const staffMember = await db.select().from(staff).where(eq(staff.username, username));
+    
+    if (staffMember.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const user = staffMember[0];
+    
+    // Check password (in production, use bcrypt for hashing)
+    if (user.password !== password) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    // Return user data (excluding password)
+    const { password: _, ...userWithoutPassword } = user;
+    res.json({ 
+      user: userWithoutPassword, 
+      token: `staff-${user.id}` // Simple token for demo
+    });
+  } catch (error) {
+    console.error('Error during staff login:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Legacy admin login (email/role)
 app.post('/api/auth/login', async (req: Request, res: Response) => {
   const { email, role } = req.body || {};
   if (!email || !role) {
@@ -292,6 +329,156 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
 
 app.get('/api/auth/me', async (_req: Request, res: Response) => {
   res.json({ user: { id: 'u_demo', email: 'demo@example.com', role: 'admin', name: 'Demo User' } });
+});
+
+// ==================== CLOCK-IN/OUT ROUTES ====================
+
+// Get staff shifts (for staff mobile app)
+app.get('/api/staff/:staffId/shifts', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { staffId } = req.params;
+    
+    if (!staffId) {
+      return res.status(400).json({ error: 'Staff ID required' });
+    }
+    
+    // Get all shifts for this staff member
+    const staffShifts = await db.select().from(shifts).where(eq(shifts.staffId, staffId));
+    res.json(staffShifts);
+  } catch (error) {
+    console.error('Error fetching staff shifts:', error);
+    res.status(500).json({ error: 'Failed to fetch shifts' });
+  }
+});
+
+// Clock in to a shift
+app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { shiftId } = req.params;
+    const { qrCode, staffId } = req.body;
+    
+    if (!shiftId || !qrCode || !staffId) {
+      return res.status(400).json({ error: 'Shift ID, QR code, and staff ID required' });
+    }
+    
+    // Get the shift
+    const shift = await db.select().from(shifts).where(eq(shifts.id, shiftId));
+    if (shift.length === 0) {
+      return res.status(404).json({ error: 'Shift not found' });
+    }
+    
+    // Verify staff is assigned to this shift
+    if (shift[0].staffId !== staffId) {
+      return res.status(403).json({ error: 'You are not assigned to this shift' });
+    }
+    
+    // Verify QR code matches the site
+    const site = await db.select().from(sites).where(eq(sites.id, shift[0].siteId));
+    if (site.length === 0 || site[0].qrCode !== qrCode) {
+      return res.status(400).json({ error: 'Invalid QR code for this site' });
+    }
+    
+    // Update shift with clock-in time
+    const updated = await db.update(shifts)
+      .set({ 
+        clockedIn: true, 
+        clockInTime: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(shifts.id, shiftId))
+      .returning();
+    
+    res.json({ message: 'Clocked in successfully', shift: updated[0] });
+  } catch (error) {
+    console.error('Error clocking in:', error);
+    res.status(500).json({ error: 'Failed to clock in' });
+  }
+});
+
+// Clock out from a shift
+app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { shiftId } = req.params;
+    const { qrCode, staffId } = req.body;
+    
+    if (!shiftId || !qrCode || !staffId) {
+      return res.status(400).json({ error: 'Shift ID, QR code, and staff ID required' });
+    }
+    
+    // Get the shift
+    const shift = await db.select().from(shifts).where(eq(shifts.id, shiftId));
+    if (shift.length === 0) {
+      return res.status(404).json({ error: 'Shift not found' });
+    }
+    
+    // Verify staff is assigned to this shift
+    if (shift[0].staffId !== staffId) {
+      return res.status(403).json({ error: 'You are not assigned to this shift' });
+    }
+    
+    // Verify they clocked in first
+    if (!shift[0].clockedIn) {
+      return res.status(400).json({ error: 'You must clock in before clocking out' });
+    }
+    
+    // Verify QR code matches the site
+    const site = await db.select().from(sites).where(eq(sites.id, shift[0].siteId));
+    if (site.length === 0 || site[0].qrCode !== qrCode) {
+      return res.status(400).json({ error: 'Invalid QR code for this site' });
+    }
+    
+    // Update shift with clock-out time
+    const updated = await db.update(shifts)
+      .set({ 
+        clockedOut: true, 
+        clockOutTime: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(shifts.id, shiftId))
+      .returning();
+    
+    res.json({ message: 'Clocked out successfully', shift: updated[0] });
+  } catch (error) {
+    console.error('Error clocking out:', error);
+    res.status(500).json({ error: 'Failed to clock out' });
+  }
+});
+
+// Generate QR code for a site
+app.post('/api/sites/:siteId/generate-qr', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { siteId } = req.params;
+    
+    if (!siteId) {
+      return res.status(400).json({ error: 'Site ID required' });
+    }
+    
+    // Generate a unique QR code (in production, use a proper QR code library)
+    const qrCode = `QR-${siteId}-${Date.now()}`;
+    
+    // Update site with QR code
+    const updated = await db.update(sites)
+      .set({ 
+        qrCode, 
+        qrGenerated: true,
+        updatedAt: new Date()
+      })
+      .where(eq(sites.id, siteId))
+      .returning();
+    
+    if (updated.length === 0) {
+      return res.status(404).json({ error: 'Site not found' });
+    }
+    
+    res.json({ message: 'QR code generated successfully', site: updated[0] });
+  } catch (error) {
+    console.error('Error generating QR code:', error);
+    res.status(500).json({ error: 'Failed to generate QR code' });
+  }
 });
 
 // Legacy routes
