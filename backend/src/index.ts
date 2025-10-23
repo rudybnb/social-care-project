@@ -300,8 +300,13 @@ app.post('/api/auth/staff/login', async (req: Request, res: Response) => {
     
     const user = staffMember[0];
     
+    // Check if user has login credentials set
+    if (!user.username || !user.password) {
+      return res.status(401).json({ error: 'Login not configured for this staff member' });
+    }
+    
     // Check password (in production, use bcrypt for hashing)
-    if (!user.password || user.password !== password) {
+    if (user.password !== password) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     

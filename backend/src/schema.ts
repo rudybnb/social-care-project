@@ -4,7 +4,7 @@ import { pgTable, serial, text, timestamp, integer, boolean, uuid, decimal } fro
 export const staff = pgTable('staff', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
-  username: text('username').unique(), // For staff login
+  username: text('username'), // For staff login
   password: text('password'), // Hashed password for staff login
   role: text('role').notNull(), // 'Admin' | 'Site Manager' | 'Worker'
   site: text('site').notNull(),
