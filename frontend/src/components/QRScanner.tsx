@@ -90,7 +90,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose, shiftInfo }) => 
     }}>
       {/* Header */}
       <div style={{
-        background: '#6366f1',
+        background: '#9333ea',
         padding: '16px',
         color: 'white',
         display: 'flex',
@@ -126,7 +126,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose, shiftInfo }) => 
             style={{
               borderRadius: '16px',
               overflow: 'hidden',
-              border: success ? '3px solid #10b981' : error ? '3px solid #ef4444' : '3px solid #6366f1'
+              border: success ? '3px solid #10b981' : error ? '3px solid #ef4444' : '3px solid #9333ea'
             }}
           />
           

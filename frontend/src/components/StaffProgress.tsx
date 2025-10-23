@@ -62,7 +62,7 @@ const StaffProgress: React.FC<StaffProgressProps> = ({ shifts, staffName }) => {
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar style={{ '--background': '#6366f1' }}>
+        <IonToolbar style={{ '--background': '#9333ea' }}>
           <IonButtons slot="start">
             <IonBackButton defaultHref="/staff" />
           </IonButtons>
@@ -73,7 +73,7 @@ const StaffProgress: React.FC<StaffProgressProps> = ({ shifts, staffName }) => {
       <IonContent style={{ '--background': '#1a1a1a' }}>
         {/* Header */}
         <div style={{
-          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+          background: 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
           padding: '24px',
           color: 'white'
         }}>
@@ -138,7 +138,7 @@ const StaffProgress: React.FC<StaffProgressProps> = ({ shifts, staffName }) => {
             <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
               Total Hours Worked
             </div>
-            <div style={{ color: '#6366f1', fontSize: '48px', fontWeight: 'bold', marginBottom: '4px' }}>
+            <div style={{ color: '#9333ea', fontSize: '48px', fontWeight: 'bold', marginBottom: '4px' }}>
               {totalHours}
             </div>
             <div style={{ color: '#9ca3af', fontSize: '13px' }}>

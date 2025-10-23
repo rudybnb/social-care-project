@@ -61,7 +61,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
         }}>
           {/* Logo/Header */}
           <div style={{
-            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+            background: 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
             width: '80px',
             height: '80px',
             borderRadius: '20px',
@@ -69,7 +69,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: '24px',
-            boxShadow: '0 8px 16px rgba(99, 102, 241, 0.3)'
+            boxShadow: '0 8px 16px rgba(147, 51, 234, 0.3)'
           }}>
             <IonIcon icon={person} style={{ fontSize: '40px', color: 'white' }} />
           </div>
@@ -186,7 +186,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
               onClick={handleLogin}
               disabled={loading}
               style={{
-                '--background': 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                '--background': 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
                 '--border-radius': '8px',
                 height: '48px',
                 fontWeight: 'bold',

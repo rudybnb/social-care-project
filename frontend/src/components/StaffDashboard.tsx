@@ -130,7 +130,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar style={{ '--background': '#6366f1' }}>
+        <IonToolbar style={{ '--background': '#9333ea' }}>
           <IonTitle>Staff Dashboard</IonTitle>
           <IonButton slot="end" fill="clear" onClick={onLogout}>
             <IonIcon icon={logOut} />
@@ -145,7 +145,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
 
         {/* Welcome Section */}
         <div style={{
-          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+          background: 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
           padding: '24px',
           color: 'white'
         }}>
@@ -201,7 +201,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             textAlign: 'center',
             border: '1px solid #3a3a3a'
           }}>
-            <div style={{ color: '#6366f1', fontSize: '28px', fontWeight: 'bold', marginBottom: '4px' }}>
+            <div style={{ color: '#9333ea', fontSize: '28px', fontWeight: 'bold', marginBottom: '4px' }}>
               {upcomingShifts.length}
             </div>
             <div style={{ color: '#9ca3af', fontSize: '12px' }}>

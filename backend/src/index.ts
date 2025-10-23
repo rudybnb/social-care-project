@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
+import bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { users, staff, sites, shifts } from './schema.js';
 import { eq } from 'drizzle-orm';
@@ -305,8 +306,9 @@ app.post('/api/auth/staff/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Login not configured for this staff member' });
     }
     
-    // Check password (in production, use bcrypt for hashing)
-    if (user.password !== password) {
+    // Check password using bcrypt
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     

@@ -3,7 +3,7 @@ services:
     name: social-care-backend
     runtime: node
     plan: free
-    buildCommand: cd backend && npm ci --include=dev && npm run build
+    buildCommand: cd backend && npm ci --include=dev && bash deploy.sh
     startCommand: cd backend && npm start
     envVars:
       - key: NODE_ENV
