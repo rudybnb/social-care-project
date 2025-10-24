@@ -1,6 +1,6 @@
 import React from 'react';
 import { IonApp, IonContent } from '@ionic/react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import WorkerDashboard from './pages/WorkerDashboard';
@@ -45,9 +45,9 @@ function App() {
   return (
     <IonApp>
       <IonContent>
-        <BrowserRouter>
+        <HashRouter>
           <AppRoutes />
-        </BrowserRouter>
+        </HashRouter>
       </IonContent>
     </IonApp>
   );
