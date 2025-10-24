@@ -3,7 +3,7 @@ services:
     name: social-care-backend
     runtime: node
     plan: free
-    buildCommand: cd backend && pnpm install && bash deploy.sh
+    buildCommand: cd backend && pnpm install && pnpm run build
     startCommand: cd backend && pnpm start
     envVars:
       - key: NODE_ENV
