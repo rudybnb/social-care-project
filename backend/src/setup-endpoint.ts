@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { db } from './index.js';
 import { staff, sites } from './schema.js';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
@@ -9,17 +8,18 @@ import { Pool } from 'pg';
 
 export async function setupDatabase(req: Request, res: Response) {
   try {
-    if (!db) {
+    const DATABASE_URL = process.env.DATABASE_URL;
+    
+    if (!DATABASE_URL) {
       return res.status(500).json({ error: 'Database not configured' });
     }
 
-    const DATABASE_URL = process.env.DATABASE_URL || '';
     const pool = new Pool({ connectionString: DATABASE_URL });
-    const migrationDb = drizzle(pool);
+    const db = drizzle(pool);
 
     // Step 1: Run migrations
     console.log('Running database migrations...');
-    await migrate(migrationDb, { migrationsFolder: './drizzle' });
+    await migrate(db, { migrationsFolder: './drizzle' });
     console.log('✅ Migrations completed');
 
     // Step 2: Create test staff account
@@ -27,17 +27,18 @@ export async function setupDatabase(req: Request, res: Response) {
     const hashedPassword = await bcrypt.hash('jones123', 10);
     
     // Check if staff already exists
-    const existingStaff = await db.select().from(staff).where(eq(staff.username, 'tom'));
+    const existingStaff = await db.select().from(staff);
+    const tomExists = existingStaff.find(s => s.username === 'tom');
     
-    if (existingStaff.length === 0) {
+    if (!tomExists) {
       await db.insert(staff).values({
         name: 'Tom Jones',
         username: 'tom',
         password: hashedPassword,
-        role: 'staff',
-        email: 'tom@ecclesia.com',
-        phone: '1234567890',
-        active: true
+        role: 'Worker',
+        site: 'General',
+        status: 'Active',
+        rates: '£12.50/hr'
       });
       console.log('✅ Test staff account created (username: tom, password: jones123)');
     } else {
@@ -65,7 +66,7 @@ export async function setupDatabase(req: Request, res: Response) {
       message: 'Database setup completed successfully',
       details: {
         migrations: 'completed',
-        testAccount: existingStaff.length === 0 ? 'created' : 'already exists',
+        testAccount: !tomExists ? 'created' : 'already exists',
         qrCodes: 'generated',
         credentials: {
           username: 'tom',

@@ -6,7 +6,6 @@ import bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { users, staff, sites, shifts } from './schema.js';
 import { eq } from 'drizzle-orm';
-import { setupDatabase } from './setup-endpoint.js';
 
 dotenv.config();
 
@@ -490,7 +489,10 @@ app.post('/api/sites/:siteId/generate-qr', async (req: Request, res: Response) =
 });
 
 // Database setup endpoint (one-time use)
-app.post('/api/setup', setupDatabase);
+app.post('/api/setup', async (req: Request, res: Response) => {
+  const { setupDatabase } = await import('./setup-endpoint.js');
+  return setupDatabase(req, res);
+});
 
 // Legacy routes
 app.use('/api/attendance', (_req: Request, res: Response) => res.json({ message: 'attendance API placeholder' }));
