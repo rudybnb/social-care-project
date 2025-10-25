@@ -130,7 +130,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar style={{ '--background': '#2563eb', '--color': 'white' }}>
+        <IonToolbar style={{ '--background': '#9333ea', '--color': 'white' }}>
           <IonTitle>Staff Dashboard</IonTitle>
           <IonButton slot="end" fill="clear" onClick={onLogout} style={{ '--color': 'white' }}>
             <IonIcon icon={logOut} />
@@ -138,14 +138,14 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
         </IonToolbar>
       </IonHeader>
 
-      <IonContent style={{ '--background': '#f3f4f6' }}>
+      <IonContent style={{ '--background': '#1a1a1a' }}>
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent></IonRefresherContent>
         </IonRefresher>
 
         {/* Welcome Section */}
         <div style={{
-          background: '#2563eb',
+          background: 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
           padding: '24px',
           color: 'white'
         }}>
@@ -165,11 +165,11 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
           padding: '16px'
         }}>
           <div style={{
-            background: '#ffffff',
+            background: '#2a2a2a',
             borderRadius: '12px',
             padding: '16px',
             textAlign: 'center',
-            border: '1px solid #e5e7eb'
+            border: '1px solid #3a3a3a'
           }}>
             <div style={{ color: '#f59e0b', fontSize: '28px', fontWeight: 'bold', marginBottom: '4px' }}>
               {totalHoursThisWeek}
@@ -180,11 +180,11 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
           </div>
 
           <div style={{
-            background: '#ffffff',
+            background: '#2a2a2a',
             borderRadius: '12px',
             padding: '16px',
             textAlign: 'center',
-            border: '1px solid #e5e7eb'
+            border: '1px solid #3a3a3a'
           }}>
             <div style={{ color: '#10b981', fontSize: '28px', fontWeight: 'bold', marginBottom: '4px' }}>
               {completedShifts}
@@ -195,13 +195,13 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
           </div>
 
           <div style={{
-            background: '#ffffff',
+            background: '#2a2a2a',
             borderRadius: '12px',
             padding: '16px',
             textAlign: 'center',
-            border: '1px solid #e5e7eb'
+            border: '1px solid #3a3a3a'
           }}>
-            <div style={{ color: '#2563eb', fontSize: '28px', fontWeight: 'bold', marginBottom: '4px' }}>
+            <div style={{ color: '#9333ea', fontSize: '28px', fontWeight: 'bold', marginBottom: '4px' }}>
               {upcomingShifts.length}
             </div>
             <div style={{ color: '#6b7280', fontSize: '12px' }}>
@@ -213,18 +213,18 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
         {/* Active Shift */}
         {activeShift && (
           <div style={{ padding: '0 16px 16px' }}>
-            <h3 style={{ color: '#111827', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>
+            <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>
               Active Shift
             </h3>
             <div style={{
-              background: '#ffffff',
+              background: '#2a2a2a',
               borderRadius: '12px',
               padding: '16px',
               border: `2px solid ${activeShift.siteColor}`
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div>
-                  <div style={{ color: '#111827', fontSize: '18px', fontWeight: 'bold', marginBottom: '4px' }}>
+                  <div style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '4px' }}>
                     {activeShift.siteName}
                   </div>
                   <div style={{ color: '#6b7280', fontSize: '14px' }}>
@@ -255,12 +255,12 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
         {/* Today's Shifts */}
         {todayShifts.length > 0 && !activeShift && (
           <div style={{ padding: '0 16px 16px' }}>
-            <h3 style={{ color: '#111827', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>
+            <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>
               Today's Shifts
             </h3>
             {todayShifts.map(shift => (
               <div key={shift.id} style={{
-                background: '#ffffff',
+                background: '#2a2a2a',
                 borderRadius: '12px',
                 padding: '16px',
                 marginBottom: '12px',
@@ -268,7 +268,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <div>
-                    <div style={{ color: '#111827', fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>
+                    <div style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>
                       {shift.siteName}
                     </div>
                     <div style={{ color: '#6b7280', fontSize: '14px' }}>
@@ -301,16 +301,16 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
 
         {/* Upcoming Shifts */}
         <div style={{ padding: '0 16px 16px' }}>
-          <h3 style={{ color: '#111827', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>
+          <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>
             Upcoming Shifts
           </h3>
           {upcomingShifts.length === 0 ? (
             <div style={{
-              background: '#ffffff',
+              background: '#2a2a2a',
               borderRadius: '12px',
               padding: '24px',
               textAlign: 'center',
-              border: '1px solid #e5e7eb'
+              border: '1px solid #3a3a3a'
             }}>
               <div style={{ color: '#6b7280', fontSize: '14px' }}>
                 No upcoming shifts
@@ -319,7 +319,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
           ) : (
             upcomingShifts.map(shift => (
               <div key={shift.id} style={{
-                background: '#ffffff',
+                background: '#2a2a2a',
                 borderRadius: '12px',
                 padding: '16px',
                 marginBottom: '12px',
@@ -327,7 +327,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ color: '#111827', fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>
+                    <div style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>
                       {shift.siteName}
                     </div>
                     <div style={{ color: '#6b7280', fontSize: '14px' }}>
@@ -335,7 +335,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ color: '#111827', fontSize: '14px', fontWeight: '500' }}>
+                    <div style={{ color: 'white', fontSize: '14px', fontWeight: '500' }}>
                       {shift.startTime} - {shift.endTime}
                     </div>
                     <div style={{ color: '#6b7280', fontSize: '12px' }}>

@@ -8,6 +8,7 @@ interface StaffLoginProps {
 const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -147,14 +148,14 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
                 color: '#9ca3af'
               }}>🔒</span>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 disabled={loading}
                 style={{
                   width: '100%',
-                  padding: '14px 14px 14px 45px',
+                  padding: '14px 45px 14px 45px',
                   fontSize: '16px',
                   backgroundColor: '#1a1a1a',
                   color: 'white',
@@ -166,6 +167,24 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
                 onFocus={(e) => e.target.style.borderColor = '#9333ea'}
                 onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '14px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: '#9ca3af',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  padding: '0'
+                }}
+              >
+                {showPassword ? '👁️' : '👁️‍🗨️'}
+              </button>
             </div>
           </div>
 

@@ -8,6 +8,7 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -176,30 +177,50 @@ const Login: React.FC = () => {
             }}>
               Password
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && !loading) {
-                  handleLogin();
-                }
-              }}
-              style={{
-                width: '100%',
-                padding: '14px',
-                fontSize: '16px',
-                backgroundColor: '#1a1a1a',
-                color: 'white',
-                border: '1px solid #3a3a3a',
-                borderRadius: '8px',
-                boxSizing: 'border-box',
-                outline: 'none'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-              onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !loading) {
+                    handleLogin();
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '14px 45px 14px 14px',
+                  fontSize: '16px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '8px',
+                  boxSizing: 'border-box',
+                  outline: 'none'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#9333ea'}
+                onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '14px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: '#9ca3af',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  padding: '0'
+                }}
+              >
+                {showPassword ? '👁️' : '👁️‍🗨️'}
+              </button>
+            </div>
           </div>
 
           {/* Sign In Button */}
