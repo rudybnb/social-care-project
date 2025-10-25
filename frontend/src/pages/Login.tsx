@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import logo from '../assets/logo.jpeg';
 
 const Login: React.FC = () => {
   const { login } = useAuth();
@@ -34,13 +35,13 @@ const Login: React.FC = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#1a1a1a',
+      backgroundColor: '#ffffff',
       display: 'flex',
       flexDirection: 'column'
     }}>
-      {/* Purple Top Bar - Mobile Optimized */}
+      {/* Top Bar - Mobile Optimized */}
       <div style={{
-        backgroundColor: '#9333ea',
+        backgroundColor: '#2563eb',
         padding: '10px 12px',
         display: 'flex',
         alignItems: 'center',
@@ -51,7 +52,7 @@ const Login: React.FC = () => {
         <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>DEV MODE:</span>
         <button style={{
           padding: '6px 12px',
-          backgroundColor: '#7c3aed',
+          backgroundColor: '#1d4ed8',
           color: 'white',
           border: 'none',
           borderRadius: '6px',
@@ -64,7 +65,7 @@ const Login: React.FC = () => {
         </button>
         <button style={{
           padding: '6px 12px',
-          backgroundColor: '#7c3aed',
+          backgroundColor: '#1d4ed8',
           color: 'white',
           border: 'none',
           borderRadius: '6px',
@@ -77,7 +78,7 @@ const Login: React.FC = () => {
         </button>
         <button style={{
           padding: '6px 12px',
-          backgroundColor: '#7c3aed',
+          backgroundColor: '#1d4ed8',
           color: 'white',
           border: 'none',
           borderRadius: '6px',
@@ -102,36 +103,20 @@ const Login: React.FC = () => {
         <div style={{
           width: '100%',
           maxWidth: '420px',
-          backgroundColor: '#2a2a2a',
+          backgroundColor: '#f3f4f6',
           borderRadius: '12px',
-          border: '1px solid #3a3a3a',
+          border: '1px solid #e5e7eb',
           padding: '32px 24px',
           textAlign: 'center'
         }}>
-          {/* Icon */}
-          <div style={{
-            width: '56px',
-            height: '56px',
-            margin: '0 auto 20px',
-            backgroundColor: '#9333ea',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <div style={{
-              width: '28px',
-              height: '28px',
-              border: '3px solid white',
-              borderRadius: '6px'
-            }}></div>
-          </div>
+          {/* Logo */}
+          <img src={logo} alt="Ecclesia Family Centre Logo" style={{ width: '250px', marginBottom: '24px' }} />
 
           {/* Title */}
           <h1 style={{
             fontSize: '22px',
             fontWeight: 'bold',
-            color: 'white',
+            color: '#111827',
             margin: '0 0 8px 0',
             lineHeight: '1.3'
           }}>
@@ -141,7 +126,7 @@ const Login: React.FC = () => {
           {/* Subtitle */}
           <p style={{
             fontSize: '13px',
-            color: '#9ca3af',
+            color: '#6b7280',
             margin: '0 0 28px 0',
             lineHeight: '1.5'
           }}>
@@ -154,7 +139,7 @@ const Login: React.FC = () => {
               display: 'block',
               fontSize: '14px',
               fontWeight: '600',
-              color: 'white',
+              color: '#111827',
               marginBottom: '8px'
             }}>
               Username
@@ -168,15 +153,15 @@ const Login: React.FC = () => {
                 width: '100%',
                 padding: '14px',
                 fontSize: '16px',
-                backgroundColor: '#1a1a1a',
-                color: 'white',
-                border: '1px solid #3a3a3a',
+                backgroundColor: '#ffffff',
+                color: '#111827',
+                border: '1px solid #d1d5db',
                 borderRadius: '8px',
                 boxSizing: 'border-box',
                 outline: 'none'
               }}
-              onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-              onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+              onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
             />
           </div>
 
@@ -186,7 +171,7 @@ const Login: React.FC = () => {
               display: 'block',
               fontSize: '14px',
               fontWeight: '600',
-              color: 'white',
+              color: '#111827',
               marginBottom: '8px'
             }}>
               Password
@@ -205,15 +190,15 @@ const Login: React.FC = () => {
                 width: '100%',
                 padding: '14px',
                 fontSize: '16px',
-                backgroundColor: '#1a1a1a',
-                color: 'white',
-                border: '1px solid #3a3a3a',
+                backgroundColor: '#ffffff',
+                color: '#111827',
+                border: '1px solid #d1d5db',
                 borderRadius: '8px',
                 boxSizing: 'border-box',
                 outline: 'none'
               }}
-              onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-              onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+              onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
             />
           </div>
 
@@ -231,7 +216,7 @@ const Login: React.FC = () => {
               fontSize: '16px',
               fontWeight: 'bold',
               color: 'white',
-              backgroundColor: loading ? '#7c3aed' : '#9333ea',
+              backgroundColor: loading ? '#1d4ed8' : '#2563eb',
               border: 'none',
               borderRadius: '8px',
               cursor: loading ? 'not-allowed' : 'pointer',
@@ -240,7 +225,7 @@ const Login: React.FC = () => {
               marginBottom: '12px'
             }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing in...' : 'SIGN IN'}
           </button>
 
           {/* Staff Login Button */}
@@ -251,9 +236,9 @@ const Login: React.FC = () => {
               padding: '16px',
               fontSize: '16px',
               fontWeight: 'bold',
-              color: '#9333ea',
+              color: '#2563eb',
               backgroundColor: 'transparent',
-              border: '2px solid #9333ea',
+              border: '2px solid #2563eb',
               borderRadius: '8px',
               cursor: 'pointer',
               touchAction: 'manipulation',
@@ -270,8 +255,7 @@ const Login: React.FC = () => {
             color: '#6b7280',
             lineHeight: '1.6'
           }}>
-            <p style={{ margin: '5px 0' }}>Staff see the mobile interface after sign-in</p>
-            <p style={{ margin: '5px 0' }}>Admins and managers see the management dashboard</p>
+            <p style={{ margin: '5px 0' }}>Ecclesia Family Centre App</p>
           </div>
         </div>
       </div>
