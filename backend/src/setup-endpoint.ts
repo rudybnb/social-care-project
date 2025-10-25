@@ -22,27 +22,38 @@ export async function setupDatabase(req: Request, res: Response) {
     await migrate(db, { migrationsFolder: './drizzle' });
     console.log('✅ Migrations completed');
 
-    // Step 2: Create test staff account
-    console.log('Creating test staff account...');
-    const hashedPassword = await bcrypt.hash('jones123', 10);
+    // Step 2: Create test staff accounts
+    console.log('Creating test staff accounts...');
     
-    // Check if staff already exists
+    const testAccounts = [
+      { name: 'Tom Jones', username: 'tom', password: 'jones123' },
+      { name: 'Michael Kenny', username: 'michael', password: 'kenny123' },
+      { name: 'Tim Bin', username: 'tim', password: 'bin123' },
+      { name: 'Lauren Diedericks', username: 'lauren', password: 'diedericks123' }
+    ];
+    
+    // Check existing staff
     const existingStaff = await db.select().from(staff);
-    const tomExists = existingStaff.find(s => s.username === 'tom');
+    const existingUsernames = existingStaff.map(s => s.username);
     
-    if (!tomExists) {
-      await db.insert(staff).values({
-        name: 'Tom Jones',
-        username: 'tom',
-        password: hashedPassword,
-        role: 'Worker',
-        site: 'General',
-        status: 'Active',
-        rates: '£12.50/hr'
-      });
-      console.log('✅ Test staff account created (username: tom, password: jones123)');
-    } else {
-      console.log('ℹ️  Test staff account already exists');
+    let createdCount = 0;
+    for (const account of testAccounts) {
+      if (!existingUsernames.includes(account.username)) {
+        const hashedPassword = await bcrypt.hash(account.password, 10);
+        await db.insert(staff).values({
+          name: account.name,
+          username: account.username,
+          password: hashedPassword,
+          role: 'Worker',
+          site: 'General',
+          status: 'Active',
+          rates: '£12.50/hr'
+        });
+        console.log(`✅ Created account: ${account.username}`);
+        createdCount++;
+      } else {
+        console.log(`ℹ️  Account already exists: ${account.username}`);
+      }
     }
 
     // Step 3: Generate QR codes for sites
@@ -66,12 +77,9 @@ export async function setupDatabase(req: Request, res: Response) {
       message: 'Database setup completed successfully',
       details: {
         migrations: 'completed',
-        testAccount: !tomExists ? 'created' : 'already exists',
+        staffAccounts: `${createdCount} created, ${testAccounts.length - createdCount} already existed`,
         qrCodes: 'generated',
-        credentials: {
-          username: 'tom',
-          password: 'jones123'
-        }
+        credentials: testAccounts.map(a => ({ username: a.username, password: a.password }))
       }
     });
 
