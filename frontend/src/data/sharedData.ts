@@ -129,15 +129,8 @@ let dataLoaded = false;
 const initializeData = async () => {
   if (dataLoaded) return;
   
-  // TODO: Enable backend API when deployed
-  // For now, using local cache only
-  console.log('Using local data cache (backend API disabled)');
-  dataLoaded = true;
-  notifyDataChanged();
-  
-  // Uncomment below when backend is deployed:
-  /*
   try {
+    console.log('Loading data from backend API...');
     const [backendSites, backendStaff, backendShifts] = await Promise.all([
       sitesAPI.getAll().catch(() => []),
       staffAPI.getAll().catch(() => []),
@@ -148,13 +141,14 @@ const initializeData = async () => {
     if (backendStaff.length > 0) staff = backendStaff;
     if (backendShifts.length > 0) shifts = backendShifts;
 
+    console.log('Backend data loaded:', { sites: sites.length, staff: staff.length, shifts: shifts.length });
     dataLoaded = true;
     notifyDataChanged();
   } catch (error) {
     console.warn('Failed to load data from backend, using local cache:', error);
     dataLoaded = true;
+    notifyDataChanged();
   }
-  */
 };
 
 // ==================== SITE MANAGEMENT ====================
