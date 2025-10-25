@@ -27,6 +27,8 @@ services:
         value: 20
       - key: GENERATE_SOURCEMAP
         value: false
+      - key: REACT_APP_API_URL
+        value: https://social-care-backend.onrender.com
 
 databases:
   - name: social-care-db
