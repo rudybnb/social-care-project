@@ -226,15 +226,33 @@ export const setShifts = async (newShifts: any[]): Promise<void> => {
 };
 
 export const addShift = async (shift: any): Promise<void> => {
-  // TODO: Enable backend API when deployed
-  shifts.push(shift);
-  notifyDataChanged();
+  try {
+    // Save to backend database
+    const createdShift = await shiftsAPI.create(shift);
+    // Update local cache with the shift from backend (which has the correct ID)
+    shifts.push(createdShift);
+    notifyDataChanged();
+  } catch (error) {
+    console.error('Failed to create shift:', error);
+    // Fallback: save to local cache only
+    shifts.push(shift);
+    notifyDataChanged();
+  }
 };
 
 export const removeShift = async (id: string): Promise<void> => {
-  // TODO: Enable backend API when deployed
-  shifts = shifts.filter(s => s.id !== id);
-  notifyDataChanged();
+  try {
+    // Delete from backend database
+    await shiftsAPI.delete(id);
+    // Update local cache
+    shifts = shifts.filter(s => s.id !== id);
+    notifyDataChanged();
+  } catch (error) {
+    console.error('Failed to delete shift:', error);
+    // Fallback: delete from local cache only
+    shifts = shifts.filter(s => s.id !== id);
+    notifyDataChanged();
+  }
 };
 
 // ==================== AGENCY MANAGEMENT ====================
