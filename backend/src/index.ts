@@ -494,6 +494,12 @@ app.post('/api/setup', async (req: Request, res: Response) => {
   return setupDatabase(req, res);
 });
 
+// Add staff accounts endpoint
+app.post('/api/add-staff', async (req: Request, res: Response) => {
+  const { addStaffAccounts } = await import('./add-staff-endpoint.js');
+  return addStaffAccounts(req, res);
+});
+
 // Legacy routes
 app.use('/api/attendance', (_req: Request, res: Response) => res.json({ message: 'attendance API placeholder' }));
 app.use('/api/rooms', (_req: Request, res: Response) => res.json({ message: 'rooms API placeholder' }));
