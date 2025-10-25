@@ -500,6 +500,12 @@ app.post('/api/add-staff', async (req: Request, res: Response) => {
   return addStaffAccounts(req, res);
 });
 
+// Fix shift staff IDs endpoint
+app.post('/api/fix-shifts', async (req: Request, res: Response) => {
+  const { fixShiftStaffIds } = await import('./fix-shifts-endpoint.js');
+  return fixShiftStaffIds(req, res);
+});
+
 // Legacy routes
 app.use('/api/attendance', (_req: Request, res: Response) => res.json({ message: 'attendance API placeholder' }));
 app.use('/api/rooms', (_req: Request, res: Response) => res.json({ message: 'rooms API placeholder' }));
