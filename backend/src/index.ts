@@ -529,6 +529,29 @@ app.post('/api/fix-shifts', async (req: Request, res: Response) => {
   return fixShiftStaffIds(req, res);
 });
 
+// ==================== ADMIN ROUTES ====================
+
+// Reset all data (DANGER: Deletes all shifts and staff)
+app.delete('/api/admin/reset-all', async (_req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    
+    // Delete all shifts
+    await db.delete(shifts);
+    
+    // Delete all staff
+    await db.delete(staff);
+    
+    res.json({ 
+      success: true, 
+      message: 'All shifts and staff deleted successfully' 
+    });
+  } catch (error) {
+    console.error('Error resetting data:', error);
+    res.status(500).json({ error: 'Failed to reset data' });
+  }
+});
+
 // Legacy routes
 app.use('/api/attendance', (_req: Request, res: Response) => res.json({ message: 'attendance API placeholder' }));
 app.use('/api/rooms', (_req: Request, res: Response) => res.json({ message: 'rooms API placeholder' }));
