@@ -10,6 +10,8 @@ const Directory: React.FC = () => {
     firstName: '',
     lastName: '',
     email: '',
+    username: '',
+    password: '',
     role: 'Worker',
     site: 'All Sites',
     employmentType: 'Full-time',
@@ -69,6 +71,8 @@ const Directory: React.FC = () => {
       id: Date.now(),
       name: `${formData.firstName} ${formData.lastName}`,
       email: formData.email || undefined,
+      username: formData.username || undefined,
+      password: formData.password || undefined,
       role: formData.role,
       site: formData.site,
       status: 'Active',
@@ -88,6 +92,8 @@ const Directory: React.FC = () => {
       firstName: '',
       lastName: '',
       email: '',
+      username: '',
+      password: '',
       role: 'Worker',
       site: 'All Sites',
       employmentType: 'Full-time',
@@ -342,6 +348,58 @@ const Directory: React.FC = () => {
                   placeholder="e.g., staff@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
+                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+                />
+              </div>
+
+              {/* Username */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Username (for login)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., lauren.alecia"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
+                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+                />
+              </div>
+
+              {/* Password */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Temporary Password
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., temp123"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '12px',

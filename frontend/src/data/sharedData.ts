@@ -39,6 +39,8 @@ export interface StaffMember {
   id: string | number;
   name: string;
   email?: string;
+  username?: string;
+  password?: string;
   role: string;
   site: string;
   status: 'Active' | 'Inactive';
