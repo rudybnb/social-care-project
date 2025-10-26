@@ -67,8 +67,7 @@ const Directory: React.FC = () => {
       return;
     }
 
-    const newStaff: StaffMember = {
-      id: Date.now(),
+    const newStaff: Partial<StaffMember> = {
       name: `${formData.firstName} ${formData.lastName}`,
       email: formData.email || undefined,
       username: formData.username || undefined,

@@ -190,7 +190,7 @@ export const getStaff = (): StaffMember[] => {
   return [...staff];
 };
 
-export const addStaff = async (staffMember: StaffMember): Promise<void> => {
+export const addStaff = async (staffMember: Partial<StaffMember>): Promise<void> => {
   try {
     const response = await fetch('https://social-care-backend.onrender.com/api/staff', {
       method: 'POST',
