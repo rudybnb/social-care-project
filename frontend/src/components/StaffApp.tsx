@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import StaffLogin from './StaffLogin';
 import StaffDashboard from './StaffDashboard';
 import StaffProgress from './StaffProgress';
+import StaffPayroll from './StaffPayroll';
 
-type View = 'login' | 'dashboard' | 'progress';
+type View = 'login' | 'dashboard' | 'progress' | 'payroll';
 
 interface Shift {
   id: string;
@@ -63,6 +64,10 @@ const StaffApp: React.FC = () => {
     setCurrentView('dashboard');
   };
 
+  const handleViewPayroll = () => {
+    setCurrentView('payroll');
+  };
+
   if (currentView === 'login') {
     return <StaffLogin onLogin={handleLogin} />;
   }
@@ -71,11 +76,22 @@ const StaffApp: React.FC = () => {
     return <StaffProgress shifts={shifts} staffName={staffName} />;
   }
 
+  if (currentView === 'payroll') {
+    return (
+      <StaffPayroll 
+        staffId={staffId}
+        staffName={staffName}
+        onBack={handleBackToDashboard}
+      />
+    );
+  }
+
   return (
     <StaffDashboard 
       staffId={staffId} 
       staffName={staffName} 
       onLogout={handleLogout}
+      onViewPayroll={handleViewPayroll}
     />
   );
 };

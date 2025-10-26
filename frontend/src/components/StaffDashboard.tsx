@@ -25,9 +25,10 @@ interface StaffDashboardProps {
   staffId: string;
   staffName: string;
   onLogout: () => void;
+  onViewPayroll?: () => void;
 }
 
-const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onLogout }) => {
+const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onLogout, onViewPayroll }) => {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(true);
   const [showScanner, setShowScanner] = useState(false);
@@ -226,6 +227,38 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             <div style={{ color: '#6b7280', fontSize: '12px' }}>
               Upcoming
             </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div style={{ padding: '0 16px 16px' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr',
+            gap: '12px'
+          }}>
+            {onViewPayroll && (
+              <button
+                onClick={onViewPayroll}
+                style={{
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                }}
+              >
+                💰 My Payroll
+              </button>
+            )}
           </div>
         </div>
 
