@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { users, staff, sites, shifts } from './schema.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 dotenv.config();
 
@@ -538,6 +538,28 @@ app.post('/api/fix-shifts', async (req: Request, res: Response) => {
 });
 
 // ==================== ADMIN ROUTES ====================
+
+// Add login columns migration
+app.post('/api/admin/migrate-login', async (_req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    
+    // Add username and password columns if they don't exist
+    await db.execute(sql`
+      ALTER TABLE staff 
+      ADD COLUMN IF NOT EXISTS username TEXT,
+      ADD COLUMN IF NOT EXISTS password TEXT
+    `);
+    
+    res.json({ 
+      success: true, 
+      message: 'Login columns added successfully' 
+    });
+  } catch (error) {
+    console.error('Error adding login columns:', error);
+    res.status(500).json({ error: 'Failed to add login columns' });
+  }
+});
 
 // Reset all data (DANGER: Deletes all shifts and staff)
 app.delete('/api/admin/reset-all', async (_req: Request, res: Response) => {
