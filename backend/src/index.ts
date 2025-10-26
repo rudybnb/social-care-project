@@ -6,6 +6,7 @@ import bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { users, staff, sites, shifts } from './schema.js';
 import { eq, and, sql } from 'drizzle-orm';
+import * as OTPAuth from 'otpauth';
 
 dotenv.config();
 
@@ -459,10 +460,40 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
       return res.status(403).json({ error: 'You are not assigned to this shift' });
     }
     
-    // Verify QR code matches the site
+      // Verify dynamic TOTP QR code
     const site = await db.select().from(sites).where(eq(sites.id, shift[0].siteId));
-    if (site.length === 0 || !site[0].qrCode || site[0].qrCode !== qrCode) {
-      return res.status(400).json({ error: 'Invalid QR code for this site' });
+    if (site.length === 0) {
+      return res.status(404).json({ error: 'Site not found' });
+    }
+    
+    // Parse QR code: SITE_CHECKIN:{siteId}:{token}
+    const qrParts = qrCode.split(':');
+    if (qrParts.length !== 3 || qrParts[0] !== 'SITE_CHECKIN' || qrParts[1] !== shift[0].siteId) {
+      return res.status(400).json({ error: 'Invalid QR code format' });
+    }
+    
+    const scannedToken = qrParts[2];
+    
+    // Generate TOTP secret for this site (same as frontend)
+    const getSecret = (siteId: string) => {
+      return `ECCLESIA${siteId.toUpperCase().replace(/[^A-Z0-9]/g, '')}SECRET`;
+    };
+    
+    // Verify TOTP token
+    const secret = getSecret(shift[0].siteId);
+    const totp = new OTPAuth.TOTP({
+      issuer: 'Ecclesia Care',
+      label: site[0].name,
+      algorithm: 'SHA1',
+      digits: 6,
+      period: 60,
+      secret: OTPAuth.Secret.fromBase32(secret)
+    });
+    
+    // Validate token (allow 1 period window for clock drift)
+    const delta = totp.validate({ token: scannedToken, window: 1 });
+    if (delta === null) {
+      return res.status(400).json({ error: 'QR code expired or invalid. Please scan again.' });
     }
     
     // Update shift with clock-in time
@@ -509,10 +540,40 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
       return res.status(400).json({ error: 'You must clock in before clocking out' });
     }
     
-    // Verify QR code matches the site
+    // Verify dynamic TOTP QR code
     const site = await db.select().from(sites).where(eq(sites.id, shift[0].siteId));
-    if (site.length === 0 || !site[0].qrCode || site[0].qrCode !== qrCode) {
-      return res.status(400).json({ error: 'Invalid QR code for this site' });
+    if (site.length === 0) {
+      return res.status(404).json({ error: 'Site not found' });
+    }
+    
+    // Parse QR code: SITE_CHECKIN:{siteId}:{token}
+    const qrParts = qrCode.split(':');
+    if (qrParts.length !== 3 || qrParts[0] !== 'SITE_CHECKIN' || qrParts[1] !== shift[0].siteId) {
+      return res.status(400).json({ error: 'Invalid QR code format' });
+    }
+    
+    const scannedToken = qrParts[2];
+    
+    // Generate TOTP secret for this site
+    const getSecret = (siteId: string) => {
+      return `ECCLESIA${siteId.toUpperCase().replace(/[^A-Z0-9]/g, '')}SECRET`;
+    };
+    
+    // Verify TOTP token
+    const secret = getSecret(shift[0].siteId);
+    const totp = new OTPAuth.TOTP({
+      issuer: 'Ecclesia Care',
+      label: site[0].name,
+      algorithm: 'SHA1',
+      digits: 6,
+      period: 60,
+      secret: OTPAuth.Secret.fromBase32(secret)
+    });
+    
+    // Validate token (allow 1 period window for clock drift)
+    const delta = totp.validate({ token: scannedToken, window: 1 });
+    if (delta === null) {
+      return res.status(400).json({ error: 'QR code expired or invalid. Please scan again.' });
     }
     
     // Update shift with clock-out time

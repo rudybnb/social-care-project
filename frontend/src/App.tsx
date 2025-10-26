@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import WorkerDashboard from './pages/WorkerDashboard';
 import StaffApp from './components/StaffApp';
+import DynamicSiteQR from './components/DynamicSiteQR';
 import { useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ role, children }: { role?: 'admin' | 'worker'; children: React.ReactElement }) {
@@ -20,6 +21,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Login />} />
       <Route path="/staff" element={<StaffApp />} />
+      <Route path="/site-qr/:siteId" element={<DynamicSiteQR />} />
       <Route
         path="/admin/*"
         element={

@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Modal from './Modal';
 import { getSites, addSite, updateSite, deleteSite, notifySitesChanged, Site } from '../data/sharedData';
+import SiteQRCodeModal from './SiteQRCodeModal';
 
 const Sites: React.FC = () => {
   const [sites, setSites] = useState<Site[]>(getSites());
   const [showAddSite, setShowAddSite] = useState(false);
   const [showEditSite, setShowEditSite] = useState(false);
-  const [showQRCode, setShowQRCode] = useState(false);
+  const [qrModalSite, setQrModalSite] = useState<Site | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   
   const [siteForm, setSiteForm] = useState({
@@ -89,11 +90,10 @@ const Sites: React.FC = () => {
   };
 
   const handleGenerateQR = (site: Site) => {
-    setSelectedSite(site);
     updateSite(site.id, { qrGenerated: true });
     notifySitesChanged();
     refreshSites();
-    setShowQRCode(true);
+    setQrModalSite(site);
   };
 
   return (
@@ -280,6 +280,27 @@ const Sites: React.FC = () => {
                 }}
               >
                 Edit
+              </button>
+
+              <button
+                onClick={() => setQrModalSite(site)}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  setQrModalSite(site);
+                }}
+                style={{
+                  padding: '10px',
+                  backgroundColor: '#8b5cf6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  touchAction: 'manipulation'
+                }}
+              >
+                📍 QR Code
               </button>
 
               <button
@@ -587,72 +608,16 @@ const Sites: React.FC = () => {
         </div>
       </Modal>
 
-      {/* QR Code Modal */}
-      <Modal isOpen={showQRCode} onClose={() => setShowQRCode(false)} title="Site QR Code">
-        {selectedSite && (
-          <div style={{ textAlign: 'center' }}>
-            <div style={{
-              backgroundColor: 'white',
-              padding: '30px',
-              borderRadius: '12px',
-              marginBottom: '20px',
-              display: 'inline-block'
-            }}>
-              <div style={{
-                width: '200px',
-                height: '200px',
-                backgroundColor: '#f3f4f6',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '8px',
-                border: '2px solid #e5e7eb'
-              }}>
-                <div style={{ textAlign: 'center' }}>
-                  <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2">
-                    <rect x="3" y="3" width="7" height="7" />
-                    <rect x="14" y="3" width="7" height="7" />
-                    <rect x="3" y="14" width="7" height="7" />
-                    <rect x="14" y="14" width="7" height="7" />
-                  </svg>
-                  <div style={{ color: '#6b7280', fontSize: '12px', marginTop: '10px' }}>
-                    QR Code
-                  </div>
-                </div>
-              </div>
-            </div>
-            <h3 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
-              {selectedSite.name}
-            </h3>
-            <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '20px' }}>
-              {selectedSite.address}, {selectedSite.location}, {selectedSite.postcode}
-            </p>
-            <p style={{ color: '#6b7280', fontSize: '12px', marginBottom: '20px' }}>
-              Staff can scan this QR code to clock in/out at this location
-            </p>
-            <button
-              onClick={() => setShowQRCode(false)}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                setShowQRCode(false);
-              }}
-              style={{
-                padding: '12px 32px',
-                backgroundColor: '#9333ea',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '15px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                touchAction: 'manipulation'
-              }}
-            >
-              Close
-            </button>
-          </div>
-        )}
-      </Modal>
+
+
+      {/* Site QR Code Modal */}
+      {qrModalSite && (
+        <SiteQRCodeModal
+          siteId={qrModalSite.id}
+          siteName={qrModalSite.name}
+          onClose={() => setQrModalSite(null)}
+        />
+      )}
     </div>
   );
 };
