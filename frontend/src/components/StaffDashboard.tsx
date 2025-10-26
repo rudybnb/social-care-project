@@ -271,52 +271,6 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
           </div>
         )}
 
-        {/* Today's Shifts */}
-        {todayShifts.length > 0 && !activeShift && (
-          <div style={{ padding: '0 16px 16px' }}>
-            <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>
-              Today's Shifts
-            </h3>
-            {todayShifts.map(shift => (
-              <div key={shift.id} style={{
-                background: '#2a2a2a',
-                borderRadius: '12px',
-                padding: '16px',
-                marginBottom: '12px',
-                border: `1px solid ${shift.siteColor}`
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <div>
-                    <div style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>
-                      {shift.siteName}
-                    </div>
-                    <div style={{ color: '#6b7280', fontSize: '14px' }}>
-                      {shift.type === 'Day' ? '☀️' : '🌙'} {shift.startTime} - {shift.endTime}
-                    </div>
-                  </div>
-                  {shift.clockedOut ? (
-                    <IonBadge color="medium">COMPLETED</IonBadge>
-                  ) : shift.clockedIn ? (
-                    <IonBadge color="success">ACTIVE</IonBadge>
-                  ) : (
-                    <IonBadge color="warning">PENDING</IonBadge>
-                  )}
-                </div>
-
-                {!shift.clockedIn && (
-                  <IonButton
-                    expand="block"
-                    color="success"
-                    onClick={() => openScanner(shift)}
-                  >
-                    <IonIcon slot="start" icon={qrCode} />
-                    Clock In
-                  </IonButton>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* Calendar View */}
         <div style={{ padding: '0 0 16px' }}>
