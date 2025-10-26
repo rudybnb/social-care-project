@@ -191,9 +191,24 @@ export const getStaff = (): StaffMember[] => {
 };
 
 export const addStaff = async (staffMember: StaffMember): Promise<void> => {
-  // TODO: Enable backend API when deployed
-  staff.push(staffMember);
-  notifyDataChanged();
+  try {
+    const response = await fetch('https://social-care-backend.onrender.com/api/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(staffMember)
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to add staff member');
+    }
+    
+    const newStaff = await response.json();
+    staff.push(newStaff);
+    notifyDataChanged();
+  } catch (error) {
+    console.error('Error adding staff:', error);
+    throw error;
+  }
 };
 
 export const updateStaff = async (id: string | number, updates: Partial<StaffMember>): Promise<void> => {

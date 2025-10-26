@@ -75,7 +75,15 @@ app.get('/api/staff/:id', async (req: Request, res: Response) => {
 app.post('/api/staff', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const newStaff = await db.insert(staff).values(req.body).returning();
+    
+    const staffData = { ...req.body };
+    
+    // Hash password if provided
+    if (staffData.password) {
+      staffData.password = await bcrypt.hash(staffData.password, 10);
+    }
+    
+    const newStaff = await db.insert(staff).values(staffData).returning();
     res.status(201).json(newStaff[0]);
   } catch (error) {
     console.error('Error creating staff member:', error);

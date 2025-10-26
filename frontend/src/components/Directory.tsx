@@ -61,7 +61,7 @@ const Directory: React.FC = () => {
   }, []);
 
   // Staff handlers
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.firstName || !formData.lastName) {
       alert('Please enter at least first and last name');
       return;
@@ -86,27 +86,32 @@ const Directory: React.FC = () => {
       weeklyHours: 0
     };
 
-    addStaff(newStaff);
-    
-    setFormData({
-      firstName: '',
-      lastName: '',
-      email: '',
-      username: '',
-      password: '',
-      role: 'Worker',
-      site: 'All Sites',
-      employmentType: 'Full-time',
-      startDate: '',
-      taxCode: '',
-      standardRate: '12.50',
-      enhancedRate: '',
-      nightRate: '',
-      pension: '',
-      otherDeductions: ''
-    });
+    try {
+      await addStaff(newStaff);
+      
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        username: '',
+        password: '',
+        role: 'Worker',
+        site: 'All Sites',
+        employmentType: 'Full-time',
+        startDate: '',
+        taxCode: '',
+        standardRate: '12.50',
+        enhancedRate: '',
+        nightRate: '',
+        pension: '',
+        otherDeductions: ''
+      });
 
-    alert(`Staff member ${newStaff.name} added successfully!`);
+      alert(`✅ Staff member ${newStaff.name} added successfully!\n\nUsername: ${newStaff.username || 'Not set'}\nPassword: Set (hashed)`);
+    } catch (error) {
+      alert('❌ Failed to add staff member. Please try again.');
+      console.error('Error:', error);
+    }
   };
 
   const handleDeactivate = (id: number | string, name: string) => {
