@@ -506,6 +506,47 @@ const Rota: React.FC = () => {
     setShowDeleteConfirm(true);
   };
 
+  const clearDay = async (date: string, siteId: string, siteName: string) => {
+    const dayShift = getShiftForSlot(date, siteId, 'Day');
+    const nightShift = getShiftForSlot(date, siteId, 'Night');
+    const shiftCount = (dayShift ? 1 : 0) + (nightShift ? 1 : 0);
+    
+    if (shiftCount === 0) {
+      alert('No shifts to clear for this day.');
+      return;
+    }
+    
+    const confirmed = window.confirm(
+      `⚠️ CLEAR ALL SHIFTS\n\n` +
+      `This will remove ${shiftCount} shift(s) at ${siteName} on ${new Date(date).toLocaleDateString('en-GB')}:\n\n` +
+      `${dayShift ? '• Day Shift (' + dayShift.staffName + ')\n' : ''}` +
+      `${nightShift ? '• Night Shift (' + nightShift.staffName + ')\n' : ''}` +
+      `\nAre you sure you want to continue?`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      const response = await fetch(`https://social-care-backend.onrender.com/api/shifts/clear/${siteId}/${date}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to clear shifts');
+      }
+      
+      const result = await response.json();
+      
+      // Remove shifts from local state
+      setShifts(shifts.filter(s => !(s.date === date && String(s.siteId) === String(siteId))));
+      
+      alert(`✅ ${result.message}`);
+    } catch (error) {
+      console.error('Error clearing day:', error);
+      alert('❌ Failed to clear shifts. Please try again.');
+    }
+  };
+
   const getShiftForSlot = (date: string, siteId: string, type: 'Day' | 'Night') => {
     console.log('🔍 getShiftForSlot called:', { date, siteId, type });
     console.log('📋 All shifts:', shifts);
@@ -780,7 +821,7 @@ const Rota: React.FC = () => {
                               TODAY
                             </div>
                           )}
-                          {/* Coverage Badge */}
+                          {/* Coverage Badge and Clear Day Button */}
                           {(() => {
                             const dayShift = getShiftForSlot(date, site.id, 'Day');
                             const nightShift = getShiftForSlot(date, site.id, 'Night');
@@ -788,17 +829,41 @@ const Rota: React.FC = () => {
                             const bgColor = coverage === 2 ? '#10b98120' : coverage === 1 ? '#f59e0b20' : '#ef444420';
                             const textColor = coverage === 2 ? '#10b981' : coverage === 1 ? '#f59e0b' : '#ef4444';
                             return (
-                              <div style={{
-                                marginTop: '6px',
-                                padding: '2px 6px',
-                                backgroundColor: bgColor,
-                                border: `1px solid ${textColor}40`,
-                                borderRadius: '4px',
-                                display: 'inline-block'
-                              }}>
-                                <span style={{ color: textColor, fontSize: '10px', fontWeight: '700' }}>
-                                  {coverage}/2
-                                </span>
+                              <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                                <div style={{
+                                  padding: '2px 6px',
+                                  backgroundColor: bgColor,
+                                  border: `1px solid ${textColor}40`,
+                                  borderRadius: '4px',
+                                  display: 'inline-block'
+                                }}>
+                                  <span style={{ color: textColor, fontSize: '10px', fontWeight: '700' }}>
+                                    {coverage}/2
+                                  </span>
+                                </div>
+                                {coverage > 0 && (
+                                  <button
+                                    onClick={() => clearDay(date, site.id, site.name)}
+                                    onTouchEnd={(e) => {
+                                      e.preventDefault();
+                                      clearDay(date, site.id, site.name);
+                                    }}
+                                    style={{
+                                      padding: '3px 8px',
+                                      backgroundColor: '#ef4444',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      fontSize: '9px',
+                                      fontWeight: '600',
+                                      cursor: 'pointer',
+                                      touchAction: 'manipulation',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    Clear Day
+                                  </button>
+                                )}
                               </div>
                             );
                           })()}

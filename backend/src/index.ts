@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { users, staff, sites, shifts } from './schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 dotenv.config();
 
@@ -277,6 +277,29 @@ app.delete('/api/shifts/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error deleting shift:', error);
     res.status(500).json({ error: 'Failed to delete shift' });
+  }
+});
+
+// Delete all shifts for a specific date and site (Clear Day)
+app.delete('/api/shifts/clear/:siteId/:date', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { siteId, date } = req.params;
+    if (!siteId || !date) {
+      return res.status(400).json({ error: 'Site ID and date are required' });
+    }
+    
+    const deleted = await db.delete(shifts)
+      .where(and(eq(shifts.siteId, siteId), eq(shifts.date, date)))
+      .returning();
+    
+    res.json({ 
+      message: `Cleared ${deleted.length} shift(s) for date ${date}`,
+      count: deleted.length 
+    });
+  } catch (error) {
+    console.error('Error clearing shifts:', error);
+    res.status(500).json({ error: 'Failed to clear shifts' });
   }
 });
 
