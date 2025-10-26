@@ -495,11 +495,29 @@ const Rota: React.FC = () => {
         );
         
         if (reason && reason.trim()) {
-          // Delete both shifts
-          setShifts(shifts.filter(s => s.id !== shiftToDelete.id && s.id !== oppositeShift.id));
-          setShowDeleteConfirm(false);
-          setShiftToDelete(null);
-          alert(`✅ Complete 24h shift deleted\n\nReason: ${reason}`);
+          // Delete both shifts from database
+          (async () => {
+            try {
+              const response = await fetch(`https://social-care-backend.onrender.com/api/shifts/clear/${shiftToDelete.siteId}/${shiftToDelete.date}`, {
+                method: 'DELETE'
+              });
+              
+              if (!response.ok) {
+                throw new Error('Failed to delete shifts');
+              }
+              
+              // Remove shifts from local state
+              setShifts(shifts.filter(s => s.id !== shiftToDelete.id && s.id !== oppositeShift.id));
+              setShowDeleteConfirm(false);
+              setShiftToDelete(null);
+              alert(`✅ Complete 24h shift deleted\n\nReason: ${reason}`);
+            } catch (error) {
+              console.error('Error deleting shifts:', error);
+              alert('❌ Failed to delete shifts from database. Please try again.');
+              setShowDeleteConfirm(false);
+              setShiftToDelete(null);
+            }
+          })();
           return;
         } else {
           alert('❌ Deletion cancelled. Reason is required.');
