@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import logo from '../assets/logo.jpeg';
+import QRScanner from './QRScanner';
 
 interface StaffLoginProps {
   onLogin: (staffId: string, staffName: string) => void;
@@ -11,6 +12,48 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
+
+  const handleQRLogin = async (qrData: string) => {
+    try {
+      setLoading(true);
+      setError('');
+      setShowQRScanner(false);
+
+      // QR data format: "STAFF_LOGIN:{staffId}"
+      if (!qrData.startsWith('STAFF_LOGIN:')) {
+        setError('Invalid QR code. Please scan a staff login QR code.');
+        return;
+      }
+
+      const staffId = qrData.replace('STAFF_LOGIN:', '');
+
+      // Call backend to get staff details and generate token
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/auth/staff/qr-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ staffId }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('staff-token', data.token);
+        localStorage.setItem('staff-id', data.user.id);
+        localStorage.setItem('staff-name', data.user.name);
+        onLogin(data.user.id, data.user.name);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'QR login failed');
+      }
+    } catch (err) {
+      console.error('QR login error:', err);
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,6 +252,43 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
           </button>
         </form>
 
+        {/* OR Divider */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          margin: '20px 0',
+          color: '#6b7280',
+          fontSize: '14px'
+        }}>
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#3a3a3a' }}></div>
+          <span style={{ padding: '0 12px' }}>OR</span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: '#3a3a3a' }}></div>
+        </div>
+
+        {/* QR Code Login Button */}
+        <button
+          type="button"
+          onClick={() => setShowQRScanner(true)}
+          style={{
+            width: '100%',
+            padding: '16px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            color: '#9333ea',
+            backgroundColor: 'transparent',
+            border: '2px solid #9333ea',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}
+        >
+          📷 Scan QR Code to Login
+        </button>
+
         {/* Footer */}
         <p style={{
           fontSize: '12px',
@@ -218,6 +298,14 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
           Ecclesia Family Centre App
         </p>
       </div>
+
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <QRScanner
+          onScan={handleQRLogin}
+          onClose={() => setShowQRScanner(false)}
+        />
+      )}
     </div>
   );
 };

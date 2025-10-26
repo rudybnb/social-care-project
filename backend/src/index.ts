@@ -371,6 +371,37 @@ app.post('/api/auth/staff/login', async (req: Request, res: Response) => {
   }
 });
 
+// Staff QR code login
+app.post('/api/auth/staff/qr-login', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { staffId } = req.body;
+    
+    if (!staffId) {
+      return res.status(400).json({ error: 'Staff ID required' });
+    }
+    
+    // Find staff by ID
+    const staffMember = await db.select().from(staff).where(eq(staff.id, staffId));
+    
+    if (staffMember.length === 0) {
+      return res.status(401).json({ error: 'Invalid QR code' });
+    }
+    
+    const user = staffMember[0];
+    
+    // Return user data (excluding password)
+    const { password: _, ...userWithoutPassword } = user;
+    res.json({ 
+      user: userWithoutPassword, 
+      token: `staff-${user.id}` // Simple token for demo
+    });
+  } catch (error) {
+    console.error('Error during QR login:', error);
+    res.status(500).json({ error: 'QR login failed' });
+  }
+});
+
 // Legacy admin login (email/role)
 app.post('/api/auth/login', async (req: Request, res: Response) => {
   const { email, role } = req.body || {};

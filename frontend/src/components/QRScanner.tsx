@@ -6,7 +6,7 @@ import { close, checkmarkCircle, alertCircle } from 'ionicons/icons';
 interface QRScannerProps {
   onScan: (qrCode: string) => void;
   onClose: () => void;
-  shiftInfo: {
+  shiftInfo?: {
     siteName: string;
     type: string;
     startTime: string;
@@ -149,22 +149,24 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose, shiftInfo }) => 
         </div>
 
         {/* Shift Info */}
-        <div style={{
-          background: '#ffffff',
-          borderRadius: '12px',
-          padding: '16px',
-          width: '100%',
-          maxWidth: '400px',
-          border: '1px solid #e5e7eb',
-          marginBottom: '16px'
-        }}>
-          <div style={{ color: '#111827', fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
-            {shiftInfo.siteName}
+        {shiftInfo && (
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '12px',
+            padding: '16px',
+            width: '100%',
+            maxWidth: '400px',
+            border: '1px solid #e5e7eb',
+            marginBottom: '16px'
+          }}>
+            <div style={{ color: '#111827', fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
+              {shiftInfo.siteName}
+            </div>
+            <div style={{ color: '#6b7280', fontSize: '14px' }}>
+              {shiftInfo.type === 'Day' ? '☀️ Day Shift' : '🌙 Night Shift'} • {shiftInfo.startTime} - {shiftInfo.endTime}
+            </div>
           </div>
-          <div style={{ color: '#6b7280', fontSize: '14px' }}>
-            {shiftInfo.type === 'Day' ? '☀️ Day Shift' : '🌙 Night Shift'} • {shiftInfo.startTime} - {shiftInfo.endTime}
-          </div>
-        </div>
+        )}
 
         {/* Instructions */}
         {!error && !success && (
@@ -177,8 +179,12 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose, shiftInfo }) => 
             {scanning ? (
               <>
                 Position the QR code within the frame
-                <br />
-                to {shiftInfo.clockedIn ? 'clock out' : 'clock in'}
+                {shiftInfo && (
+                  <>
+                    <br />
+                    to {shiftInfo.clockedIn ? 'clock out' : 'clock in'}
+                  </>
+                )}
               </>
             ) : (
               <IonSpinner name="crescent" />

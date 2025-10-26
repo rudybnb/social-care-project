@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { getShifts, subscribeToDataChange, getStaff, addStaff, updateStaff, deleteStaff, StaffMember, Agency, AgencyWorker, getAgencies, addAgency, updateAgency, deleteAgency, getAgencyWorkers, addAgencyWorker, updateAgencyWorker, deleteAgencyWorker } from '../data/sharedData';
 import { calculateWeeklyHours } from '../utils/hoursCalculator';
+import StaffQRCodeModal from './StaffQRCodeModal';
 
 const Directory: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'staff' | 'agency'>('staff');
+  const [qrModalStaff, setQrModalStaff] = useState<{ id: string; name: string } | null>(null);
   
   // Staff state
   const [formData, setFormData] = useState({
@@ -771,6 +773,23 @@ const Directory: React.FC = () => {
                       Deactivate
                     </button>
                     <button
+                      onClick={() => setQrModalStaff({ id: String(staff.id), name: staff.name })}
+                      style={{
+                        flex: '1 1 auto',
+                        minWidth: '120px',
+                        padding: '10px 16px',
+                        backgroundColor: '#8b5cf6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '7px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      📱 QR Code
+                    </button>
+                    <button
                       onClick={() => handleDelete(staff.id, staff.name)}
                       style={{
                         flex: '1 1 auto',
@@ -1377,6 +1396,15 @@ const Directory: React.FC = () => {
             </div>
           </div>
         </>
+      )}
+
+      {/* QR Code Modal */}
+      {qrModalStaff && (
+        <StaffQRCodeModal
+          staffId={qrModalStaff.id}
+          staffName={qrModalStaff.name}
+          onClose={() => setQrModalStaff(null)}
+        />
       )}
     </div>
   );
