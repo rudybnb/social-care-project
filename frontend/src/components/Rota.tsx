@@ -129,14 +129,17 @@ const Rota: React.FC = () => {
       errors.push(`INVALID DATE: Cannot assign shifts to past dates. Selected date: ${newShift.date}`);
     }
 
-    // R1: No same-shift duplication
+    // R1: No same-shift duplication (unless replacing a declined shift)
     const duplicateShift = shifts.find(s => 
       s.date === newShift.date && 
       s.siteId === newShift.siteId && 
       s.type === newShift.type
     );
     if (duplicateShift) {
-      errors.push(`CONFLICT: ${duplicateShift.staffName} is already assigned to ${newShift.type} shift at this site on this date.`);
+      // Allow replacement if the existing shift is declined
+      if (duplicateShift.staffStatus !== 'declined') {
+        errors.push(`CONFLICT: ${duplicateShift.staffName} is already assigned to ${newShift.type} shift at this site on this date.`);
+      }
     }
 
     // NEW RULE: Same worker cannot work same time at different sites
@@ -363,6 +366,29 @@ const Rota: React.FC = () => {
     // Both shifts valid, assign them
     console.log('Creating shifts:', { dayShift, nightShift });
     console.log('Current shifts before:', shifts);
+    
+    // Check if replacing declined shifts and remove them first
+    const declinedDayShift = shifts.find(s => 
+      s.date === dayShift.date && 
+      s.siteId === dayShift.siteId && 
+      s.type === 'Day' && 
+      s.staffStatus === 'declined'
+    );
+    const declinedNightShift = shifts.find(s => 
+      s.date === nightShift.date && 
+      s.siteId === nightShift.siteId && 
+      s.type === 'Night' && 
+      s.staffStatus === 'declined'
+    );
+    
+    if (declinedDayShift) {
+      console.log('Removing declined Day shift:', declinedDayShift);
+      await removeShift(declinedDayShift.id);
+    }
+    if (declinedNightShift) {
+      console.log('Removing declined Night shift:', declinedNightShift);
+      await removeShift(declinedNightShift.id);
+    }
     
     // Add shifts to shared data store
     await addShift(dayShift);
