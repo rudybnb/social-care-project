@@ -80,6 +80,11 @@ app.post('/api/staff', async (req: Request, res: Response) => {
     
     const staffData = { ...req.body };
     
+    // Convert numeric rate to string for decimal field
+    if (staffData.standardRate) {
+      staffData.standardRate = String(staffData.standardRate);
+    }
+    
     // Hash password if provided
     if (staffData.password) {
       console.log('Hashing password...');
