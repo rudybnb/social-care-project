@@ -252,6 +252,21 @@ export const addShift = async (shift: any): Promise<void> => {
   }
 };
 
+export const updateShift = async (id: string, updates: any): Promise<void> => {
+  try {
+    // Update in backend database
+    const updatedShift = await shiftsAPI.update(id, updates);
+    // Update local cache
+    shifts = shifts.map(s => s.id === id ? updatedShift : s);
+    notifyDataChanged();
+  } catch (error) {
+    console.error('Failed to update shift:', error);
+    // Fallback: update local cache only
+    shifts = shifts.map(s => s.id === id ? { ...s, ...updates } : s);
+    notifyDataChanged();
+  }
+};
+
 export const removeShift = async (id: string): Promise<void> => {
   try {
     // Delete from backend database
