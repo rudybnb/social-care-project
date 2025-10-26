@@ -314,7 +314,7 @@ const Payroll: React.FC = () => {
       }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr',
+          gridTemplateColumns: '2fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr 1fr 1fr 1.2fr',
           padding: '16px',
           backgroundColor: '#252525',
           borderBottom: '1px solid #3a3a3a',
@@ -324,7 +324,8 @@ const Payroll: React.FC = () => {
         }}>
           <div>Staff Name</div>
           <div style={{ textAlign: 'center' }}>Total Hours</div>
-          <div style={{ textAlign: 'center' }}>Day Hours</div>
+          <div style={{ textAlign: 'center' }}>First 20h</div>
+          <div style={{ textAlign: 'center' }}>After 20h</div>
           <div style={{ textAlign: 'center' }}>Night Hours</div>
           <div style={{ textAlign: 'right' }}>Standard Pay</div>
           <div style={{ textAlign: 'right' }}>Enhanced Pay</div>
@@ -352,7 +353,7 @@ const Payroll: React.FC = () => {
               key={index}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr',
+                gridTemplateColumns: '2fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr 1fr 1fr 1.2fr',
                 padding: '16px',
                 borderBottom: index < payrollData.length - 1 ? '1px solid #2a2a2a' : 'none',
                 fontSize: '13px',
@@ -380,29 +381,19 @@ const Payroll: React.FC = () => {
                   {staff.isAgency && staff.agencyName && (
                     <> • {staff.agencyName}</>
                   )}
-                  {!staff.isAgency && staff.dayHours > 0 && (
-                    <div style={{ marginTop: '4px', fontSize: '10px' }}>
-                      {staff.first20Hours > 0 && (
-                        <span>First {staff.first20Hours.toFixed(1)}h @ std rate</span>
-                      )}
-                      {staff.remainingHours > 0 && (
-                        <span> • +{staff.remainingHours.toFixed(1)}h @ enhanced</span>
-                      )}
-                      {staff.nightHours > 0 && (
-                        <span> • {staff.nightHours.toFixed(1)}h night</span>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
               <div style={{ textAlign: 'center', color: 'white', fontWeight: '600' }}>
                 {staff.totalHours.toFixed(1)}h
               </div>
-              <div style={{ textAlign: 'center', color: '#9ca3af' }}>
-                {staff.dayHours.toFixed(1)}h
+              <div style={{ textAlign: 'center', color: '#10b981', fontWeight: '600' }}>
+                {staff.isAgency ? '—' : `${staff.first20Hours.toFixed(1)}h`}
               </div>
-              <div style={{ textAlign: 'center', color: '#9ca3af' }}>
-                {staff.nightHours.toFixed(1)}h
+              <div style={{ textAlign: 'center', color: '#f59e0b', fontWeight: '600' }}>
+                {staff.isAgency || staff.remainingHours === 0 ? '—' : `${staff.remainingHours.toFixed(1)}h`}
+              </div>
+              <div style={{ textAlign: 'center', color: '#8b5cf6', fontWeight: '600' }}>
+                {staff.nightHours > 0 ? `${staff.nightHours.toFixed(1)}h` : '—'}
               </div>
               <div style={{ textAlign: 'right', color: '#10b981' }}>
                 £{staff.standardPay.toFixed(2)}
