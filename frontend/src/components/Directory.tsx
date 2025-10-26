@@ -9,6 +9,7 @@ const Directory: React.FC = () => {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
+    email: '',
     role: 'Worker',
     site: 'All Sites',
     employmentType: 'Full-time',
@@ -67,6 +68,7 @@ const Directory: React.FC = () => {
     const newStaff: StaffMember = {
       id: Date.now(),
       name: `${formData.firstName} ${formData.lastName}`,
+      email: formData.email || undefined,
       role: formData.role,
       site: formData.site,
       status: 'Active',
@@ -85,6 +87,7 @@ const Directory: React.FC = () => {
     setFormData({
       firstName: '',
       lastName: '',
+      email: '',
       role: 'Worker',
       site: 'All Sites',
       employmentType: 'Full-time',
@@ -313,6 +316,32 @@ const Directory: React.FC = () => {
                   placeholder="e.g., Doe"
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
+                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  placeholder="e.g., staff@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '12px',
