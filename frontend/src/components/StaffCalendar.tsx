@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonButton, IonIcon, IonBadge } from '@ionic/react';
+import { IonIcon } from '@ionic/react';
 import { chevronBack, chevronForward, people } from 'ionicons/icons';
 
 interface Shift {
@@ -37,10 +37,11 @@ interface AllShift {
 interface StaffCalendarProps {
   staffId: string;
   shifts: Shift[];
+  onShiftClick?: (shift: Shift) => void;
 }
 
-const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts }) => {
-  const [selectedWeek, setSelectedWeek] = useState(0);
+const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onShiftClick }) => {
+  const [selectedMonth, setSelectedMonth] = useState(0);
   const [allShifts, setAllShifts] = useState<AllShift[]>([]);
 
   // Fetch all shifts to see coworkers
@@ -60,29 +61,52 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts }) => {
     }
   };
 
-  // Get current week dates
-  const getWeekDates = (weekOffset: number = 0) => {
+  // Get month dates
+  const getMonthDates = (monthOffset: number = 0) => {
     const today = new Date();
-    const currentDay = today.getDay();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - currentDay + 1 + (weekOffset * 7));
-
+    const targetMonth = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
+    
+    const year = targetMonth.getFullYear();
+    const month = targetMonth.getMonth();
+    
+    // Get first day of month and adjust to Monday
+    const firstDay = new Date(year, month, 1);
+    const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1; // Monday = 0
+    
+    // Get last day of month
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    
     const dates = [];
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + i);
-      dates.push(date);
+    
+    // Add previous month days to fill the week
+    for (let i = startDay - 1; i >= 0; i--) {
+      const date = new Date(year, month, -i);
+      dates.push({ date, isCurrentMonth: false });
     }
-    return dates;
+    
+    // Add current month days
+    for (let i = 1; i <= lastDay; i++) {
+      const date = new Date(year, month, i);
+      dates.push({ date, isCurrentMonth: true });
+    }
+    
+    // Add next month days to complete the grid
+    const remainingDays = 42 - dates.length; // 6 rows × 7 days
+    for (let i = 1; i <= remainingDays; i++) {
+      const date = new Date(year, month + 1, i);
+      dates.push({ date, isCurrentMonth: false });
+    }
+    
+    return { dates, month: targetMonth };
   };
 
-  const weekDates = getWeekDates(selectedWeek);
+  const { dates: monthDates, month } = getMonthDates(selectedMonth);
   const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   // Get my shifts for a specific date
   const getMyShiftsForDate = (date: Date) => {
     const dateStr = date.toISOString().split('T')[0];
-    return shifts.filter(s => s.date === dateStr);
+    return shifts.filter(s => s.date === dateStr && !s.isBank);
   };
 
   // Get coworkers for a specific shift
@@ -96,13 +120,15 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts }) => {
     );
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const formatMonth = (date: Date) => {
+    return date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   };
+
+  const today = new Date().toISOString().split('T')[0];
 
   return (
     <div style={{ padding: '16px' }}>
-      {/* Week Navigator */}
+      {/* Month Navigator */}
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -112,164 +138,198 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts }) => {
         background: '#2a2a2a',
         borderRadius: '12px'
       }}>
-        <IonButton
-          fill="clear"
-          onClick={() => setSelectedWeek(selectedWeek - 1)}
-          style={{ color: '#9333ea' }}
+        <button
+          onClick={() => setSelectedMonth(selectedMonth - 1)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#9333ea',
+            fontSize: '24px',
+            cursor: 'pointer',
+            padding: '4px 12px'
+          }}
         >
           <IonIcon icon={chevronBack} />
-        </IonButton>
+        </button>
         
         <div style={{ 
           color: 'white', 
-          fontSize: '16px',
+          fontSize: '18px',
           fontWeight: '600'
         }}>
-          {formatDate(weekDates[0])} - {formatDate(weekDates[6])}
+          {formatMonth(month)}
         </div>
         
-        <IonButton
-          fill="clear"
-          onClick={() => setSelectedWeek(selectedWeek + 1)}
-          style={{ color: '#9333ea' }}
+        <button
+          onClick={() => setSelectedMonth(selectedMonth + 1)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#9333ea',
+            fontSize: '24px',
+            cursor: 'pointer',
+            padding: '4px 12px'
+          }}
         >
           <IonIcon icon={chevronForward} />
-        </IonButton>
+        </button>
       </div>
 
       {/* Calendar Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: '8px'
-      }}>
-        {weekDates.map((date, index) => {
-          const myShifts = getMyShiftsForDate(date);
-          const isToday = date.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
-
-          return (
+      <div>
+        {/* Week Day Headers */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gap: '4px',
+          marginBottom: '8px'
+        }}>
+          {weekDays.map((day, index) => (
             <div
               key={index}
               style={{
-                background: isToday ? '#3a2a5a' : '#2a2a2a',
-                borderRadius: '12px',
-                padding: '12px 8px',
-                border: isToday ? '2px solid #9333ea' : 'none',
-                minHeight: '200px'
+                textAlign: 'center',
+                color: '#999',
+                fontSize: '12px',
+                fontWeight: '600',
+                padding: '8px 0'
               }}
             >
-              {/* Day Header */}
-              <div style={{ 
-                textAlign: 'center', 
-                marginBottom: '12px',
-                paddingBottom: '8px',
-                borderBottom: '1px solid #444'
-              }}>
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar Days */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gap: '4px'
+        }}>
+          {monthDates.map(({ date, isCurrentMonth }, index) => {
+            const myShifts = getMyShiftsForDate(date);
+            const dateStr = date.toISOString().split('T')[0];
+            const isToday = dateStr === today;
+            const hasShifts = myShifts.length > 0;
+
+            return (
+              <div
+                key={index}
+                onClick={() => {
+                  if (isToday && hasShifts && onShiftClick) {
+                    // Click on today's shift opens scanner
+                    const todayShift = myShifts.find(s => !s.clockedIn);
+                    if (todayShift) onShiftClick(todayShift);
+                  }
+                }}
+                style={{
+                  background: isToday && hasShifts ? '#9333ea' : isCurrentMonth ? '#2a2a2a' : '#1a1a1a',
+                  borderRadius: '8px',
+                  padding: '8px 4px',
+                  minHeight: '80px',
+                  border: isToday ? '2px solid #9333ea' : '1px solid #3a3a3a',
+                  cursor: isToday && hasShifts ? 'pointer' : 'default',
+                  transition: 'transform 0.2s',
+                  position: 'relative'
+                }}
+                onMouseEnter={(e) => {
+                  if (isToday && hasShifts) {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                {/* Date Number */}
                 <div style={{ 
-                  color: '#999', 
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  marginBottom: '4px'
-                }}>
-                  {weekDays[index]}
-                </div>
-                <div style={{ 
-                  color: isToday ? '#9333ea' : 'white',
-                  fontSize: '18px',
-                  fontWeight: 'bold'
+                  color: isToday && hasShifts ? 'white' : isCurrentMonth ? 'white' : '#666',
+                  fontSize: '14px',
+                  fontWeight: isToday ? 'bold' : '500',
+                  marginBottom: '4px',
+                  textAlign: 'center'
                 }}>
                   {date.getDate()}
                 </div>
-              </div>
 
-              {/* Shifts */}
-              {myShifts.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {myShifts.map(shift => {
-                    const coworkers = getCoworkers(shift);
-                    return (
-                      <div
-                        key={shift.id}
-                        style={{
-                          background: shift.siteColor || '#9333ea',
-                          borderRadius: '8px',
-                          padding: '8px',
-                          fontSize: '11px'
-                        }}
-                      >
-                        <div style={{ 
-                          color: 'white',
-                          fontWeight: '600',
-                          marginBottom: '4px',
-                          fontSize: '10px'
-                        }}>
-                          {shift.type === 'Day' ? '☀️' : '🌙'} {shift.type}
-                        </div>
-                        <div style={{ 
-                          color: 'rgba(255,255,255,0.9)',
-                          fontSize: '9px',
-                          marginBottom: '6px'
-                        }}>
-                          {shift.startTime} - {shift.endTime}
-                        </div>
-                        <div style={{ 
-                          color: 'rgba(255,255,255,0.8)',
-                          fontSize: '9px',
-                          marginBottom: '6px',
-                          fontWeight: '500'
-                        }}>
-                          {shift.siteName}
-                        </div>
-                        {coworkers.length > 0 && (
-                          <div style={{
-                            background: 'rgba(0,0,0,0.2)',
+                {/* Shift Indicators */}
+                {hasShifts && (
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '2px',
+                    alignItems: 'center'
+                  }}>
+                    {myShifts.map((shift, idx) => {
+                      const coworkers = getCoworkers(shift);
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            background: isToday ? 'rgba(255,255,255,0.2)' : shift.siteColor || '#9333ea',
                             borderRadius: '4px',
                             padding: '4px',
-                            marginTop: '6px'
-                          }}>
-                            <div style={{
-                              color: 'rgba(255,255,255,0.7)',
-                              fontSize: '8px',
-                              marginBottom: '2px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '2px'
-                            }}>
-                              <IonIcon icon={people} style={{ fontSize: '10px' }} />
-                              <span>With:</span>
-                            </div>
-                            {coworkers.map((coworker, idx) => (
-                              <div
-                                key={idx}
-                                style={{
-                                  color: 'white',
-                                  fontSize: '9px',
-                                  fontWeight: '500',
-                                  marginTop: '2px'
-                                }}
-                              >
-                                • {coworker.staffName}
-                              </div>
-                            ))}
+                            width: '100%',
+                            fontSize: '9px',
+                            color: 'white',
+                            textAlign: 'center'
+                          }}
+                          title={`${shift.type} shift at ${shift.siteName}\n${shift.startTime} - ${shift.endTime}${coworkers.length > 0 ? `\nWith: ${coworkers.map(c => c.staffName).join(', ')}` : ''}`}
+                        >
+                          <div style={{ fontWeight: '600' }}>
+                            {shift.type === 'Day' ? '☀️' : '🌙'}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={{ 
-                  color: '#666', 
-                  fontSize: '10px',
-                  textAlign: 'center',
-                  marginTop: '20px'
-                }}>
-                  No shifts
-                </div>
-              )}
-            </div>
-          );
-        })}
+                          {coworkers.length > 0 && (
+                            <div style={{ 
+                              fontSize: '8px', 
+                              marginTop: '2px',
+                              opacity: 0.9
+                            }}>
+                              <IonIcon icon={people} style={{ fontSize: '8px', verticalAlign: 'middle' }} /> {coworkers.length}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Today indicator for shifts */}
+                {isToday && hasShifts && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '4px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    fontSize: '8px',
+                    color: 'white',
+                    fontWeight: '600',
+                    opacity: 0.8
+                  }}>
+                    TAP TO CLOCK IN
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div style={{
+        marginTop: '16px',
+        padding: '12px',
+        background: '#2a2a2a',
+        borderRadius: '8px',
+        fontSize: '11px',
+        color: '#999'
+      }}>
+        <div style={{ marginBottom: '4px' }}>
+          <span style={{ color: '#9333ea', fontWeight: '600' }}>●</span> Today's shift (tap to clock in)
+        </div>
+        <div>
+          <IonIcon icon={people} style={{ fontSize: '10px', verticalAlign: 'middle' }} /> Number of coworkers on shift
+        </div>
       </div>
     </div>
   );

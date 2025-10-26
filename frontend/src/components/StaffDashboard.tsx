@@ -306,7 +306,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             <IonIcon icon={calendar} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
             My Schedule
           </h3>
-          <StaffCalendar staffId={staffId} shifts={shifts} />
+          <StaffCalendar staffId={staffId} shifts={shifts} onShiftClick={openScanner} />
         </div>
 
         {/* Upcoming Shifts */}
