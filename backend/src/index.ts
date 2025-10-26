@@ -684,7 +684,41 @@ app.use('/api/attendance', (_req: Request, res: Response) => res.json({ message:
 app.use('/api/rooms', (_req: Request, res: Response) => res.json({ message: 'rooms API placeholder' }));
 app.use('/api/queries', (_req: Request, res: Response) => res.json({ message: 'queries API placeholder' }));
 
-app.listen(PORT, () => {
+// Auto-run migration on startup
+const runStartupMigration = async () => {
+  if (!pool) {
+    console.warn('⚠️  Database not configured, skipping migration');
+    return;
+  }
+  
+  try {
+    console.log('🔄 Checking database schema...');
+    
+    // Check if staff_status column exists
+    const result = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'shifts' AND column_name = 'staff_status';
+    `);
+    
+    if (result.rows.length === 0) {
+      console.log('📝 Running staff status migration...');
+      await pool.query(`
+        ALTER TABLE shifts 
+        ADD COLUMN IF NOT EXISTS staff_status TEXT DEFAULT 'pending',
+        ADD COLUMN IF NOT EXISTS decline_reason TEXT;
+      `);
+      console.log('✅ Migration completed successfully!');
+    } else {
+      console.log('✅ Database schema is up to date');
+    }
+  } catch (error: any) {
+    console.error('❌ Migration check failed:', error.message);
+  }
+};
+
+app.listen(PORT, async () => {
   console.log(`API server listening on http://localhost:${PORT}`);
+  await runStartupMigration();
 });
 

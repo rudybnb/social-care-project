@@ -12,7 +12,8 @@
     "setup": "ts-node --transpile-only setup.ts",
     "generate-qr": "ts-node --transpile-only generate-qr-codes.ts",
     "postbuild": "echo \"Build completed\"",
-    "migrate:login": "ts-node --transpile-only migrate-login.ts"
+    "migrate:login": "ts-node --transpile-only migrate-login.ts",
+    "migrate:staff-status": "ts-node --transpile-only run-migration.ts"
   },
   "keywords": [],
   "author": "",
