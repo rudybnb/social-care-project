@@ -364,12 +364,13 @@ const Rota: React.FC = () => {
     console.log('Creating shifts:', { dayShift, nightShift });
     console.log('Current shifts before:', shifts);
     
-    // Add shifts to shared data store (this will trigger subscription update)
+    // Add shifts to shared data store
     await addShift(dayShift);
     await addShift(nightShift);
     
-    // No need to manually update local state - the subscription will handle it
-    console.log('Shifts created successfully, waiting for subscription update...');
+    // Manually refresh shifts from shared data
+    setShifts(getShifts());
+    console.log('Shifts created and refreshed');
     setShowAssignShift(false);
     setShiftForm({
       dayStaffId: '',
@@ -454,6 +455,7 @@ const Rota: React.FC = () => {
       if (choice === '1') {
         // Remove shift and open assignment modal pre-filled
         await removeShift(shiftToDelete.id);
+        setShifts(getShifts());
         setShiftForm({
           dayStaffId: shiftToDelete.type === 'Day' ? '' : oppositeShift.staffId,
           nightStaffId: shiftToDelete.type === 'Night' ? '' : oppositeShift.staffId,
@@ -479,6 +481,7 @@ const Rota: React.FC = () => {
         setPending24HrShift(updated24HrShift);
         await removeShift(shiftToDelete.id);
         await removeShift(oppositeShift.id);
+        setShifts(getShifts());
         setShowDeleteConfirm(false);
         setShiftToDelete(null);
         setShow24HrApproval(true);
@@ -510,6 +513,7 @@ const Rota: React.FC = () => {
               // Remove shifts from database and local state
               await removeShift(shiftToDelete.id);
               await removeShift(oppositeShift.id);
+              setShifts(getShifts());
               setShowDeleteConfirm(false);
               setShiftToDelete(null);
               alert(`✅ Complete 24h shift deleted\n\nReason: ${reason}`);
@@ -586,6 +590,7 @@ const Rota: React.FC = () => {
       // Remove shifts from database and local state
       if (dayShift) await removeShift(dayShift.id);
       if (nightShift) await removeShift(nightShift.id);
+      setShifts(getShifts());
       
       alert(`✅ ${result.message}`);
     } catch (error) {
@@ -664,7 +669,7 @@ const Rota: React.FC = () => {
       return;
     }
 
-    // Update the shift with extension (this will trigger subscription update)
+    // Update the shift with extension
     await updateShift(selectedShiftForExtension.id, {
       extended: true,
       extensionHours,
@@ -673,6 +678,7 @@ const Rota: React.FC = () => {
       extensionApprovalRequired: requiresApproval,
       duration: selectedShiftForExtension.duration + extensionHours
     });
+    setShifts(getShifts());
     setShowExtensionModal(false);
     setSelectedShiftForExtension(null);
     setExtensionForm({ hours: '', reason: '', approvedBy: '' });
