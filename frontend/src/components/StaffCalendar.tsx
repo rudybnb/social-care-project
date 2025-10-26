@@ -4,13 +4,29 @@ import { chevronBack, chevronForward, people } from 'ionicons/icons';
 
 interface Shift {
   id: string;
+  date: string;
+  type: string;
+  startTime: string;
+  endTime: string;
+  siteName: string;
+  siteColor: string;
+  duration: number;
+  clockedIn: boolean;
+  clockedOut: boolean;
+  clockInTime?: string;
+  clockOutTime?: string;
+  isBank: boolean;
+}
+
+interface AllShift {
+  id: string;
   staffId: string;
   staffName: string;
   siteId: string;
   siteName: string;
   siteColor: string;
   date: string;
-  type: 'Day' | 'Night';
+  type: string;
   startTime: string;
   endTime: string;
   duration: number;
@@ -25,7 +41,7 @@ interface StaffCalendarProps {
 
 const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts }) => {
   const [selectedWeek, setSelectedWeek] = useState(0);
-  const [allShifts, setAllShifts] = useState<Shift[]>([]);
+  const [allShifts, setAllShifts] = useState<AllShift[]>([]);
 
   // Fetch all shifts to see coworkers
   useEffect(() => {
@@ -73,7 +89,7 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts }) => {
   const getCoworkers = (myShift: Shift) => {
     return allShifts.filter(s => 
       s.date === myShift.date && 
-      s.siteId === myShift.siteId && 
+      s.siteName === myShift.siteName && 
       s.type === myShift.type &&
       s.staffId !== staffId &&
       !s.staffName.includes('BANK')
