@@ -560,20 +560,28 @@ app.post('/api/admin/migrate-login', async (_req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     
-    // Add username and password columns if they don't exist
+    console.log('Running migration to add missing columns...');
+    
+    // Add all missing columns if they don't exist
     await db.execute(sql`
       ALTER TABLE staff 
+      ADD COLUMN IF NOT EXISTS email TEXT,
       ADD COLUMN IF NOT EXISTS username TEXT,
       ADD COLUMN IF NOT EXISTS password TEXT
     `);
     
+    console.log('Migration completed successfully');
+    
     res.json({ 
       success: true, 
-      message: 'Login columns added successfully' 
+      message: 'All missing columns added successfully' 
     });
-  } catch (error) {
-    console.error('Error adding login columns:', error);
-    res.status(500).json({ error: 'Failed to add login columns' });
+  } catch (error: any) {
+    console.error('Error adding columns:', error);
+    res.status(500).json({ 
+      error: 'Failed to add columns',
+      details: error.message 
+    });
   }
 });
 
