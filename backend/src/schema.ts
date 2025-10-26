@@ -63,6 +63,8 @@ export const shifts = pgTable('shifts', {
   clockInTime: timestamp('clock_in_time'), // Actual clock-in time
   clockedOut: boolean('clocked_out').default(false), // Staff clocked out
   clockOutTime: timestamp('clock_out_time'), // Actual clock-out time
+  staffStatus: text('staff_status').default('pending'), // 'pending' | 'accepted' | 'declined'
+  declineReason: text('decline_reason'), // Reason for declining shift
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

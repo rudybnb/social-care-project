@@ -23,6 +23,8 @@ interface Shift {
   extensionReason?: string;
   extensionApprovedBy?: string;
   extensionApprovalRequired?: boolean;
+  staffStatus?: 'pending' | 'accepted' | 'declined';
+  declineReason?: string;
 }
 
 const Rota: React.FC = () => {
@@ -736,6 +738,36 @@ const Rota: React.FC = () => {
           </button>
         </div>
 
+        {/* Declined Shifts Alert */}
+        {(() => {
+          const declinedShifts = shifts.filter(s => s.staffStatus === 'declined');
+          if (declinedShifts.length === 0) return null;
+          return (
+            <div style={{
+              backgroundColor: '#ef444420',
+              border: '2px solid #ef4444',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '20px' }}>⚠️</span>
+                <span style={{ color: '#ef4444', fontSize: '14px', fontWeight: '700' }}>
+                  {declinedShifts.length} SHIFT{declinedShifts.length > 1 ? 'S' : ''} DECLINED - 24HR COVERAGE AT RISK
+                </span>
+              </div>
+              <div style={{ color: '#fca5a5', fontSize: '12px' }}>
+                {declinedShifts.map((shift, idx) => (
+                  <div key={shift.id} style={{ marginBottom: '4px' }}>
+                    • {shift.staffName} - {shift.siteName} - {shift.type} Shift on {new Date(shift.date).toLocaleDateString('en-GB')}
+                    {shift.declineReason && ` (Reason: ${shift.declineReason})`}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Week Navigation */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
@@ -927,10 +959,10 @@ const Rota: React.FC = () => {
                             return shift ? (
                               <div>
                                 <div style={{
-                                  backgroundColor: `${site.color}20`,
+                                  backgroundColor: shift.staffStatus === 'accepted' ? '#10b98120' : shift.staffStatus === 'declined' ? '#ef444420' : `${site.color}20`,
                                   padding: '6px 8px',
                                   borderRadius: '6px',
-                                  border: `1px solid ${site.color}40`,
+                                  border: shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
                                   marginBottom: '6px'
                                 }}>
                                   <div style={{ 
@@ -973,6 +1005,36 @@ const Rota: React.FC = () => {
                                         letterSpacing: '0.3px'
                                       }}>
                                         AGENCY
+                                      </span>
+                                    )}
+                                    {shift.staffStatus === 'accepted' && (
+                                      <span style={{
+                                        marginLeft: '4px',
+                                        padding: '1px 4px',
+                                        backgroundColor: '#10b98130',
+                                        border: '1px solid #10b981',
+                                        borderRadius: '3px',
+                                        fontSize: '9px',
+                                        fontWeight: '700',
+                                        letterSpacing: '0.3px',
+                                        color: '#10b981'
+                                      }}>
+                                        ✓ ACCEPTED
+                                      </span>
+                                    )}
+                                    {shift.staffStatus === 'declined' && (
+                                      <span style={{
+                                        marginLeft: '4px',
+                                        padding: '1px 4px',
+                                        backgroundColor: '#ef444420',
+                                        border: '1px solid #ef4444',
+                                        borderRadius: '3px',
+                                        fontSize: '9px',
+                                        fontWeight: '700',
+                                        letterSpacing: '0.3px',
+                                        color: '#ef4444'
+                                      }}>
+                                        ✗ DECLINED
                                       </span>
                                     )}
                                   </div>
@@ -1056,10 +1118,10 @@ const Rota: React.FC = () => {
                             return shift ? (
                               <div>
                                 <div style={{
-                                  backgroundColor: `${site.color}20`,
+                                  backgroundColor: shift.staffStatus === 'accepted' ? '#10b98120' : shift.staffStatus === 'declined' ? '#ef444420' : `${site.color}20`,
                                   padding: '6px 8px',
                                   borderRadius: '6px',
-                                  border: `1px solid ${site.color}40`,
+                                  border: shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
                                   marginBottom: '6px'
                                 }}>
                                   <div style={{ 
@@ -1102,6 +1164,36 @@ const Rota: React.FC = () => {
                                         letterSpacing: '0.3px'
                                       }}>
                                         AGENCY
+                                      </span>
+                                    )}
+                                    {shift.staffStatus === 'accepted' && (
+                                      <span style={{
+                                        marginLeft: '4px',
+                                        padding: '1px 4px',
+                                        backgroundColor: '#10b98130',
+                                        border: '1px solid #10b981',
+                                        borderRadius: '3px',
+                                        fontSize: '9px',
+                                        fontWeight: '700',
+                                        letterSpacing: '0.3px',
+                                        color: '#10b981'
+                                      }}>
+                                        ✓ ACCEPTED
+                                      </span>
+                                    )}
+                                    {shift.staffStatus === 'declined' && (
+                                      <span style={{
+                                        marginLeft: '4px',
+                                        padding: '1px 4px',
+                                        backgroundColor: '#ef444420',
+                                        border: '1px solid #ef4444',
+                                        borderRadius: '3px',
+                                        fontSize: '9px',
+                                        fontWeight: '700',
+                                        letterSpacing: '0.3px',
+                                        color: '#ef4444'
+                                      }}>
+                                        ✗ DECLINED
                                       </span>
                                     )}
                                   </div>

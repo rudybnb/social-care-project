@@ -501,6 +501,43 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
   }
 });
 
+// Update shift status (accept/decline)
+app.patch('/api/shifts/:id/status', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { id } = req.params;
+    const { staffStatus, declineReason } = req.body;
+    
+    if (!id) return res.status(400).json({ error: 'ID is required' });
+    if (!staffStatus || !['accepted', 'declined', 'pending'].includes(staffStatus)) {
+      return res.status(400).json({ error: 'Valid staffStatus is required (accepted, declined, or pending)' });
+    }
+    
+    const updateData: any = { 
+      staffStatus, 
+      updatedAt: new Date() 
+    };
+    
+    if (staffStatus === 'declined' && declineReason) {
+      updateData.declineReason = declineReason;
+    }
+    
+    const updated = await db.update(shifts)
+      .set(updateData)
+      .where(eq(shifts.id, id))
+      .returning();
+      
+    if (updated.length === 0) {
+      return res.status(404).json({ error: 'Shift not found' });
+    }
+    
+    res.json(updated[0]);
+  } catch (error) {
+    console.error('Error updating shift status:', error);
+    res.status(500).json({ error: 'Failed to update shift status' });
+  }
+});
+
 // Generate QR code for a site
 app.post('/api/sites/:siteId/generate-qr', async (req: Request, res: Response) => {
   try {
@@ -554,6 +591,42 @@ app.post('/api/fix-shifts', async (req: Request, res: Response) => {
 });
 
 // ==================== ADMIN ROUTES ====================
+
+// Add staff status columns migration
+app.post('/api/admin/migrate-staff-status', async (_req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    
+    console.log('Running migration to add staff status columns...');
+    
+    // Add staff status columns
+    await db.execute(sql`
+      ALTER TABLE shifts 
+      ADD COLUMN IF NOT EXISTS staff_status TEXT DEFAULT 'pending',
+      ADD COLUMN IF NOT EXISTS decline_reason TEXT
+    `);
+    
+    // Update existing shifts to 'accepted' status
+    await db.execute(sql`
+      UPDATE shifts 
+      SET staff_status = 'accepted' 
+      WHERE staff_status IS NULL OR staff_status = 'pending'
+    `);
+    
+    console.log('Staff status migration completed successfully');
+    
+    res.json({ 
+      success: true, 
+      message: 'Staff status columns added successfully' 
+    });
+  } catch (error: any) {
+    console.error('Error adding staff status columns:', error);
+    res.status(500).json({ 
+      error: 'Failed to add staff status columns',
+      details: error.message 
+    });
+  }
+});
 
 // Add login columns migration
 app.post('/api/admin/migrate-login', async (_req: Request, res: Response) => {

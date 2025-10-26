@@ -352,16 +352,53 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             isOpen={showShiftModal}
             shift={modalShift}
             coworkers={allShifts
-              .filter(s => s.date === modalShift.date && s.siteId === modalShift.siteName && s.staffId !== staffId)
-              .map(s => ({ staffName: s.staffName, type: s.type }))}
+              .filter(s => s.date === modalShift.date && s.staffId !== staffId)
+              .map(s => ({ 
+                staffName: s.staffName, 
+                type: `${s.type} Shift ${s.startTime}-${s.endTime}` 
+              }))}
             onClose={() => setShowShiftModal(false)}
-            onAccept={(shiftId) => {
-              setToast({ show: true, message: 'Shift accepted!', color: 'success' });
-              fetchShifts();
+            onAccept={async (shiftId) => {
+              try {
+                const response = await fetch(
+                  `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/shifts/${shiftId}/status`,
+                  {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ staffStatus: 'accepted' })
+                  }
+                );
+                if (response.ok) {
+                  setToast({ show: true, message: 'Shift accepted!', color: 'success' });
+                  fetchShifts();
+                } else {
+                  setToast({ show: true, message: 'Failed to accept shift', color: 'danger' });
+                }
+              } catch (error) {
+                console.error('Error accepting shift:', error);
+                setToast({ show: true, message: 'Network error', color: 'danger' });
+              }
             }}
-            onDecline={(shiftId, reason) => {
-              setToast({ show: true, message: `Shift declined${reason ? ': ' + reason : ''}`, color: 'warning' });
-              fetchShifts();
+            onDecline={async (shiftId, reason) => {
+              try {
+                const response = await fetch(
+                  `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/shifts/${shiftId}/status`,
+                  {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ staffStatus: 'declined', declineReason: reason })
+                  }
+                );
+                if (response.ok) {
+                  setToast({ show: true, message: `Shift declined${reason ? ': ' + reason : ''}`, color: 'warning' });
+                  fetchShifts();
+                } else {
+                  setToast({ show: true, message: 'Failed to decline shift', color: 'danger' });
+                }
+              } catch (error) {
+                console.error('Error declining shift:', error);
+                setToast({ show: true, message: 'Network error', color: 'danger' });
+              }
             }}
             onRunningLate={(shiftId, reason) => {
               setToast({ show: true, message: `Marked as running late${reason ? ': ' + reason : ''}`, color: 'warning' });
