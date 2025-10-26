@@ -97,9 +97,115 @@ const Overview: React.FC = () => {
             Sunday, October 19, 2025 • Managing 3 locations
           </p>
         </div>
-
-
       </div>
+
+      {/* Declined Shifts Alert */}
+      {(() => {
+        const declinedShifts = shifts.filter(s => s.staffStatus === 'declined');
+        if (declinedShifts.length === 0) return null;
+        
+        return (
+          <div style={{
+            backgroundColor: '#7f1d1d',
+            border: '2px solid #ef4444',
+            borderRadius: '12px',
+            padding: '20px',
+            marginBottom: '24px',
+            boxShadow: '0 4px 20px rgba(239, 68, 68, 0.3)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                backgroundColor: '#ef4444',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{
+                  color: '#fca5a5',
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  marginBottom: '8px'
+                }}>
+                  ⚠️ {declinedShifts.length} SHIFT{declinedShifts.length > 1 ? 'S' : ''} DECLINED
+                </h3>
+                <p style={{
+                  color: '#fecaca',
+                  fontSize: '14px',
+                  marginBottom: '16px',
+                  lineHeight: '1.5'
+                }}>
+                  The following staff members have declined their assigned shifts. Immediate action required to maintain 24-hour coverage.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {declinedShifts.map(shift => (
+                    <div key={shift.id} style={{
+                      backgroundColor: '#991b1b',
+                      borderRadius: '8px',
+                      padding: '14px 16px',
+                      border: '1px solid #dc2626'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div>
+                          <div style={{ color: 'white', fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>
+                            {shift.staffName}
+                          </div>
+                          <div style={{ color: '#fca5a5', fontSize: '13px' }}>
+                            {shift.siteName} • {shift.type} Shift • {new Date(shift.date).toLocaleDateString('en-GB')}
+                          </div>
+                        </div>
+                        <div style={{
+                          backgroundColor: '#7f1d1d',
+                          color: '#fca5a5',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          border: '1px solid #991b1b'
+                        }}>
+                          DECLINED
+                        </div>
+                      </div>
+                      {shift.declineReason && (
+                        <div style={{
+                          color: '#fecaca',
+                          fontSize: '12px',
+                          fontStyle: 'italic',
+                          paddingTop: '8px',
+                          borderTop: '1px solid #7f1d1d'
+                        }}>
+                          Reason: {shift.declineReason}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div style={{
+                  marginTop: '16px',
+                  padding: '12px',
+                  backgroundColor: '#7f1d1d',
+                  borderRadius: '8px',
+                  border: '1px solid #991b1b'
+                }}>
+                  <div style={{ color: '#fca5a5', fontSize: '13px', fontWeight: '600' }}>
+                    ⚠️ WARNING: 24HR COVERAGE AT RISK
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Stats Cards */}
       <div style={{
