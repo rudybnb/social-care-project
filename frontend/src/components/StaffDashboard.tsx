@@ -3,6 +3,7 @@ import { IonPage, IonContent, IonHeader, IonToolbar, IonTitle, IonButton, IonCar
 import { calendar, time, location, qrCode, logOut, statsChart } from 'ionicons/icons';
 import QRScanner from './QRScanner';
 import StaffCalendar from './StaffCalendar';
+import ShiftDetailsModal from './ShiftDetailsModal';
 
 interface Shift {
   id: string;
@@ -32,6 +33,9 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
   const [showScanner, setShowScanner] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [toast, setToast] = useState<{ show: boolean; message: string; color: string }>({ show: false, message: '', color: 'success' });
+  const [showShiftModal, setShowShiftModal] = useState(false);
+  const [modalShift, setModalShift] = useState<Shift | null>(null);
+  const [allShifts, setAllShifts] = useState<any[]>([]);
 
   // Fetch staff shifts
   const fetchShifts = async () => {
@@ -49,8 +53,22 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
     }
   };
 
+  // Fetch all shifts for coworker info
+  const fetchAllShifts = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/shifts`);
+      if (response.ok) {
+        const data = await response.json();
+        setAllShifts(data);
+      }
+    } catch (error) {
+      console.error('Error fetching all shifts:', error);
+    }
+  };
+
   useEffect(() => {
     fetchShifts();
+    fetchAllShifts();
   }, [staffId]);
 
   // Filter shifts
@@ -306,7 +324,16 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             <IonIcon icon={calendar} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
             My Schedule
           </h3>
-          <StaffCalendar staffId={staffId} shifts={shifts} onShiftClick={openScanner} />
+          <StaffCalendar 
+            staffId={staffId} 
+            shifts={shifts} 
+            onDayClick={(date, dayShifts) => {
+              if (dayShifts.length > 0) {
+                setModalShift(dayShifts[0]);
+                setShowShiftModal(true);
+              }
+            }} 
+          />
         </div>
 
         {/* Upcoming Shifts */}
@@ -363,6 +390,38 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             onScan={handleQRScan} 
             onClose={() => setShowScanner(false)} 
             shiftInfo={selectedShift} 
+          />
+        )}
+
+        {showShiftModal && modalShift && (
+          <ShiftDetailsModal
+            isOpen={showShiftModal}
+            shift={modalShift}
+            coworkers={allShifts
+              .filter(s => s.date === modalShift.date && s.siteId === modalShift.siteName && s.staffId !== staffId)
+              .map(s => ({ staffName: s.staffName, type: s.type }))}
+            onClose={() => setShowShiftModal(false)}
+            onAccept={(shiftId) => {
+              setToast({ show: true, message: 'Shift accepted!', color: 'success' });
+              fetchShifts();
+            }}
+            onDecline={(shiftId, reason) => {
+              setToast({ show: true, message: `Shift declined${reason ? ': ' + reason : ''}`, color: 'warning' });
+              fetchShifts();
+            }}
+            onRunningLate={(shiftId, reason) => {
+              setToast({ show: true, message: `Marked as running late${reason ? ': ' + reason : ''}`, color: 'warning' });
+            }}
+            onCantMakeIt={(shiftId, reason) => {
+              setToast({ show: true, message: `Marked as can't make it: ${reason}`, color: 'danger' });
+              fetchShifts();
+            }}
+            onClockIn={(shift) => {
+              openScanner(shift);
+            }}
+            onSendMessage={(message) => {
+              setToast({ show: true, message: 'Message sent to admin!', color: 'success' });
+            }}
           />
         )}
 

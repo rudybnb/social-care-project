@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { IonIcon } from '@ionic/react';
-import { chevronBack, chevronForward, people } from 'ionicons/icons';
+import { chevronBack, chevronForward } from 'ionicons/icons';
 
 interface Shift {
   id: string;
@@ -16,6 +16,7 @@ interface Shift {
   clockInTime?: string;
   clockOutTime?: string;
   isBank: boolean;
+  status?: string;
 }
 
 interface AllShift {
@@ -37,29 +38,11 @@ interface AllShift {
 interface StaffCalendarProps {
   staffId: string;
   shifts: Shift[];
-  onShiftClick?: (shift: Shift) => void;
+  onDayClick?: (date: Date, dayShifts: Shift[]) => void;
 }
 
-const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onShiftClick }) => {
+const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onDayClick }) => {
   const [selectedMonth, setSelectedMonth] = useState(0);
-  const [allShifts, setAllShifts] = useState<AllShift[]>([]);
-
-  // Fetch all shifts to see coworkers
-  useEffect(() => {
-    fetchAllShifts();
-  }, []);
-
-  const fetchAllShifts = async () => {
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/shifts`);
-      if (response.ok) {
-        const data = await response.json();
-        setAllShifts(data);
-      }
-    } catch (error) {
-      console.error('Error fetching all shifts:', error);
-    }
-  };
 
   // Get month dates
   const getMonthDates = (monthOffset: number = 0) => {
@@ -107,17 +90,6 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onShiftC
   const getMyShiftsForDate = (date: Date) => {
     const dateStr = date.toISOString().split('T')[0];
     return shifts.filter(s => s.date === dateStr && !s.isBank);
-  };
-
-  // Get coworkers for a specific shift
-  const getCoworkers = (myShift: Shift) => {
-    return allShifts.filter(s => 
-      s.date === myShift.date && 
-      s.siteName === myShift.siteName && 
-      s.type === myShift.type &&
-      s.staffId !== staffId &&
-      !s.staffName.includes('BANK')
-    );
   };
 
   const formatMonth = (date: Date) => {
@@ -216,97 +188,63 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onShiftC
               <div
                 key={index}
                 onClick={() => {
-                  if (isToday && hasShifts && onShiftClick) {
-                    // Click on today's shift opens scanner
-                    const todayShift = myShifts.find(s => !s.clockedIn);
-                    if (todayShift) onShiftClick(todayShift);
+                  if (hasShifts && onDayClick) {
+                    onDayClick(date, myShifts);
                   }
                 }}
                 style={{
-                  background: isToday && hasShifts ? '#9333ea' : isCurrentMonth ? '#2a2a2a' : '#1a1a1a',
+                  background: isCurrentMonth ? '#2a2a2a' : '#1a1a1a',
                   borderRadius: '8px',
                   padding: '8px 4px',
-                  minHeight: '80px',
+                  minHeight: '70px',
                   border: isToday ? '2px solid #9333ea' : '1px solid #3a3a3a',
-                  cursor: isToday && hasShifts ? 'pointer' : 'default',
-                  transition: 'transform 0.2s',
+                  cursor: hasShifts ? 'pointer' : 'default',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
                   position: 'relative'
                 }}
                 onMouseEnter={(e) => {
-                  if (isToday && hasShifts) {
+                  if (hasShifts) {
                     e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(147, 51, 234, 0.3)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = 'none';
                 }}
               >
                 {/* Date Number */}
                 <div style={{ 
-                  color: isToday && hasShifts ? 'white' : isCurrentMonth ? 'white' : '#666',
+                  color: isCurrentMonth ? 'white' : '#666',
                   fontSize: '14px',
                   fontWeight: isToday ? 'bold' : '500',
-                  marginBottom: '4px',
+                  marginBottom: '6px',
                   textAlign: 'center'
                 }}>
                   {date.getDate()}
                 </div>
 
-                {/* Shift Indicators */}
+                {/* Shift Indicators - Simple colored dots like admin */}
                 {hasShifts && (
                   <div style={{ 
                     display: 'flex', 
-                    flexDirection: 'column', 
-                    gap: '2px',
+                    flexDirection: 'column',
+                    gap: '4px',
                     alignItems: 'center'
                   }}>
-                    {myShifts.map((shift, idx) => {
-                      const coworkers = getCoworkers(shift);
-                      return (
-                        <div
-                          key={idx}
-                          style={{
-                            background: isToday ? 'rgba(255,255,255,0.2)' : shift.siteColor || '#9333ea',
-                            borderRadius: '4px',
-                            padding: '4px',
-                            width: '100%',
-                            fontSize: '9px',
-                            color: 'white',
-                            textAlign: 'center'
-                          }}
-                          title={`${shift.type} shift at ${shift.siteName}\n${shift.startTime} - ${shift.endTime}${coworkers.length > 0 ? `\nWith: ${coworkers.map(c => c.staffName).join(', ')}` : ''}`}
-                        >
-                          <div style={{ fontWeight: '600' }}>
-                            {shift.type === 'Day' ? '☀️' : '🌙'}
-                          </div>
-                          {coworkers.length > 0 && (
-                            <div style={{ 
-                              fontSize: '8px', 
-                              marginTop: '2px',
-                              opacity: 0.9
-                            }}>
-                              <IonIcon icon={people} style={{ fontSize: '8px', verticalAlign: 'middle' }} /> {coworkers.length}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Today indicator for shifts */}
-                {isToday && hasShifts && (
-                  <div style={{
-                    position: 'absolute',
-                    bottom: '4px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    fontSize: '8px',
-                    color: 'white',
-                    fontWeight: '600',
-                    opacity: 0.8
-                  }}>
-                    TAP TO CLOCK IN
+                    {myShifts.map((shift, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          width: '32px',
+                          height: '6px',
+                          background: shift.siteColor || '#9333ea',
+                          borderRadius: '3px',
+                          opacity: shift.clockedOut ? 0.5 : 1
+                        }}
+                        title={`${shift.type} shift at ${shift.siteName}\n${shift.startTime} - ${shift.endTime}`}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
@@ -325,10 +263,20 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onShiftC
         color: '#999'
       }}>
         <div style={{ marginBottom: '4px' }}>
-          <span style={{ color: '#9333ea', fontWeight: '600' }}>●</span> Today's shift (tap to clock in)
+          <span style={{ 
+            display: 'inline-block',
+            width: '20px',
+            height: '4px',
+            background: '#9333ea',
+            borderRadius: '2px',
+            marginRight: '8px',
+            verticalAlign: 'middle'
+          }}></span>
+          Shift assigned (color = site)
         </div>
         <div>
-          <IonIcon icon={people} style={{ fontSize: '10px', verticalAlign: 'middle' }} /> Number of coworkers on shift
+          <span style={{ color: '#9333ea', fontWeight: '600', marginRight: '8px' }}>Purple border</span>
+          Today
         </div>
       </div>
     </div>
