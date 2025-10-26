@@ -76,18 +76,29 @@ app.post('/api/staff', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     
+    console.log('Received staff data:', JSON.stringify(req.body, null, 2));
+    
     const staffData = { ...req.body };
     
     // Hash password if provided
     if (staffData.password) {
+      console.log('Hashing password...');
       staffData.password = await bcrypt.hash(staffData.password, 10);
     }
     
+    console.log('Inserting staff into database...');
     const newStaff = await db.insert(staff).values(staffData).returning();
+    console.log('Staff created successfully:', newStaff[0].id);
     res.status(201).json(newStaff[0]);
-  } catch (error) {
-    console.error('Error creating staff member:', error);
-    res.status(500).json({ error: 'Failed to create staff member' });
+  } catch (error: any) {
+    console.error('Error creating staff member:');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Full error:', error);
+    res.status(500).json({ 
+      error: 'Failed to create staff member',
+      details: error.message 
+    });
   }
 });
 
