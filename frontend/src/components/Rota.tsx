@@ -446,8 +446,9 @@ const Rota: React.FC = () => {
         `Choose an option:\n` +
         `1 = Assign replacement worker\n` +
         `2 = Approve ${oppositeShift.staffName} for 24hr shift\n` +
-        `3 = Cancel removal\n\n` +
-        `Enter 1, 2, or 3:`
+        `3 = Cancel removal\n` +
+        `4 = Delete complete 24h shift (requires reason)\n\n` +
+        `Enter 1, 2, 3, or 4:`
       );
 
       if (choice === '1') {
@@ -481,6 +482,31 @@ const Rota: React.FC = () => {
         setShiftToDelete(null);
         setShow24HrApproval(true);
         return;
+      } else if (choice === '4') {
+        // Delete complete 24h shift (both Day and Night) with reason
+        const reason = window.prompt(
+          `⚠️ DELETE COMPLETE 24H SHIFT\n\n` +
+          `This will remove BOTH shifts:\n` +
+          `• Day Shift: ${shiftToDelete.type === 'Day' ? shiftToDelete.staffName : oppositeShift.staffName}\n` +
+          `• Night Shift: ${shiftToDelete.type === 'Night' ? shiftToDelete.staffName : oppositeShift.staffName}\n\n` +
+          `Site: ${shiftToDelete.siteName}\n` +
+          `Date: ${shiftToDelete.date}\n\n` +
+          `Please provide a reason for deleting this 24h shift:`
+        );
+        
+        if (reason && reason.trim()) {
+          // Delete both shifts
+          setShifts(shifts.filter(s => s.id !== shiftToDelete.id && s.id !== oppositeShift.id));
+          setShowDeleteConfirm(false);
+          setShiftToDelete(null);
+          alert(`✅ Complete 24h shift deleted\n\nReason: ${reason}`);
+          return;
+        } else {
+          alert('❌ Deletion cancelled. Reason is required.');
+          setShowDeleteConfirm(false);
+          setShiftToDelete(null);
+          return;
+        }
       } else {
         // Cancel
         setShowDeleteConfirm(false);
