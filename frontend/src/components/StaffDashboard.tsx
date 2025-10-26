@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { IonPage, IonContent, IonHeader, IonToolbar, IonTitle, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonBadge, IonIcon, IonRefresher, IonRefresherContent, IonToast } from '@ionic/react';
 import { calendar, time, location, qrCode, logOut, statsChart } from 'ionicons/icons';
 import QRScanner from './QRScanner';
+import StaffCalendar from './StaffCalendar';
 
 interface Shift {
   id: string;
@@ -298,6 +299,15 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             ))}
           </div>
         )}
+
+        {/* Calendar View */}
+        <div style={{ padding: '0 0 16px' }}>
+          <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px', padding: '0 16px' }}>
+            <IonIcon icon={calendar} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+            My Schedule
+          </h3>
+          <StaffCalendar staffId={staffId} shifts={shifts} />
+        </div>
 
         {/* Upcoming Shifts */}
         <div style={{ padding: '0 16px 16px' }}>
