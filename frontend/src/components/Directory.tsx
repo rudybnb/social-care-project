@@ -5,7 +5,9 @@ import StaffQRCodeModal from './StaffQRCodeModal';
 
 const Directory: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'staff' | 'agency'>('staff');
-  const [qrModalStaff, setQrModalStaff] = useState<{ id: string; name: string } | null>(null);
+  const [qrModalStaff, setQrModalStaff] = useState<{ id: string | number; name: string } | null>(null);
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   
   // Staff state
   const [formData, setFormData] = useState({
@@ -127,6 +129,77 @@ const Directory: React.FC = () => {
       deleteStaff(id);
       alert(`${name} has been deleted`);
     }
+  };
+
+  const handleEdit = (staff: StaffMember) => {
+    setEditingStaff(staff);
+    const nameParts = staff.name.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
+    setFormData({
+      firstName,
+      lastName,
+      email: staff.email || '',
+      username: staff.username || '',
+      password: '',
+      role: staff.role || 'Worker',
+      site: staff.site || 'All Sites',
+      employmentType: 'Full-time',
+      startDate: '',
+      taxCode: staff.tax || '',
+      standardRate: staff.standardRate || '12.50',
+      enhancedRate: staff.enhancedRate || '',
+      nightRate: staff.nightRate || '',
+      pension: staff.pension || '',
+      otherDeductions: staff.deductions || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateStaff = () => {
+    if (!editingStaff) return;
+    
+    if (!formData.firstName || !formData.lastName || !formData.standardRate) {
+      alert('Please fill in required fields: First Name, Last Name, and Standard Rate');
+      return;
+    }
+
+    const updatedStaff = {
+      name: `${formData.firstName} ${formData.lastName}`,
+      email: formData.email,
+      username: formData.username,
+      role: formData.role,
+      site: formData.site,
+      tax: formData.taxCode,
+      standardRate: formData.standardRate,
+      enhancedRate: formData.enhancedRate,
+      nightRate: formData.nightRate,
+      pension: formData.pension,
+      deductions: formData.otherDeductions
+    };
+
+    updateStaff(editingStaff.id, updatedStaff);
+    setShowEditModal(false);
+    setEditingStaff(null);
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      username: '',
+      password: '',
+      role: 'Worker',
+      site: 'All Sites',
+      employmentType: 'Full-time',
+      startDate: '',
+      taxCode: '',
+      standardRate: '12.50',
+      enhancedRate: '',
+      nightRate: '',
+      pension: '',
+      otherDeductions: ''
+    });
+    alert(`${updatedStaff.name} updated successfully!`);
   };
 
   // Agency handlers
@@ -773,10 +846,10 @@ const Directory: React.FC = () => {
                       Deactivate
                     </button>
                     <button
-                      onClick={() => setQrModalStaff({ id: String(staff.id), name: staff.name })}
+                      onClick={() => setQrModalStaff({ id: staff.id, name: staff.name })}
                       style={{
                         flex: '1 1 auto',
-                        minWidth: '120px',
+                        minWidth: '100px',
                         padding: '10px 16px',
                         backgroundColor: '#8b5cf6',
                         color: 'white',
@@ -787,13 +860,30 @@ const Directory: React.FC = () => {
                         cursor: 'pointer'
                       }}
                     >
-                      📱 QR Code
+                      📱 QR
+                    </button>
+                    <button
+                      onClick={() => handleEdit(staff)}
+                      style={{
+                        flex: '1 1 auto',
+                        minWidth: '100px',
+                        padding: '10px 16px',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '7px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ✏️ Edit
                     </button>
                     <button
                       onClick={() => handleDelete(staff.id, staff.name)}
                       style={{
                         flex: '1 1 auto',
-                        minWidth: '120px',
+                        minWidth: '100px',
                         padding: '10px 16px',
                         backgroundColor: '#ef4444',
                         color: 'white',
@@ -804,7 +894,7 @@ const Directory: React.FC = () => {
                         cursor: 'pointer'
                       }}
                     >
-                      Delete
+                      🗑️ Delete
                     </button>
                   </div>
                 </div>
@@ -1396,6 +1486,208 @@ const Directory: React.FC = () => {
             </div>
           </div>
         </>
+      )}
+
+      {/* Edit Staff Modal */}
+      {showEditModal && editingStaff && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}
+          onClick={() => setShowEditModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#2a2a2a',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '600px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ color: 'white', fontSize: '20px', marginBottom: '20px' }}>Edit Staff Member</h2>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {/* First Name */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+
+              {/* Last Name */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+
+              {/* Standard Rate */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Standard Rate (£/h) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.standardRate}
+                  onChange={(e) => setFormData({ ...formData, standardRate: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+
+              {/* Enhanced Rate */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Enhanced Rate (£/h)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.enhancedRate}
+                  onChange={(e) => setFormData({ ...formData, enhancedRate: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+
+              {/* Night Rate */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Night Rate (£/h)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.nightRate}
+                  onChange={(e) => setFormData({ ...formData, nightRate: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <button
+                onClick={handleUpdateStaff}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Save Changes
+              </button>
+              <button
+                onClick={() => setShowEditModal(false)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* QR Code Modal */}

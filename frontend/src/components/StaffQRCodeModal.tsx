@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 
 interface StaffQRCodeModalProps {
-  staffId: string;
+  staffId: string | number;
   staffName: string;
   onClose: () => void;
 }
