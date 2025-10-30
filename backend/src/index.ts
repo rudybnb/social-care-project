@@ -623,6 +623,27 @@ app.patch('/api/shifts/:id/status', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Shift not found' });
     }
     
+    // Trigger declined shift alert if status is declined
+    if (staffStatus === 'declined') {
+      const { triggerDeclinedShiftAlert } = await import('./services/automationAgents.js');
+      const shift = updated[0];
+      
+      // Get staff name
+      const staffMember = await db.select().from(staff).where(eq(staff.id, shift.staffId)).limit(1);
+      const staffName = staffMember.length > 0 ? staffMember[0].name : 'Unknown';
+      
+      // Trigger alert (non-blocking)
+      triggerDeclinedShiftAlert({
+        staffName,
+        site: shift.siteName,
+        shiftType: shift.type,
+        date: shift.date,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        declineReason: shift.declineReason
+      }).catch(err => console.error('Failed to send declined shift alert:', err));
+    }
+    
     res.json(updated[0]);
   } catch (error) {
     console.error('Error updating shift status:', error);
@@ -812,5 +833,9 @@ const runStartupMigration = async () => {
 app.listen(PORT, async () => {
   console.log(`API server listening on http://localhost:${PORT}`);
   await runStartupMigration();
+  
+  // Initialize automation agents
+  const { initializeAgents } = await import('./services/automationAgents.js');
+  await initializeAgents();
 });
 
