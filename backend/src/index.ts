@@ -79,10 +79,13 @@ app.post('/api/staff', async (req: Request, res: Response) => {
     
     console.log('Received staff data:', JSON.stringify(req.body, null, 2));
     
+    // Auto-generate username if not provided (to avoid NULL constraint issues)
+    const autoUsername = req.body.username || `staff_${Date.now()}`;
+    
     const staffData: any = {
       name: req.body.name,
-      email: req.body.email ? req.body.email : null,
-      username: req.body.username ? req.body.username : null,
+      email: req.body.email || null,
+      username: autoUsername,
       password: null, // Will be set below if provided
       role: req.body.role,
       site: req.body.site,
