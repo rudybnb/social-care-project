@@ -709,6 +709,12 @@ app.post('/api/reset-database', async (req: Request, res: Response) => {
   return resetDatabase(req, res);
 });
 
+// Create/verify staff table endpoint
+app.post('/api/create-staff-table', async (req: Request, res: Response) => {
+  const { createStaffTable } = await import('./create-staff-table-endpoint.js');
+  return createStaffTable(req, res);
+});
+
 // ==================== ADMIN ROUTES ====================
 
 // Add staff status columns migration
