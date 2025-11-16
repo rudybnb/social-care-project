@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { db } from '../db.js';
-import { shifts, staff } from '../schema';
+import { shifts, staff } from '../schema.js';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import {
   sendShiftReminder,
@@ -9,7 +9,7 @@ import {
   sendDeclinedShiftAlert,
   sendWeeklyPayrollReport,
   testEmailConnection
-} from './emailService';
+} from './emailService.js';
 
 // Admin email for alerts
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@socialcare.com';
