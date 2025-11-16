@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { db } from '../db';
+import { db } from '../db.js';
 import { shifts, staff } from '../schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import {
