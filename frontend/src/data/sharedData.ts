@@ -192,21 +192,28 @@ export const getStaff = (): StaffMember[] => {
 
 export const addStaff = async (staffMember: Partial<StaffMember>): Promise<void> => {
   try {
+    console.log('Adding staff member:', staffMember);
     const response = await fetch('https://social-care-backend.onrender.com/api/staff', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(staffMember)
     });
     
+    console.log('Response status:', response.status, response.statusText);
+    
     if (!response.ok) {
-      throw new Error('Failed to add staff member');
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('Backend error:', errorData);
+      throw new Error(errorData.error || errorData.details || 'Failed to add staff member');
     }
     
     const newStaff = await response.json();
+    console.log('Staff added successfully:', newStaff);
     staff.push(newStaff);
     notifyDataChanged();
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error adding staff:', error);
+    console.error('Error message:', error.message);
     throw error;
   }
 };
