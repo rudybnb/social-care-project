@@ -79,28 +79,29 @@ app.post('/api/staff', async (req: Request, res: Response) => {
     
     console.log('Received staff data:', JSON.stringify(req.body, null, 2));
     
-    const staffData: any = {};
-    
-    // Only include fields that have actual values (not undefined)
-    if (req.body.name) staffData.name = req.body.name;
-    if (req.body.email) staffData.email = req.body.email;
-    if (req.body.username) staffData.username = req.body.username;
-    if (req.body.role) staffData.role = req.body.role;
-    if (req.body.site) staffData.site = req.body.site;
-    if (req.body.status) staffData.status = req.body.status;
-    if (req.body.standardRate) staffData.standardRate = String(req.body.standardRate);
-    if (req.body.enhancedRate) staffData.enhancedRate = req.body.enhancedRate;
-    if (req.body.nightRate) staffData.nightRate = req.body.nightRate;
-    if (req.body.rates) staffData.rates = req.body.rates;
-    if (req.body.pension) staffData.pension = req.body.pension;
-    if (req.body.deductions) staffData.deductions = req.body.deductions;
-    if (req.body.tax) staffData.tax = req.body.tax;
-    if (req.body.weeklyHours !== undefined) staffData.weeklyHours = req.body.weeklyHours;
+    const staffData: any = {
+      name: req.body.name,
+      email: req.body.email || null,
+      username: req.body.username || null,
+      role: req.body.role,
+      site: req.body.site,
+      status: req.body.status || 'Active',
+      standardRate: req.body.standardRate ? String(req.body.standardRate) : '12.50',
+      enhancedRate: req.body.enhancedRate || '—',
+      nightRate: req.body.nightRate || '—',
+      rates: req.body.rates || '£12.50/h',
+      pension: req.body.pension || '—',
+      deductions: req.body.deductions || '£0.00',
+      tax: req.body.tax || '—',
+      weeklyHours: req.body.weeklyHours || 0
+    };
     
     // Hash password if provided
     if (req.body.password) {
       console.log('Hashing password...');
       staffData.password = await bcrypt.hash(req.body.password, 10);
+    } else {
+      staffData.password = null;
     }
     
     console.log('Inserting staff into database...');
