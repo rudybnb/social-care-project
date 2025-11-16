@@ -82,11 +82,14 @@ app.post('/api/staff', async (req: Request, res: Response) => {
     // Auto-generate username if not provided (to avoid NULL constraint issues)
     const autoUsername = req.body.username || `staff_${Date.now()}`;
     
+    // Auto-generate password if not provided
+    const passwordToHash = req.body.password || `temp_${Math.random().toString(36).substring(7)}`;
+    
     const staffData: any = {
       name: req.body.name,
       email: req.body.email || null,
       username: autoUsername,
-      password: null, // Will be set below if provided
+      password: await bcrypt.hash(passwordToHash, 10), // Always hash a password
       role: req.body.role,
       site: req.body.site,
       status: req.body.status || 'Active',
@@ -99,12 +102,6 @@ app.post('/api/staff', async (req: Request, res: Response) => {
       tax: req.body.tax || '—',
       weeklyHours: req.body.weeklyHours || 0
     };
-    
-    // Hash password if provided
-    if (req.body.password) {
-      console.log('Hashing password...');
-      staffData.password = await bcrypt.hash(req.body.password, 10);
-    }
     
     console.log('Inserting staff into database...');
     const newStaff = await db.insert(staff).values(staffData).returning();
