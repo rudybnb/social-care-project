@@ -14,7 +14,8 @@
     "postbuild": "echo \"Build completed\"",
     "migrate:login": "ts-node --transpile-only migrate-login.ts",
     "migrate:staff-status": "ts-node --transpile-only run-migration.ts",
-    "migrate:all": "node run-all-migrations.js"
+    "migrate:all": "node run-all-migrations.js",
+    "reset-db": "ts-node --transpile-only src/reset-and-setup-db.ts"
   },
   "keywords": [],
   "author": "",

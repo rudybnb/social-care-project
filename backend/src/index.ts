@@ -703,6 +703,12 @@ app.post('/api/fix-shifts', async (req: Request, res: Response) => {
   return fixShiftStaffIds(req, res);
 });
 
+// Reset database endpoint (DANGER: Drops all tables and recreates them)
+app.post('/api/reset-database', async (req: Request, res: Response) => {
+  const { resetDatabase } = await import('./reset-db-endpoint.js');
+  return resetDatabase(req, res);
+});
+
 // ==================== ADMIN ROUTES ====================
 
 // Add staff status columns migration
