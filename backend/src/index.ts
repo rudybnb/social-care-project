@@ -805,28 +805,41 @@ const runStartupMigration = async () => {
   }
   
   try {
-    console.log('🔄 Checking database schema...');
+    console.log('🔄 Running comprehensive database migration...');
     
-    // Check if staff_status column exists
-    const result = await pool.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'shifts' AND column_name = 'staff_status';
+    // Migration 1: Add staff_status and decline_reason to shifts table
+    console.log('📝 Migration 1: Ensuring shifts table has staff_status columns...');
+    await pool.query(`
+      ALTER TABLE shifts 
+      ADD COLUMN IF NOT EXISTS staff_status TEXT DEFAULT 'pending',
+      ADD COLUMN IF NOT EXISTS decline_reason TEXT;
     `);
+    console.log('✅ Migration 1 complete');
     
-    if (result.rows.length === 0) {
-      console.log('📝 Running staff status migration...');
-      await pool.query(`
-        ALTER TABLE shifts 
-        ADD COLUMN IF NOT EXISTS staff_status TEXT DEFAULT 'pending',
-        ADD COLUMN IF NOT EXISTS decline_reason TEXT;
-      `);
-      console.log('✅ Migration completed successfully!');
-    } else {
-      console.log('✅ Database schema is up to date');
-    }
+    // Migration 2: Ensure staff table has all required columns
+    console.log('📝 Migration 2: Ensuring staff table has all required columns...');
+    await pool.query(`
+      ALTER TABLE staff 
+      ADD COLUMN IF NOT EXISTS email TEXT,
+      ADD COLUMN IF NOT EXISTS username TEXT,
+      ADD COLUMN IF NOT EXISTS password TEXT,
+      ADD COLUMN IF NOT EXISTS weekly_hours INTEGER DEFAULT 0;
+    `);
+    console.log('✅ Migration 2 complete');
+    
+    // Migration 3: Add timestamps if missing
+    console.log('📝 Migration 3: Ensuring timestamp columns exist...');
+    await pool.query(`
+      ALTER TABLE shifts 
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+    `);
+    console.log('✅ Migration 3 complete');
+    
+    console.log('✅ All migrations completed successfully!');
   } catch (error: any) {
-    console.error('❌ Migration check failed:', error.message);
+    console.error('❌ Migration failed:', error.message);
+    console.error('Full error:', error);
   }
 };
 

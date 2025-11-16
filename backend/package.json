@@ -13,7 +13,8 @@
     "generate-qr": "ts-node --transpile-only generate-qr-codes.ts",
     "postbuild": "echo \"Build completed\"",
     "migrate:login": "ts-node --transpile-only migrate-login.ts",
-    "migrate:staff-status": "ts-node --transpile-only run-migration.ts"
+    "migrate:staff-status": "ts-node --transpile-only run-migration.ts",
+    "migrate:all": "node run-all-migrations.js"
   },
   "keywords": [],
   "author": "",
