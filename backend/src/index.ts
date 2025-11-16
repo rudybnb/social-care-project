@@ -79,17 +79,28 @@ app.post('/api/staff', async (req: Request, res: Response) => {
     
     console.log('Received staff data:', JSON.stringify(req.body, null, 2));
     
-    const staffData = { ...req.body };
+    const staffData: any = {};
     
-    // Convert numeric rate to string for decimal field
-    if (staffData.standardRate) {
-      staffData.standardRate = String(staffData.standardRate);
-    }
+    // Only include fields that have actual values (not undefined)
+    if (req.body.name) staffData.name = req.body.name;
+    if (req.body.email) staffData.email = req.body.email;
+    if (req.body.username) staffData.username = req.body.username;
+    if (req.body.role) staffData.role = req.body.role;
+    if (req.body.site) staffData.site = req.body.site;
+    if (req.body.status) staffData.status = req.body.status;
+    if (req.body.standardRate) staffData.standardRate = String(req.body.standardRate);
+    if (req.body.enhancedRate) staffData.enhancedRate = req.body.enhancedRate;
+    if (req.body.nightRate) staffData.nightRate = req.body.nightRate;
+    if (req.body.rates) staffData.rates = req.body.rates;
+    if (req.body.pension) staffData.pension = req.body.pension;
+    if (req.body.deductions) staffData.deductions = req.body.deductions;
+    if (req.body.tax) staffData.tax = req.body.tax;
+    if (req.body.weeklyHours !== undefined) staffData.weeklyHours = req.body.weeklyHours;
     
     // Hash password if provided
-    if (staffData.password) {
+    if (req.body.password) {
       console.log('Hashing password...');
-      staffData.password = await bcrypt.hash(staffData.password, 10);
+      staffData.password = await bcrypt.hash(req.body.password, 10);
     }
     
     console.log('Inserting staff into database...');
