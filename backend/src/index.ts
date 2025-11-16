@@ -81,8 +81,9 @@ app.post('/api/staff', async (req: Request, res: Response) => {
     
     const staffData: any = {
       name: req.body.name,
-      email: req.body.email || null,
-      username: req.body.username || null,
+      email: req.body.email ? req.body.email : null,
+      username: req.body.username ? req.body.username : null,
+      password: null, // Will be set below if provided
       role: req.body.role,
       site: req.body.site,
       status: req.body.status || 'Active',
@@ -100,8 +101,6 @@ app.post('/api/staff', async (req: Request, res: Response) => {
     if (req.body.password) {
       console.log('Hashing password...');
       staffData.password = await bcrypt.hash(req.body.password, 10);
-    } else {
-      staffData.password = null;
     }
     
     console.log('Inserting staff into database...');
