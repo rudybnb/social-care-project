@@ -715,6 +715,12 @@ app.post('/api/create-staff-table', async (req: Request, res: Response) => {
   return createStaffTable(req, res);
 });
 
+// Fix staff table schema endpoint
+app.post('/api/fix-staff-schema', async (req: Request, res: Response) => {
+  const { fixStaffSchema } = await import('./fix-staff-schema-endpoint.js');
+  return fixStaffSchema(req, res);
+});
+
 // ==================== ADMIN ROUTES ====================
 
 // Add staff status columns migration
