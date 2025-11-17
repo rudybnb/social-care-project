@@ -238,7 +238,7 @@ const StaffPayroll: React.FC<StaffPayrollProps> = ({ staffId, staffName, onBack 
             transition: 'all 0.2s'
           }}
         >
-          📊 Monthly (14th-14th)
+          📊 Monthly ({currentMonth.start.toLocaleDateString('en-GB', { month: 'short' })}-{currentMonth.end.toLocaleDateString('en-GB', { month: 'short' })})
         </button>
       </div>
 
