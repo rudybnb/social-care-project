@@ -876,8 +876,14 @@ app.listen(PORT, async () => {
   console.log(`API server listening on http://localhost:${PORT}`);
   await runStartupMigration();
   
-  // Initialize automation agents
-  const { initializeAgents } = await import('./services/automationAgents.js');
-  await initializeAgents();
+  // Initialize automation agents (with error handling to prevent server crash)
+  try {
+    const { initializeAgents } = await import('./services/automationAgents.js');
+    await initializeAgents();
+    console.log('✅ Automation agents initialized successfully');
+  } catch (error: any) {
+    console.error('⚠️  Failed to initialize automation agents:', error.message);
+    console.error('   Server will continue running without automation agents.');
+  }
 });
 
