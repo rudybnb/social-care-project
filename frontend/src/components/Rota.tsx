@@ -409,7 +409,7 @@ const Rota: React.FC = () => {
     alert(`24-HOUR CYCLE COMPLETED!\n\nDay Shift: ${dayStaff.name}\nNight Shift: ${nightStaff.name}\nSite: ${selectedSite.name}\nDate: ${shiftForm.date}`);
   };
 
-  const handleApprove24Hr = () => {
+  const handleApprove24Hr = async () => {
     if (!approvalForm.approvedBy || !approvalForm.reason) {
       alert('Please provide approver name and reason');
       return;
@@ -429,7 +429,12 @@ const Rota: React.FC = () => {
       return;
     }
 
-    setShifts([...shifts, approvedShift]);
+    // Save approved shift to backend database
+    await addShift(approvedShift);
+    
+    // Refresh shifts from shared data store
+    setShifts(getShifts());
+    
     setShow24HrApproval(false);
     setShowAssignShift(false);
     setPending24HrShift(null);
