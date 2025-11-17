@@ -10,6 +10,8 @@ interface StaffPayrollProps {
 const StaffPayroll: React.FC<StaffPayrollProps> = ({ staffId, staffName, onBack }) => {
   const [shifts, setShifts] = useState(getShifts());
   const [selectedWeek, setSelectedWeek] = useState(0);
+  const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
+  const [selectedMonth, setSelectedMonth] = useState(0);
 
   // Subscribe to shift changes
   useEffect(() => {
@@ -42,12 +44,41 @@ const StaffPayroll: React.FC<StaffPayrollProps> = ({ staffId, staffName, onBack 
 
   const currentWeek = getWeekDates(selectedWeek);
 
+  // Get month dates (14th to 14th)
+  const getMonthDates = (monthOffset: number) => {
+    const today = new Date();
+    const currentDay = today.getDate();
+    
+    // Determine the current pay period
+    let periodStart: Date;
+    if (currentDay >= 14) {
+      // We're in the period that started on the 14th of this month
+      periodStart = new Date(today.getFullYear(), today.getMonth() + monthOffset, 14);
+    } else {
+      // We're in the period that started on the 14th of last month
+      periodStart = new Date(today.getFullYear(), today.getMonth() - 1 + monthOffset, 14);
+    }
+    
+    const periodEnd = new Date(periodStart);
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
+    periodEnd.setDate(13); // Ends on 13th of next month
+    
+    return {
+      start: periodStart,
+      end: periodEnd,
+      label: `${periodStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} - ${periodEnd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+    };
+  };
+
+  const currentMonth = getMonthDates(selectedMonth);
+  const currentPeriod = viewMode === 'weekly' ? currentWeek : currentMonth;
+
   // Calculate payroll for this staff member
   const calculatePayroll = () => {
     const staffShifts = shifts.filter(shift => 
       shift.staffId === staffId &&
-      new Date(shift.date) >= currentWeek.start &&
-      new Date(shift.date) <= currentWeek.end
+      new Date(shift.date) >= currentPeriod.start &&
+      new Date(shift.date) <= currentPeriod.end
     );
 
     let totalHours = 0;
@@ -166,7 +197,52 @@ const StaffPayroll: React.FC<StaffPayrollProps> = ({ staffId, staffName, onBack 
         </p>
       </div>
 
-      {/* Week Navigation */}
+      {/* View Mode Toggle */}
+      <div style={{
+        display: 'flex',
+        gap: '12px',
+        marginBottom: '16px',
+        backgroundColor: '#1a1a1a',
+        padding: '8px',
+        borderRadius: '12px',
+        border: '1px solid #3a3a3a',
+        width: 'fit-content'
+      }}>
+        <button
+          onClick={() => setViewMode('weekly')}
+          style={{
+            padding: '10px 24px',
+            backgroundColor: viewMode === 'weekly' ? '#8b5cf6' : 'transparent',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          📅 Weekly
+        </button>
+        <button
+          onClick={() => setViewMode('monthly')}
+          style={{
+            padding: '10px 24px',
+            backgroundColor: viewMode === 'monthly' ? '#8b5cf6' : 'transparent',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          📊 Monthly (14th-14th)
+        </button>
+      </div>
+
+      {/* Period Navigation */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -178,7 +254,7 @@ const StaffPayroll: React.FC<StaffPayrollProps> = ({ staffId, staffName, onBack 
         marginBottom: '24px'
       }}>
         <button
-          onClick={() => setSelectedWeek(selectedWeek - 1)}
+          onClick={() => viewMode === 'weekly' ? setSelectedWeek(selectedWeek - 1) : setSelectedMonth(selectedMonth - 1)}
           style={{
             padding: '10px 20px',
             backgroundColor: '#4b5563',
@@ -190,22 +266,22 @@ const StaffPayroll: React.FC<StaffPayrollProps> = ({ staffId, staffName, onBack 
             cursor: 'pointer'
           }}
         >
-          ← Previous Week
+          ← Previous {viewMode === 'weekly' ? 'Week' : 'Month'}
         </button>
 
         <div style={{ textAlign: 'center' }}>
           <div style={{ color: 'white', fontSize: '16px', fontWeight: '600' }}>
-            {currentWeek.label}
+            {currentPeriod.label}
           </div>
-          {selectedWeek === 0 && (
+          {((viewMode === 'weekly' && selectedWeek === 0) || (viewMode === 'monthly' && selectedMonth === 0)) && (
             <div style={{ color: '#8b5cf6', fontSize: '12px', marginTop: '4px' }}>
-              Current Week
+              Current {viewMode === 'weekly' ? 'Week' : 'Period'}
             </div>
           )}
         </div>
 
         <button
-          onClick={() => setSelectedWeek(selectedWeek + 1)}
+          onClick={() => viewMode === 'weekly' ? setSelectedWeek(selectedWeek + 1) : setSelectedMonth(selectedMonth + 1)}
           style={{
             padding: '10px 20px',
             backgroundColor: '#4b5563',
@@ -217,7 +293,7 @@ const StaffPayroll: React.FC<StaffPayrollProps> = ({ staffId, staffName, onBack 
             cursor: 'pointer'
           }}
         >
-          Next Week →
+          Next {viewMode === 'weekly' ? 'Week' : 'Month'} →
         </button>
       </div>
 
