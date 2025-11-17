@@ -33,6 +33,17 @@ const Login: React.FC = () => {
     }
   };
 
+  // Dev mode quick login handlers
+  const handleDevLogin = async (role: 'admin' | 'worker') => {
+    console.log(`Dev mode: Logging in as ${role}`);
+    try {
+      await login(`dev_${role}`, role);
+      navigate(role === 'admin' ? '/admin' : '/worker');
+    } catch (error) {
+      console.error('Dev login failed:', error);
+    }
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -51,7 +62,9 @@ const Login: React.FC = () => {
         flexWrap: 'nowrap'
       }}>
         <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>DEV MODE:</span>
-        <button style={{
+        <button 
+          onClick={() => handleDevLogin('admin')}
+          style={{
           padding: '6px 12px',
           backgroundColor: '#7c3aed',
           color: 'white',
@@ -60,11 +73,14 @@ const Login: React.FC = () => {
           fontSize: '11px',
           fontWeight: '600',
           whiteSpace: 'nowrap',
-          flexShrink: 0
+          flexShrink: 0,
+          cursor: 'pointer'
         }}>
           Admin
         </button>
-        <button style={{
+        <button 
+          onClick={() => handleDevLogin('admin')}
+          style={{
           padding: '6px 12px',
           backgroundColor: '#7c3aed',
           color: 'white',
@@ -73,11 +89,14 @@ const Login: React.FC = () => {
           fontSize: '11px',
           fontWeight: '600',
           whiteSpace: 'nowrap',
-          flexShrink: 0
+          flexShrink: 0,
+          cursor: 'pointer'
         }}>
           Manager
         </button>
-        <button style={{
+        <button 
+          onClick={() => handleDevLogin('worker')}
+          style={{
           padding: '6px 12px',
           backgroundColor: '#7c3aed',
           color: 'white',
@@ -86,7 +105,8 @@ const Login: React.FC = () => {
           fontSize: '11px',
           fontWeight: '600',
           whiteSpace: 'nowrap',
-          flexShrink: 0
+          flexShrink: 0,
+          cursor: 'pointer'
         }}>
           Worker
         </button>
