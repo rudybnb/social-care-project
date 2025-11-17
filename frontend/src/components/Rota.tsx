@@ -17,6 +17,7 @@ interface Shift {
   is24Hour: boolean;
   isBank?: boolean; // True if this is a BANK placeholder shift
   approved24HrBy?: string;
+  duplicateShiftApprovedBy?: string; // For multiple workers on same shift
   notes?: string;
   extended?: boolean;
   extensionHours?: number;
@@ -65,6 +66,8 @@ const Rota: React.FC = () => {
   const [showAssignShift, setShowAssignShift] = useState(false);
   const [show24HrApproval, setShow24HrApproval] = useState(false);
   const [pending24HrShift, setPending24HrShift] = useState<any>(null);
+  const [showDuplicateApproval, setShowDuplicateApproval] = useState(false);
+  const [pendingDuplicateShift, setPendingDuplicateShift] = useState<any>(null);
   const [selectedWeek, setSelectedWeek] = useState(0);
 
   const [shiftForm, setShiftForm] = useState({
@@ -129,7 +132,7 @@ const Rota: React.FC = () => {
       errors.push(`INVALID DATE: Cannot assign shifts to past dates. Selected date: ${newShift.date}`);
     }
 
-    // R1: No same-shift duplication (unless replacing a declined shift)
+    // R1: No same-shift duplication (unless replacing a declined shift OR admin approved)
     const duplicateShift = shifts.find(s => 
       s.date === newShift.date && 
       s.siteId === newShift.siteId && 
@@ -138,7 +141,10 @@ const Rota: React.FC = () => {
     if (duplicateShift) {
       // Allow replacement if the existing shift is declined
       if (duplicateShift.staffStatus !== 'declined') {
-        errors.push(`CONFLICT: ${duplicateShift.staffName} is already assigned to ${newShift.type} shift at this site on this date.`);
+        // Require admin approval for duplicate shift assignment
+        if (!newShift.duplicateShiftApprovedBy) {
+          errors.push(`DUPLICATE SHIFT: ${duplicateShift.staffName} is already assigned to ${newShift.type} shift at this site on this date. Admin approval required to assign multiple workers.`);
+        }
       }
     }
 
@@ -349,10 +355,38 @@ const Rota: React.FC = () => {
       return;
     }
 
+    // Check if Day shift needs duplicate approval
+    const dayDuplicateCheck = shifts.find(s => 
+      s.date === dayShift.date && 
+      s.siteId === dayShift.siteId && 
+      s.type === 'Day' &&
+      s.staffStatus !== 'declined'
+    );
+    if (dayDuplicateCheck) {
+      // Trigger duplicate approval workflow
+      setPendingDuplicateShift({ shift: dayShift, type: 'Day', existing: dayDuplicateCheck });
+      setShowDuplicateApproval(true);
+      return;
+    }
+
     // Validate Day shift
     const dayValidation = validateShift(dayShift);
     if (!dayValidation.valid) {
       alert(`CANNOT ASSIGN DAY SHIFT:\n\n${dayValidation.errors.join('\n\n')}`);
+      return;
+    }
+
+    // Check if Night shift needs duplicate approval
+    const nightDuplicateCheck = shifts.find(s => 
+      s.date === nightShift.date && 
+      s.siteId === nightShift.siteId && 
+      s.type === 'Night' &&
+      s.staffStatus !== 'declined'
+    );
+    if (nightDuplicateCheck) {
+      // Trigger duplicate approval workflow
+      setPendingDuplicateShift({ shift: nightShift, type: 'Night', existing: nightDuplicateCheck });
+      setShowDuplicateApproval(true);
       return;
     }
 
@@ -448,6 +482,47 @@ const Rota: React.FC = () => {
       notes: ''
     });
     alert(`24-hour shift approved and assigned!\n\nApproved by: ${approvalForm.approvedBy}`);
+  };
+
+  const handleApproveDuplicateShift = async () => {
+    if (!approvalForm.approvedBy || !approvalForm.reason) {
+      alert('Please provide approver name and reason');
+      return;
+    }
+
+    const approvedShift: Shift = {
+      ...pendingDuplicateShift.shift,
+      duplicateShiftApprovedBy: approvalForm.approvedBy,
+      notes: `DUPLICATE APPROVED: ${approvalForm.reason}. ${pendingDuplicateShift.shift.notes || ''}`
+    };
+
+    // Validate with approval
+    const validation = validateShift(approvedShift);
+    
+    if (!validation.valid) {
+      alert(`CANNOT APPROVE DUPLICATE SHIFT:\n\n${validation.errors.join('\n\n')}`);
+      return;
+    }
+
+    // Save approved shift to backend database
+    await addShift(approvedShift);
+    
+    // Refresh shifts from shared data store
+    setShifts(getShifts());
+    
+    setShowDuplicateApproval(false);
+    setShowAssignShift(false);
+    setPendingDuplicateShift(null);
+    setApprovalForm({ approvedBy: '', reason: '' });
+    setShiftForm({
+      dayStaffId: '',
+      nightStaffId: '',
+      siteId: '',
+      date: '',
+      is24Hour: false,
+      notes: ''
+    });
+    alert(`Duplicate shift approved and assigned!\n\nApproved by: ${approvalForm.approvedBy}\n\nMultiple workers are now assigned to this shift.`);
   };
 
   const handleDeleteShift = async () => {
@@ -1693,6 +1768,143 @@ const Rota: React.FC = () => {
               onTouchEnd={(e) => {
                 e.preventDefault();
                 handleApprove24Hr();
+              }}
+              style={{
+                flex: 1,
+                padding: '12px',
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                touchAction: 'manipulation'
+              }}
+            >
+              Approve & Assign
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Duplicate Shift Approval Modal */}
+      <Modal isOpen={showDuplicateApproval} onClose={() => setShowDuplicateApproval(false)} title="Multiple Workers - Approval Required">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{
+            backgroundColor: '#f59e0b20',
+            padding: '16px',
+            borderRadius: '8px',
+            border: '1px solid #f59e0b40'
+          }}>
+            <div style={{ color: '#f59e0b', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+              Admin Approval Required
+            </div>
+            <div style={{ color: '#9ca3af', fontSize: '13px' }}>
+              You are assigning multiple workers to the same shift at the same location. This requires admin authorization.
+            </div>
+          </div>
+
+          {pendingDuplicateShift && (
+            <div style={{
+              backgroundColor: '#1a1a1a',
+              padding: '14px',
+              borderRadius: '8px',
+              border: '1px solid #3a3a3a'
+            }}>
+              <div style={{ color: 'white', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                Shift Details
+              </div>
+              <div style={{ color: '#9ca3af', fontSize: '13px', lineHeight: '1.8' }}>
+                <div>Existing Worker: {pendingDuplicateShift.existing.staffName}</div>
+                <div>New Worker: {pendingDuplicateShift.shift.staffName}</div>
+                <div>Site: {pendingDuplicateShift.shift.siteName}</div>
+                <div>Date: {pendingDuplicateShift.shift.date}</div>
+                <div>Shift Type: {pendingDuplicateShift.type}</div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+              Approved By (Admin Name) *
+            </label>
+            <input
+              type="text"
+              placeholder="Enter your name"
+              value={approvalForm.approvedBy}
+              onChange={(e) => setApprovalForm({ ...approvalForm, approvedBy: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                outline: 'none'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+              Reason for Multiple Workers *
+            </label>
+            <textarea
+              placeholder="e.g., High workload, Extra coverage needed, Training new staff"
+              value={approvalForm.reason}
+              onChange={(e) => setApprovalForm({ ...approvalForm, reason: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                outline: 'none',
+                minHeight: '80px',
+                resize: 'vertical'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+            <button
+              onClick={() => {
+                setShowDuplicateApproval(false);
+                setPendingDuplicateShift(null);
+                setApprovalForm({ approvedBy: '', reason: '' });
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                setShowDuplicateApproval(false);
+                setPendingDuplicateShift(null);
+                setApprovalForm({ approvedBy: '', reason: '' });
+              }}
+              style={{
+                flex: 1,
+                padding: '12px',
+                backgroundColor: '#4b5563',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                touchAction: 'manipulation'
+              }}
+            >
+              Reject
+            </button>
+            <button
+              onClick={handleApproveDuplicateShift}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleApproveDuplicateShift();
               }}
               style={{
                 flex: 1,
