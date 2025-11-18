@@ -59,8 +59,20 @@ async function runAllMigrations() {
       console.log(`⚠️  Migration 3 skipped: ${error.message}\n`);
     }
     
-    // Migration 4: Create indexes for better performance
-    console.log('📝 Migration 4: Creating indexes...');
+    // Migration 4: Change duration column to support decimal values
+    console.log('📝 Migration 4: Changing duration column to support decimal hours...');
+    try {
+      await pool.query(`
+        ALTER TABLE shifts 
+        ALTER COLUMN duration TYPE real USING duration::real;
+      `);
+      console.log('✅ Migration 4 complete\n');
+    } catch (error: any) {
+      console.log(`⚠️  Migration 4 skipped: ${error.message}\n`);
+    }
+    
+    // Migration 5: Create indexes for better performance
+    console.log('📝 Migration 5: Creating indexes...');
     try {
       await pool.query(`
         CREATE INDEX IF NOT EXISTS idx_shifts_date ON shifts(date);
@@ -68,9 +80,9 @@ async function runAllMigrations() {
         CREATE INDEX IF NOT EXISTS idx_shifts_site_id ON shifts(site_id);
         CREATE INDEX IF NOT EXISTS idx_staff_username ON staff(username);
       `);
-      console.log('✅ Migration 4 complete\n');
+      console.log('✅ Migration 5 complete\n');
     } catch (error: any) {
-      console.log(`⚠️  Migration 4 skipped: ${error.message}\n`);
+      console.log(`⚠️  Migration 5 skipped: ${error.message}\n`);
     }
     
     // Verify tables exist

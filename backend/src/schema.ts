@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean, uuid, decimal } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, integer, boolean, uuid, decimal, real } from 'drizzle-orm/pg-core';
 
 // Staff members (enhanced from users table)
 export const staff = pgTable('staff', {
@@ -49,7 +49,7 @@ export const shifts = pgTable('shifts', {
   type: text('type').notNull(), // 'Day' | 'Night'
   startTime: text('start_time').notNull(), // HH:MM format
   endTime: text('end_time').notNull(), // HH:MM format
-  duration: integer('duration').notNull(), // hours
+  duration: real('duration').notNull(), // hours (supports decimals like 12.43)
   isBank: boolean('is_bank').default(false), // BANK placeholder flag
   is24Hour: boolean('is_24_hour').default(false),
   approved24HrBy: text('approved_24hr_by'),
