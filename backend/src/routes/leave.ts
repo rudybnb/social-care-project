@@ -81,6 +81,46 @@ router.get('/balances', async (req, res) => {
   }
 });
 
+// Create or update leave balance
+router.post('/balances', async (req, res) => {
+  try {
+    const { staffId, staffName, year, totalEntitlement, hoursAccrued, hoursUsed, hoursRemaining } = req.body;
+    
+    // Check if balance already exists
+    const existing = await db
+      .select()
+      .from(leaveBalances)
+      .where(and(
+        eq(leaveBalances.staffId, staffId),
+        eq(leaveBalances.year, year)
+      ))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Balance already exists for this staff member and year' });
+    }
+    
+    // Create new balance
+    const [newBalance] = await db
+      .insert(leaveBalances)
+      .values({
+        staffId,
+        staffName,
+        year,
+        totalEntitlement: totalEntitlement || 112,
+        hoursAccrued: hoursAccrued || 0,
+        hoursUsed: hoursUsed || 0,
+        hoursRemaining: hoursRemaining || totalEntitlement || 112
+      })
+      .returning();
+    
+    res.status(201).json(newBalance);
+  } catch (error: any) {
+    console.error('Error creating leave balance:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== LEAVE REQUESTS ====================
 
 // Get all leave requests
