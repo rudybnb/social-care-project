@@ -40,7 +40,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
       if (response.ok) {
         const data = await response.json();
         // /api/auth/login returns {success: true, user: {username, name, role, staffId}}
-        const staffId = data.user.staffId?.toString() || '1';
+        const staffId = data.user.id?.toString() || '1';
         localStorage.setItem('staff-token', `staff-${staffId}`);
         localStorage.setItem('staff-id', staffId);
         localStorage.setItem('staff-name', data.user.name);
@@ -80,7 +80,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
       if (response.ok) {
         const data = await response.json();
         // /api/auth/login returns {success: true, user: {username, name, role, staffId}}
-        const staffId = data.user.staffId?.toString() || '1';
+        const staffId = data.user.id?.toString() || '1';
         localStorage.setItem('staff-token', `staff-${staffId}`);
         localStorage.setItem('staff-id', staffId);
         localStorage.setItem('staff-name', data.user.name);
