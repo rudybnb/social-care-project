@@ -336,8 +336,13 @@ const Rota: React.FC = () => {
     const nightDuration = calculateDuration(shiftForm.nightStartTime, shiftForm.nightEndTime);
     const totalDuration = dayDuration + nightDuration;
     
-    // Auto-detect 24-hour shift if total duration is 24 hours
+    // Validate 24-hour coverage
     const is24HourCoverage = Math.abs(totalDuration - 24) < 0.1; // Allow small rounding difference
+    
+    if (!is24HourCoverage) {
+      alert(`⚠️ SHIFTS DO NOT ADD UP TO 24 HOURS\n\nDay Shift: ${shiftForm.dayStartTime} - ${shiftForm.dayEndTime} (${dayDuration.toFixed(2)}h)\nNight Shift: ${shiftForm.nightStartTime} - ${shiftForm.nightEndTime} (${nightDuration.toFixed(2)}h)\n\nTotal: ${totalDuration.toFixed(2)} hours\nRequired: 24 hours\n\nPlease adjust the times to equal 24 hours.`);
+      return;
+    }
     
     // Create Day shift
     const dayShift: Shift = {
@@ -1194,7 +1199,7 @@ const Rota: React.FC = () => {
                                     )}
                                   </div>
                                   <div style={{ color: '#9ca3af', fontSize: '10px' }}>
-                                    08:00-20:00
+                                    {shift.startTime}-{shift.endTime}
                                   </div>
                                   {shift.is24Hour && (
                                     <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
@@ -1353,7 +1358,7 @@ const Rota: React.FC = () => {
                                     )}
                                   </div>
                                   <div style={{ color: '#9ca3af', fontSize: '10px' }}>
-                                    20:00-08:00
+                                    {shift.startTime}-{shift.endTime}
                                   </div>
                                   {shift.is24Hour && (
                                     <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
@@ -1538,7 +1543,15 @@ const Rota: React.FC = () => {
               <input
                 type="time"
                 value={shiftForm.dayStartTime}
-                onChange={(e) => setShiftForm({ ...shiftForm, dayStartTime: e.target.value })}
+                onChange={(e) => {
+                  const newDayStart = e.target.value;
+                  // Auto-set night end to match day start for seamless 24-hour coverage
+                  setShiftForm({ 
+                    ...shiftForm, 
+                    dayStartTime: newDayStart,
+                    nightEndTime: newDayStart
+                  });
+                }}
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -1558,7 +1571,15 @@ const Rota: React.FC = () => {
               <input
                 type="time"
                 value={shiftForm.dayEndTime}
-                onChange={(e) => setShiftForm({ ...shiftForm, dayEndTime: e.target.value })}
+                onChange={(e) => {
+                  const newDayEnd = e.target.value;
+                  // Auto-set night start to match day end for seamless 24-hour coverage
+                  setShiftForm({ 
+                    ...shiftForm, 
+                    dayEndTime: newDayEnd,
+                    nightStartTime: newDayEnd
+                  });
+                }}
                 style={{
                   width: '100%',
                   padding: '12px',
