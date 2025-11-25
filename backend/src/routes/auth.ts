@@ -36,8 +36,8 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Username and password required' });
     }
 
-    // Check credentials
-    const user = TEST_CREDENTIALS[username];
+    // Check credentials (case-insensitive username)
+    const user = TEST_CREDENTIALS[username] || TEST_CREDENTIALS[username.toLowerCase()] || TEST_CREDENTIALS[username.charAt(0).toUpperCase() + username.slice(1)];
     
     if (!user || user.password !== password) {
       return res.status(401).json({ error: 'Invalid username or password' });
