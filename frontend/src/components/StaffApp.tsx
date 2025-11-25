@@ -3,8 +3,9 @@ import StaffLogin from './StaffLogin';
 import StaffDashboard from './StaffDashboard';
 import StaffProgress from './StaffProgress';
 import StaffPayroll from './StaffPayroll';
+import WorkerLeave from './WorkerLeave';
 
-type View = 'login' | 'dashboard' | 'progress' | 'payroll';
+type View = 'login' | 'dashboard' | 'progress' | 'payroll' | 'leave';
 
 interface Shift {
   id: string;
@@ -68,6 +69,10 @@ const StaffApp: React.FC = () => {
     setCurrentView('payroll');
   };
 
+  const handleViewAnnualLeave = () => {
+    setCurrentView('leave');
+  };
+
   if (currentView === 'login') {
     return <StaffLogin onLogin={handleLogin} />;
   }
@@ -86,12 +91,43 @@ const StaffApp: React.FC = () => {
     );
   }
 
+  if (currentView === 'leave') {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#1a1a1a' }}>
+        <div style={{
+          backgroundColor: '#7c3aed',
+          color: 'white',
+          padding: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '15px'
+        }}>
+          <button
+            onClick={handleBackToDashboard}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'white',
+              fontSize: '24px',
+              cursor: 'pointer'
+            }}
+          >
+            ←
+          </button>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Annual Leave</h1>
+        </div>
+        <WorkerLeave staffId={staffId} staffName={staffName} />
+      </div>
+    );
+  }
+
   return (
     <StaffDashboard 
       staffId={staffId} 
       staffName={staffName} 
       onLogout={handleLogout}
       onViewPayroll={handleViewPayroll}
+      onViewAnnualLeave={handleViewAnnualLeave}
     />
   );
 };
