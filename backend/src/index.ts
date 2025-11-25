@@ -99,27 +99,8 @@ app.post('/api/staff/bulk-create', async (req: Request, res: Response) => {
     const results = [];
     
     for (const member of staffMembers) {
-      // Check if already exists (simple approach - check all staff and filter in JS)
-      const allStaff = await db.select().from(staff);
-      const existing = allStaff.filter(s => 
-        s.username?.toLowerCase() === member.username.toLowerCase() ||
-        s.name?.toLowerCase() === member.name.toLowerCase()
-      );
-      
-      if (existing.length > 0) {
-        // Update existing
-        const hashedPassword = await bcrypt.hash(member.password, 10);
-        await db.update(staff)
-          .set({ 
-            username: member.username, 
-            password: hashedPassword, 
-            startDate: member.startDate,
-            updatedAt: new Date()
-          })
-          .where(eq(staff.id, existing[0].id));
-        results.push({ name: member.name, status: 'updated', id: existing[0].id });
-      } else {
-        // Create new
+      try {
+        // Just try to insert - if username exists, it will fail and we skip
         const hashedPassword = await bcrypt.hash(member.password, 10);
         const newStaff = await db.insert(staff).values({
           name: member.name,
@@ -130,9 +111,16 @@ app.post('/api/staff/bulk-create', async (req: Request, res: Response) => {
           status: 'Active',
           standardRate: '12.50',
           rates: '£/h: 12.50 • Night: — • OT: —',
-          startDate: member.startDate
+          startDate: new Date(member.startDate)
         }).returning();
         results.push({ name: member.name, status: 'created', id: newStaff[0].id });
+      } catch (err: any) {
+        // If duplicate, skip
+        if (err.message?.includes('duplicate') || err.message?.includes('unique')) {
+          results.push({ name: member.name, status: 'already exists' });
+        } else {
+          throw err;
+        }
       }
     }
     
