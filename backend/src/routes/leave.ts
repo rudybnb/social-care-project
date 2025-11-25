@@ -110,7 +110,9 @@ router.post('/balances', async (req, res) => {
         totalEntitlement: totalEntitlement || 112,
         hoursAccrued: hoursAccrued || 0,
         hoursUsed: hoursUsed || 0,
-        hoursRemaining: hoursRemaining || totalEntitlement || 112
+        hoursRemaining: hoursRemaining || totalEntitlement || 112,
+        carryOverFromPrevious: 0,
+        carryOverToNext: 0
       })
       .returning();
     
