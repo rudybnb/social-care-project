@@ -963,6 +963,7 @@ const runStartupMigration = async () => {
         reviewed_at TIMESTAMP,
         reviewed_by TEXT,
         admin_notes TEXT,
+        rejection_reason TEXT,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
