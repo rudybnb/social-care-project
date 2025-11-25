@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import WorkerLeave from '../components/WorkerLeave';
 
 const WorkerDashboard: React.FC = () => {
   const { logout, user } = useAuth();
   const [clockedIn, setClockedIn] = useState(false);
+  const [currentView, setCurrentView] = useState<'dashboard' | 'leave'>('dashboard');
 
   const handleClockIn = () => {
     console.log('Clock In clicked');
@@ -30,6 +32,37 @@ const WorkerDashboard: React.FC = () => {
       logout();
     }
   };
+
+  // Show Annual Leave view
+  if (currentView === 'leave') {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+        <div style={{
+          backgroundColor: '#3880ff',
+          color: 'white',
+          padding: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '15px'
+        }}>
+          <button
+            onClick={() => setCurrentView('dashboard')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'white',
+              fontSize: '24px',
+              cursor: 'pointer'
+            }}
+          >
+            ←
+          </button>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Annual Leave</h1>
+        </div>
+        <WorkerLeave staffId={user?.id || ''} staffName={user?.name || ''} />
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -175,17 +208,17 @@ const WorkerDashboard: React.FC = () => {
           gap: '15px'
         }}>
           {[
-            { label: 'Attendance', color: '#3880ff' },
-            { label: 'Rooms', color: '#10b981' },
-            { label: 'Queries', color: '#f59e0b' },
-            { label: 'My Shifts', color: '#8b5cf6' }
+            { label: 'Attendance', color: '#3880ff', action: () => handleQuickLink('Attendance') },
+            { label: 'Annual Leave', color: '#ec4899', action: () => setCurrentView('leave') },
+            { label: 'Queries', color: '#f59e0b', action: () => handleQuickLink('Queries') },
+            { label: 'My Shifts', color: '#8b5cf6', action: () => handleQuickLink('My Shifts') }
           ].map((item, index) => (
             <button
               key={index}
-              onClick={() => handleQuickLink(item.label)}
+              onClick={item.action}
               onTouchEnd={(e) => {
                 e.preventDefault();
-                handleQuickLink(item.label);
+                item.action();
               }}
               style={{
                 padding: '25px 15px',

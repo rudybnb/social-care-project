@@ -5,6 +5,7 @@ import Rota from '../components/Rota';
 import Sites from '../components/Sites';
 import Directory from '../components/Directory';
 import Payroll from '../components/Payroll';
+import AnnualLeave from '../components/AnnualLeave';
 
 const AdminDashboard: React.FC = () => {
   const { logout, user } = useAuth();
@@ -27,6 +28,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'rota', label: 'Rota' },
     { id: 'attendance', label: 'Attendance' },
     { id: 'room-scans', label: 'Room Scans' },
+    { id: 'annual-leave', label: 'Annual Leave' },
     { id: 'payroll', label: 'Payroll' },
     { id: 'reports', label: 'Reports' },
     { id: 'queries', label: 'Queries' }
@@ -48,6 +50,8 @@ const AdminDashboard: React.FC = () => {
         return <Sites />;
       case 'directory':
         return <Directory />;
+      case 'annual-leave':
+        return <AnnualLeave />;
       case 'payroll':
         return <Payroll />;
       default:

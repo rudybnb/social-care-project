@@ -148,11 +148,18 @@ async function runAllMigrations() {
         )
       `);
       
+      // Set start dates for eligible staff
+      await pool.query(`
+        UPDATE staff SET start_date = '2024-01-15' WHERE name = 'L A';
+        UPDATE staff SET start_date = '2024-02-01' WHERE name = 'M B';
+        UPDATE staff SET start_date = '2024-01-10' WHERE name = 'I M';
+      `);
+      
       // Initialize leave balances for eligible staff
       const currentYear = new Date().getFullYear();
       await pool.query(`
-        INSERT INTO leave_balances (staff_id, staff_name, year, total_entitlement, hours_used, hours_remaining)
-        SELECT id, name, ${currentYear}, 112, 0, 112
+        INSERT INTO leave_balances (staff_id, staff_name, year, total_entitlement, hours_accrued, hours_used, hours_remaining)
+        SELECT id, name, ${currentYear}, 112, 112, 0, 112
         FROM staff
         WHERE name IN ('L A', 'M B', 'I M')
         ON CONFLICT (staff_id, year) DO NOTHING

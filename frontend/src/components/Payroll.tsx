@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getShifts, getStaff, subscribeToDataChange, getAllWorkers } from '../data/sharedData';
 import { calculateWeeklyHours } from '../utils/hoursCalculator';
+import { leaveAPI } from '../services/leaveAPI';
 
 const Payroll: React.FC = () => {
   const [shifts, setShifts] = useState(getShifts());
@@ -8,6 +9,7 @@ const Payroll: React.FC = () => {
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
   const [selectedMonth, setSelectedMonth] = useState(0);
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
 
   // Subscribe to shift changes
   useEffect(() => {
@@ -15,6 +17,20 @@ const Payroll: React.FC = () => {
       setShifts(getShifts());
     });
     return unsubscribe;
+  }, []);
+
+  // Load approved leave requests
+  useEffect(() => {
+    const loadLeaveRequests = async () => {
+      try {
+        const requests = await leaveAPI.getAllRequests();
+        const approved = requests.filter(r => r.status === 'approved');
+        setLeaveRequests(approved);
+      } catch (error) {
+        console.error('Error loading leave requests:', error);
+      }
+    };
+    loadLeaveRequests();
   }, []);
 
   // Get week dates
@@ -87,6 +103,25 @@ const Payroll: React.FC = () => {
         }
       });
 
+      // Add approved annual leave hours
+      const staffLeave = leaveRequests.filter(leave => {
+        const leaveStart = new Date(leave.startDate);
+        const leaveEnd = new Date(leave.endDate);
+        return leave.staffName === staffMember.name &&
+               ((leaveStart >= currentPeriod.start && leaveStart <= currentPeriod.end) ||
+                (leaveEnd >= currentPeriod.start && leaveEnd <= currentPeriod.end) ||
+                (leaveStart <= currentPeriod.start && leaveEnd >= currentPeriod.end));
+      });
+
+      let leaveHours = 0;
+      staffLeave.forEach(leave => {
+        // Calculate overlapping days
+        const leaveStart = new Date(Math.max(new Date(leave.startDate).getTime(), currentPeriod.start.getTime()));
+        const leaveEnd = new Date(Math.min(new Date(leave.endDate).getTime(), currentPeriod.end.getTime()));
+        const days = Math.ceil((leaveEnd.getTime() - leaveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        leaveHours += days * 8; // 8 hours per day
+      });
+
       // Check if this is an agency worker
       const isAgency = 'agencyName' in staffMember;
       
@@ -137,21 +172,26 @@ const Payroll: React.FC = () => {
         // Calculate night shift pay (always at night rate)
         nightPay = nightHours * nightRate;
 
-        totalPay = standardPay + enhancedPay + nightPay;
+        // Calculate annual leave pay (at standard rate, 8h per day)
+        const leavePay = leaveHours * standardRate;
+
+        totalPay = standardPay + enhancedPay + nightPay + leavePay;
       }
       
       return {
         name: staffMember.name,
         isAgency,
         agencyName: isAgency ? staffMember.agencyName : null,
-        totalHours,
+        totalHours: totalHours + leaveHours,
         dayHours,
         nightHours,
+        leaveHours,
         first20Hours: isAgency ? 0 : (dayHours <= 20 ? dayHours : 20),
         remainingHours: isAgency ? 0 : (dayHours > 20 ? dayHours - 20 : 0),
         standardPay,
         enhancedPay,
         nightPay,
+        leavePay: isAgency ? 0 : (leaveHours * (parseFloat(staffMember.standardRate) || 12.50)),
         totalPay,
         shifts: staffShifts.length
       };

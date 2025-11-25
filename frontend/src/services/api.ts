@@ -2,6 +2,7 @@
 import { StaffMember, Site } from '../data/sharedData';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com';
+export const API_URL = API_BASE_URL;
 
 // ==================== STAFF API ====================
 
