@@ -76,6 +76,66 @@ app.get('/api/staff/:id', async (req: Request, res: Response) => {
   }
 });
 
+// Bulk create staff members with credentials
+app.post('/api/staff/bulk-create', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    
+    const staffMembers = [
+      { name: 'Lauren Alecia', username: 'lauren', password: 'Lauren123', startDate: '2024-02-17' },
+      { name: 'Melissa Blake', username: 'melissa', password: 'Melissa123', startDate: '2024-04-12' },
+      { name: 'Irina Mitrovici', username: 'irina', password: 'Irina123', startDate: '2025-03-28' },
+      { name: 'Evander Fisher', username: 'evander', password: 'Evander123', startDate: '2025-01-16' },
+      { name: 'Narfisa Posey', username: 'narfisa', password: 'Narfisa123', startDate: '2024-09-09' },
+      { name: 'Singita Zoe', username: 'singita', password: 'Singita123', startDate: '2024-04-23' },
+      { name: 'Prudence Diedericks', username: 'prudence', password: 'Prudence123', startDate: '2023-02-12' }
+    ];
+    
+    const results = [];
+    
+    for (const member of staffMembers) {
+      // Check if already exists
+      const existing = await db.select().from(staff).where(
+        sql`LOWER(${staff.username}) = LOWER(${member.username}) OR LOWER(${staff.name}) = LOWER(${member.name})`
+      );
+      
+      if (existing.length > 0) {
+        // Update existing
+        const hashedPassword = await bcrypt.hash(member.password, 10);
+        await db.update(staff)
+          .set({ 
+            username: member.username, 
+            password: hashedPassword, 
+            startDate: member.startDate,
+            updatedAt: new Date()
+          })
+          .where(eq(staff.id, existing[0].id));
+        results.push({ name: member.name, status: 'updated', id: existing[0].id });
+      } else {
+        // Create new
+        const hashedPassword = await bcrypt.hash(member.password, 10);
+        const newStaff = await db.insert(staff).values({
+          name: member.name,
+          username: member.username,
+          password: hashedPassword,
+          role: 'Worker',
+          site: 'Thamesmead Care Home',
+          status: 'Active',
+          standardRate: '12.50',
+          rates: '£/h: 12.50 • Night: — • OT: —',
+          startDate: member.startDate
+        }).returning();
+        results.push({ name: member.name, status: 'created', id: newStaff[0].id });
+      }
+    }
+    
+    res.json({ success: true, results });
+  } catch (error: any) {
+    console.error('Error bulk creating staff:', error);
+    res.status(500).json({ error: 'Failed to bulk create staff', details: error.message });
+  }
+});
+
 // Create new staff member
 app.post('/api/staff', async (req: Request, res: Response) => {
   try {

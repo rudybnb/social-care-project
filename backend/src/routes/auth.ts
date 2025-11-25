@@ -1,31 +1,10 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcrypt';
+import { db } from '../index.js';
+import { staff } from '../schema.js';
+import { eq, or, sql } from 'drizzle-orm';
 
 const router: Router = Router();
-
-// Test credentials (firstname / firstname123)
-const TEST_CREDENTIALS: { [key: string]: { password: string; role: string; staffId?: number; name: string } } = {
-  // Admin
-  'admin': { password: 'admin123', role: 'admin', name: 'Administrator' },
-  'manager': { password: 'Manager123', role: 'admin', name: 'Manager' },
-  
-  // Staff with Annual Leave
-  'lauren': { password: 'Lauren123', role: 'worker', staffId: 7, name: 'Lauren Alecia' },
-  'Lauren': { password: 'Lauren123', role: 'worker', staffId: 7, name: 'Lauren Alecia' },
-  'melissa': { password: 'Melissa123', role: 'worker', staffId: 8, name: 'Melissa Blake' },
-  'Melissa': { password: 'Melissa123', role: 'worker', staffId: 8, name: 'Melissa Blake' },
-  'irina': { password: 'Irina123', role: 'worker', staffId: 2, name: 'Irina Mitrovici' },
-  'Irina': { password: 'Irina123', role: 'worker', staffId: 2, name: 'Irina Mitrovici' },
-  
-  // Other Workers
-  'evander': { password: 'Evander123', role: 'worker', staffId: 3, name: 'Evander Fisher' },
-  'Evander': { password: 'Evander123', role: 'worker', staffId: 3, name: 'Evander Fisher' },
-  'narfisa': { password: 'Narfisa123', role: 'worker', staffId: 4, name: 'Narfisa Posey' },
-  'Narfisa': { password: 'Narfisa123', role: 'worker', staffId: 4, name: 'Narfisa Posey' },
-  'singita': { password: 'Singita123', role: 'worker', staffId: 5, name: 'Singita Zoe' },
-  'Singita': { password: 'Singita123', role: 'worker', staffId: 5, name: 'Singita Zoe' },
-  'prudence': { password: 'Prudence123', role: 'worker', staffId: 9, name: 'Prudence Diedericks' },
-  'Prudence': { password: 'Prudence123', role: 'worker', staffId: 9, name: 'Prudence Diedericks' }
-};
 
 // POST /api/auth/login
 router.post('/login', async (req: Request, res: Response) => {
@@ -36,21 +15,50 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Username and password required' });
     }
 
-    // Check credentials (case-insensitive username)
-    const user = TEST_CREDENTIALS[username] || TEST_CREDENTIALS[username.toLowerCase()] || TEST_CREDENTIALS[username.charAt(0).toUpperCase() + username.slice(1)];
-    
-    if (!user || user.password !== password) {
+    // Check for database connection
+    if (!db) {
+      return res.status(500).json({ error: 'Database not configured' });
+    }
+
+    // Query database for staff member by username (case-insensitive)
+    const staffMembers = await db
+      .select()
+      .from(staff)
+      .where(
+        or(
+          sql`LOWER(${staff.username}) = LOWER(${username})`,
+          sql`LOWER(${staff.name}) = LOWER(${username})`
+        )
+      );
+
+    if (staffMembers.length === 0) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
+
+    const user = staffMembers[0];
+
+    // Check if user has login credentials set
+    if (!user.username || !user.password) {
+      return res.status(401).json({ error: 'Login not configured for this staff member. Please contact admin.' });
+    }
+
+    // Check password using bcrypt
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    // Determine role
+    const role = user.role === 'Admin' || user.role === 'Site Manager' ? 'admin' : 'worker';
 
     // Return user info
     res.json({
       success: true,
       user: {
-        username,
+        username: user.username,
         name: user.name,
-        role: user.role,
-        staffId: user.staffId
+        role: role,
+        staffId: user.id
       }
     });
   } catch (error) {
