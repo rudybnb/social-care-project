@@ -69,7 +69,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
       setLoading(true);
       setError('');
 
-      const response = await fetch('https://social-care-backend.onrender.com/api/auth/login', {
+      const response = await fetch('https://social-care-backend.onrender.com/api/auth/staff/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
