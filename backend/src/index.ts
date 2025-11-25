@@ -160,7 +160,7 @@ app.post('/api/staff', async (req: Request, res: Response) => {
       deductions: req.body.deductions || '£0.00',
       tax: req.body.tax || '—',
       weeklyHours: req.body.weeklyHours || 0,
-      startDate: req.body.startDate ? new Date(req.body.startDate) : new Date()
+      startDate: req.body.startDate || new Date().toISOString().split('T')[0]
     };
     
     console.log('Inserting staff into database...');
