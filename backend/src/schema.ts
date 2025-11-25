@@ -18,6 +18,7 @@ export const staff = pgTable('staff', {
   deductions: text('deductions').default('£0.00'),
   tax: text('tax').default('—'),
   weeklyHours: integer('weekly_hours').default(0),
+  startDate: text('start_date'), // Employment start date for leave accrual calculation
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -67,6 +68,53 @@ export const shifts = pgTable('shifts', {
   declineReason: text('decline_reason'), // Reason for declining shift
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Annual Leave Balances
+export const leaveBalances = pgTable('leave_balances', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  staffId: text('staff_id').notNull(),
+  staffName: text('staff_name').notNull(),
+  year: integer('year').notNull(),
+  totalEntitlement: integer('total_entitlement').notNull().default(112),
+  hoursAccrued: integer('hours_accrued').notNull().default(0), // Hours earned so far based on months worked
+  hoursUsed: integer('hours_used').notNull().default(0),
+  hoursRemaining: integer('hours_remaining').notNull().default(112),
+  carryOverFromPrevious: integer('carry_over_from_previous').default(0),
+  carryOverToNext: integer('carry_over_to_next').default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Annual Leave Requests
+export const leaveRequests = pgTable('leave_requests', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  staffId: text('staff_id').notNull(),
+  staffName: text('staff_name').notNull(),
+  startDate: text('start_date').notNull(),
+  endDate: text('end_date').notNull(),
+  totalDays: integer('total_days').notNull(),
+  totalHours: integer('total_hours').notNull(),
+  reason: text('reason'),
+  status: text('status').notNull().default('pending'),
+  requestedAt: timestamp('requested_at').defaultNow().notNull(),
+  reviewedBy: text('reviewed_by'),
+  reviewedAt: timestamp('reviewed_at'),
+  adminNotes: text('admin_notes'),
+  rejectionReason: text('rejection_reason'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Leave Days
+export const leaveDays = pgTable('leave_days', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  requestId: uuid('request_id').notNull(),
+  staffId: text('staff_id').notNull(),
+  staffName: text('staff_name').notNull(),
+  date: text('date').notNull(),
+  hours: integer('hours').notNull().default(8),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // Legacy tables (keep for compatibility)

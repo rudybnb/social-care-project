@@ -821,6 +821,10 @@ app.delete('/api/admin/reset-all', async (_req: Request, res: Response) => {
   }
 });
 
+// Annual Leave routes
+import leaveRoutes from './routes/leave.js';
+app.use('/api/leave', leaveRoutes);
+
 // Legacy routes
 app.use('/api/attendance', (_req: Request, res: Response) => res.json({ message: 'attendance API placeholder' }));
 app.use('/api/rooms', (_req: Request, res: Response) => res.json({ message: 'rooms API placeholder' }));
