@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { getSites, getStaff, subscribeToSitesChange, Site as SharedSite, StaffMember, getShifts, setShifts as setSharedShifts, subscribeToDataChange, addShift, updateShift, removeShift, getAllWorkers } from '../data/sharedData';
+import { shiftsAPI } from '../services/api';
 
 interface Shift {
   id: string;
@@ -49,6 +50,26 @@ const Rota: React.FC = () => {
   }, []);
 
   const [shifts, setShifts] = useState<Shift[]>(getShifts());
+  const [isLoadingShifts, setIsLoadingShifts] = useState(true);
+
+  // Fetch shifts from API on component mount
+  useEffect(() => {
+    const loadShifts = async () => {
+      try {
+        setIsLoadingShifts(true);
+        const fetchedShifts = await shiftsAPI.getAll();
+        setShifts(fetchedShifts);
+        setSharedShifts(fetchedShifts);
+      } catch (error) {
+        console.error('Failed to load shifts:', error);
+        // Fall back to cached data
+        setShifts(getShifts());
+      } finally {
+        setIsLoadingShifts(false);
+      }
+    };
+    loadShifts();
+  }, []);
 
   // Subscribe to shift changes from other components
   useEffect(() => {
