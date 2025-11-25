@@ -970,6 +970,14 @@ const runStartupMigration = async () => {
     `);
     console.log('✅ Migration 4 complete');
     
+    // Migration 5: Add rejection_reason column if it doesn't exist
+    console.log('📝 Migration 5: Adding rejection_reason column to leave_requests...');
+    await pool.query(`
+      ALTER TABLE leave_requests 
+      ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+    `);
+    console.log('✅ Migration 5 complete');
+    
     console.log('✅ All migrations completed successfully!');
   } catch (error: any) {
     console.error('❌ Migration failed:', error.message);
