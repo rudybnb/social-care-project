@@ -94,17 +94,12 @@ app.post('/api/staff/bulk-create', async (req: Request, res: Response) => {
     const results = [];
     
     for (const member of staffMembers) {
-      // Check if already exists by username
-      const existingByUsername = await db.select().from(staff).where(
-        sql`LOWER(${staff.username}) = ${member.username.toLowerCase()}`
+      // Check if already exists (simple approach - check all staff and filter in JS)
+      const allStaff = await db.select().from(staff);
+      const existing = allStaff.filter(s => 
+        s.username?.toLowerCase() === member.username.toLowerCase() ||
+        s.name?.toLowerCase() === member.name.toLowerCase()
       );
-      
-      // Check by name if not found by username
-      const existingByName = existingByUsername.length === 0 ? await db.select().from(staff).where(
-        sql`LOWER(${staff.name}) = ${member.name.toLowerCase()}`
-      ) : [];
-      
-      const existing = existingByUsername.length > 0 ? existingByUsername : existingByName;
       
       if (existing.length > 0) {
         // Update existing
