@@ -225,9 +225,26 @@ export const updateStaff = async (id: string | number, updates: Partial<StaffMem
 };
 
 export const deleteStaff = async (id: string | number): Promise<void> => {
-  // TODO: Enable backend API when deployed
-  staff = staff.filter(s => String(s.id) !== String(id));
-  notifyDataChanged();
+  try {
+    console.log('Deleting staff member:', id);
+    const response = await fetch(`https://social-care-backend.onrender.com/api/staff/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('Backend error:', errorData);
+      throw new Error(errorData.error || 'Failed to delete staff member');
+    }
+    
+    console.log('Staff deleted successfully from backend');
+    staff = staff.filter(s => String(s.id) !== String(id));
+    notifyDataChanged();
+  } catch (error: any) {
+    console.error('Error deleting staff:', error);
+    throw error;
+  }
 };
 
 // ==================== SHIFTS MANAGEMENT ====================
