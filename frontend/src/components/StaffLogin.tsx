@@ -39,10 +39,12 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem('staff-token', data.token);
-        localStorage.setItem('staff-id', data.user.id);
+        // /api/auth/login returns {success: true, user: {username, name, role, staffId}}
+        const staffId = data.user.staffId?.toString() || '1';
+        localStorage.setItem('staff-token', `staff-${staffId}`);
+        localStorage.setItem('staff-id', staffId);
         localStorage.setItem('staff-name', data.user.name);
-        onLogin(data.user.id, data.user.name);
+        onLogin(staffId, data.user.name);
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'QR login failed');
@@ -67,7 +69,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
       setLoading(true);
       setError('');
 
-      const response = await fetch('https://social-care-backend.onrender.com/api/auth/staff/login', {
+      const response = await fetch('https://social-care-backend.onrender.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,10 +79,12 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem('staff-token', data.token);
-        localStorage.setItem('staff-id', data.user.id);
+        // /api/auth/login returns {success: true, user: {username, name, role, staffId}}
+        const staffId = data.user.staffId?.toString() || '1';
+        localStorage.setItem('staff-token', `staff-${staffId}`);
+        localStorage.setItem('staff-id', staffId);
         localStorage.setItem('staff-name', data.user.name);
-        onLogin(data.user.id, data.user.name);
+        onLogin(staffId, data.user.name);
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Invalid credentials');
