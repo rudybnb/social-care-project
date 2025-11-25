@@ -15,6 +15,19 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Username and password required' });
     }
 
+    // Hardcoded admin credentials (fallback)
+    if (username.toLowerCase() === 'admin' && password === 'admin123') {
+      return res.json({
+        success: true,
+        user: {
+          username: 'admin',
+          name: 'Admin User',
+          role: 'admin',
+          staffId: 1
+        }
+      });
+    }
+
     // Check for database connection
     if (!db) {
       return res.status(500).json({ error: 'Database not configured' });
