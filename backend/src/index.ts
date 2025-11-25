@@ -111,7 +111,7 @@ app.post('/api/staff/bulk-create', async (req: Request, res: Response) => {
           status: 'Active',
           standardRate: '12.50',
           rates: '£/h: 12.50 • Night: — • OT: —',
-          startDate: new Date(member.startDate)
+          startDate: member.startDate
         }).returning();
         results.push({ name: member.name, status: 'created', id: newStaff[0].id });
       } catch (err: any) {
