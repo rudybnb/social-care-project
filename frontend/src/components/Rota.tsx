@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { getSites, getStaff, subscribeToSitesChange, Site as SharedSite, StaffMember, getShifts, setShifts as setSharedShifts, subscribeToDataChange, addShift, updateShift, removeShift, getAllWorkers } from '../data/sharedData';
 import { shiftsAPI } from '../services/api';
+import { calculateDuration } from '../utils/calculateDuration';
 
 interface Shift {
   id: string;
@@ -97,7 +98,11 @@ const Rota: React.FC = () => {
     siteId: '',
     date: '',
     is24Hour: false,
-    notes: ''
+    notes: '',
+    dayStartTime: '08:00',
+    dayEndTime: '20:00',
+    nightStartTime: '20:00',
+    nightEndTime: '08:00'
   });
 
   // Delete confirmation states
@@ -326,6 +331,14 @@ const Rota: React.FC = () => {
       }
     }
 
+    // Calculate durations from custom times
+    const dayDuration = calculateDuration(shiftForm.dayStartTime, shiftForm.dayEndTime);
+    const nightDuration = calculateDuration(shiftForm.nightStartTime, shiftForm.nightEndTime);
+    const totalDuration = dayDuration + nightDuration;
+    
+    // Auto-detect 24-hour shift if total duration is 24 hours
+    const is24HourCoverage = Math.abs(totalDuration - 24) < 0.1; // Allow small rounding difference
+    
     // Create Day shift
     const dayShift: Shift = {
       id: `SHIFT_DAY_${Date.now()}`,
@@ -336,9 +349,9 @@ const Rota: React.FC = () => {
       siteColor: selectedSite.color,
       date: shiftForm.date,
       type: 'Day',
-      startTime: '08:00',
-      endTime: '20:00',
-      duration: 12,
+      startTime: shiftForm.dayStartTime,
+      endTime: shiftForm.dayEndTime,
+      duration: Math.round(dayDuration),
       is24Hour: false,
       isBank: shiftForm.dayStaffId === 'BANK',
       notes: shiftForm.notes
@@ -354,9 +367,9 @@ const Rota: React.FC = () => {
       siteColor: selectedSite.color,
       date: shiftForm.date,
       type: 'Night',
-      startTime: '20:00',
-      endTime: '08:00',
-      duration: 12,
+      startTime: shiftForm.nightStartTime,
+      endTime: shiftForm.nightEndTime,
+      duration: Math.round(nightDuration),
       is24Hour: false,
       isBank: shiftForm.nightStaffId === 'BANK',
       notes: shiftForm.notes
@@ -459,7 +472,11 @@ const Rota: React.FC = () => {
       siteId: '',
       date: '',
       is24Hour: false,
-      notes: ''
+      notes: '',
+      dayStartTime: '08:00',
+      dayEndTime: '20:00',
+      nightStartTime: '20:00',
+      nightEndTime: '08:00'
     });
     alert(`24-HOUR CYCLE COMPLETED!\n\nDay Shift: ${dayStaff.name}\nNight Shift: ${nightStaff.name}\nSite: ${selectedSite.name}\nDate: ${shiftForm.date}`);
   };
@@ -500,7 +517,11 @@ const Rota: React.FC = () => {
       siteId: '',
       date: '',
       is24Hour: false,
-      notes: ''
+      notes: '',
+      dayStartTime: '08:00',
+      dayEndTime: '20:00',
+      nightStartTime: '20:00',
+      nightEndTime: '08:00'
     });
     alert(`24-hour shift approved and assigned!\n\nApproved by: ${approvalForm.approvedBy}`);
   };
@@ -541,7 +562,11 @@ const Rota: React.FC = () => {
       siteId: '',
       date: '',
       is24Hour: false,
-      notes: ''
+      notes: '',
+      dayStartTime: '08:00',
+      dayEndTime: '20:00',
+      nightStartTime: '20:00',
+      nightEndTime: '08:00'
     });
     alert(`Duplicate shift approved and assigned!\n\nApproved by: ${approvalForm.approvedBy}\n\nMultiple workers are now assigned to this shift.`);
   };
@@ -589,7 +614,11 @@ const Rota: React.FC = () => {
           siteId: shiftToDelete.siteId,
           date: shiftToDelete.date,
           is24Hour: false,
-          notes: `Replacement for removed shift`
+          notes: `Replacement for removed shift`,
+          dayStartTime: '08:00',
+          dayEndTime: '20:00',
+          nightStartTime: '20:00',
+          nightEndTime: '08:00'
         });
         setShowDeleteConfirm(false);
         setShiftToDelete(null);
@@ -1468,7 +1497,7 @@ const Rota: React.FC = () => {
 
           <div>
             <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              Day Shift Staff (08:00-20:00) *
+              Day Shift Staff *
             </label>
             <select
               value={shiftForm.dayStaffId}
@@ -1500,9 +1529,53 @@ const Rota: React.FC = () => {
             </select>
           </div>
 
+          {/* Day shift times */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                Day Start Time
+              </label>
+              <input
+                type="time"
+                value={shiftForm.dayStartTime}
+                onChange={(e) => setShiftForm({ ...shiftForm, dayStartTime: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #fbbf2440',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                Day End Time
+              </label>
+              <input
+                type="time"
+                value={shiftForm.dayEndTime}
+                onChange={(e) => setShiftForm({ ...shiftForm, dayEndTime: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #fbbf2440',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+          </div>
+
           <div>
             <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              Night Shift Staff (20:00-08:00) *
+              Night Shift Staff *
             </label>
             <select
               value={shiftForm.nightStaffId}
@@ -1532,6 +1605,50 @@ const Rota: React.FC = () => {
                 );
               })}
             </select>
+          </div>
+
+          {/* Night shift times */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                Night Start Time
+              </label>
+              <input
+                type="time"
+                value={shiftForm.nightStartTime}
+                onChange={(e) => setShiftForm({ ...shiftForm, nightStartTime: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #6366f140',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                Night End Time
+              </label>
+              <input
+                type="time"
+                value={shiftForm.nightEndTime}
+                onChange={(e) => setShiftForm({ ...shiftForm, nightEndTime: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #6366f140',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+            </div>
           </div>
 
           <div>
