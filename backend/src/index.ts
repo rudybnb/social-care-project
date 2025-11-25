@@ -916,6 +916,7 @@ const runStartupMigration = async () => {
       ADD COLUMN IF NOT EXISTS email TEXT,
       ADD COLUMN IF NOT EXISTS username TEXT,
       ADD COLUMN IF NOT EXISTS password TEXT,
+      ADD COLUMN IF NOT EXISTS start_date TEXT,
       ADD COLUMN IF NOT EXISTS weekly_hours INTEGER DEFAULT 0;
     `);
     console.log('✅ Migration 2 complete');
