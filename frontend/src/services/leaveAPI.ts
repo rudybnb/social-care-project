@@ -77,7 +77,7 @@ export const leaveAPI = {
     totalHours: number;
     reason?: string;
   }): Promise<LeaveRequest> {
-    const response = await fetch(`${API_URL}/leave/requests`, {
+    const response = await fetch(`${API_URL}/api/leave/requests`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
