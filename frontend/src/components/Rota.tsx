@@ -91,6 +91,17 @@ const Rota: React.FC = () => {
   const [showDuplicateApproval, setShowDuplicateApproval] = useState(false);
   const [pendingDuplicateShift, setPendingDuplicateShift] = useState<any>(null);
   const [selectedWeek, setSelectedWeek] = useState(0);
+  
+  // Non-24-hour approval states
+  const [showNon24HrApproval, setShowNon24HrApproval] = useState(false);
+  const [pendingNon24HrShifts, setPendingNon24HrShifts] = useState<any>(null);
+  const [non24HrApprovalForm, setNon24HrApprovalForm] = useState({
+    approvedBy: '',
+    reason: '',
+    totalHours: 0,
+    dayHours: 0,
+    nightHours: 0
+  });
 
   const [shiftForm, setShiftForm] = useState({
     dayStaffId: '',
@@ -340,7 +351,23 @@ const Rota: React.FC = () => {
     const is24HourCoverage = Math.abs(totalDuration - 24) < 0.1; // Allow small rounding difference
     
     if (!is24HourCoverage) {
-      alert(`⚠️ SHIFTS DO NOT ADD UP TO 24 HOURS\n\nDay Shift: ${shiftForm.dayStartTime} - ${shiftForm.dayEndTime} (${dayDuration.toFixed(2)}h)\nNight Shift: ${shiftForm.nightStartTime} - ${shiftForm.nightEndTime} (${nightDuration.toFixed(2)}h)\n\nTotal: ${totalDuration.toFixed(2)} hours\nRequired: 24 hours\n\nPlease adjust the times to equal 24 hours.`);
+      // Trigger approval modal for non-24-hour shifts
+      setNon24HrApprovalForm({
+        approvedBy: '',
+        reason: '',
+        totalHours: totalDuration,
+        dayHours: dayDuration,
+        nightHours: nightDuration
+      });
+      setPendingNon24HrShifts({
+        dayShift: null, // Will be created after approval
+        nightShift: null,
+        formData: { ...shiftForm },
+        dayStaff,
+        nightStaff,
+        selectedSite
+      });
+      setShowNon24HrApproval(true);
       return;
     }
     
@@ -529,6 +556,87 @@ const Rota: React.FC = () => {
       nightEndTime: '08:00'
     });
     alert(`24-hour shift approved and assigned!\n\nApproved by: ${approvalForm.approvedBy}`);
+  };
+
+  const handleApproveNon24Hr = async () => {
+    if (!non24HrApprovalForm.approvedBy.trim()) {
+      alert('Please enter admin name for approval');
+      return;
+    }
+    
+    if (!non24HrApprovalForm.reason.trim()) {
+      alert('Please enter reason for non-24-hour shift');
+      return;
+    }
+
+    const { dayStaff, nightStaff, selectedSite, formData } = pendingNon24HrShifts;
+    
+    // Calculate durations
+    const dayDuration = calculateDuration(formData.dayStartTime, formData.dayEndTime);
+    const nightDuration = calculateDuration(formData.nightStartTime, formData.nightEndTime);
+    
+    // Create Day shift with approval note
+    const dayShift: Shift = {
+      id: `SHIFT_DAY_${Date.now()}`,
+      staffId: formData.dayStaffId,
+      staffName: dayStaff.name,
+      siteId: formData.siteId,
+      siteName: selectedSite.name,
+      siteColor: selectedSite.color,
+      date: formData.date,
+      type: 'Day',
+      startTime: formData.dayStartTime,
+      endTime: formData.dayEndTime,
+      duration: Math.round(dayDuration),
+      is24Hour: false,
+      isBank: formData.dayStaffId === 'BANK',
+      notes: `Non-24hr approved by ${non24HrApprovalForm.approvedBy}. Reason: ${non24HrApprovalForm.reason}. Total: ${non24HrApprovalForm.totalHours.toFixed(2)}h`
+    };
+
+    // Create Night shift with approval note
+    const nightShift: Shift = {
+      id: `SHIFT_NIGHT_${Date.now()}`,
+      staffId: formData.nightStaffId,
+      staffName: nightStaff.name,
+      siteId: formData.siteId,
+      siteName: selectedSite.name,
+      siteColor: selectedSite.color,
+      date: formData.date,
+      type: 'Night',
+      startTime: formData.nightStartTime,
+      endTime: formData.nightEndTime,
+      duration: Math.round(nightDuration),
+      is24Hour: false,
+      isBank: formData.nightStaffId === 'BANK',
+      notes: `Non-24hr approved by ${non24HrApprovalForm.approvedBy}. Reason: ${non24HrApprovalForm.reason}. Total: ${non24HrApprovalForm.totalHours.toFixed(2)}h`
+    };
+
+    // Add shifts to database
+    await addShift(dayShift);
+    await addShift(nightShift);
+    
+    // Refresh shifts
+    setShifts(getShifts());
+    
+    // Close modals and reset forms
+    setShowNon24HrApproval(false);
+    setShowAssignShift(false);
+    setPendingNon24HrShifts(null);
+    setNon24HrApprovalForm({ approvedBy: '', reason: '', totalHours: 0, dayHours: 0, nightHours: 0 });
+    setShiftForm({
+      dayStaffId: '',
+      nightStaffId: '',
+      siteId: '',
+      date: '',
+      is24Hour: false,
+      notes: '',
+      dayStartTime: '08:00',
+      dayEndTime: '20:00',
+      nightStartTime: '20:00',
+      nightEndTime: '08:00'
+    });
+    
+    alert(`Non-24-hour shift approved!\n\nApproved by: ${non24HrApprovalForm.approvedBy}\nTotal hours: ${non24HrApprovalForm.totalHours.toFixed(2)}h\nReason: ${non24HrApprovalForm.reason}`);
   };
 
   const handleApproveDuplicateShift = async () => {
@@ -1939,6 +2047,117 @@ const Rota: React.FC = () => {
                 fontWeight: '600',
                 cursor: 'pointer',
                 touchAction: 'manipulation'
+              }}
+            >
+              Approve & Assign
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+
+      {/* Non-24-Hour Approval Modal */}
+      <Modal isOpen={showNon24HrApproval} onClose={() => setShowNon24HrApproval(false)} title="Non-24-Hour Shift - Admin Approval Required">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{
+            backgroundColor: '#ef444420',
+            padding: '16px',
+            borderRadius: '8px',
+            border: '1px solid #ef444440'
+          }}>
+            <div style={{ color: '#ef4444', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+              ⚠️ Shifts Do Not Equal 24 Hours
+            </div>
+            <div style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '12px' }}>
+              The combined day and night shifts do not add up to 24 hours. This requires admin approval.
+            </div>
+            <div style={{ color: 'white', fontSize: '13px', lineHeight: '1.8' }}>
+              <div>Day Shift: {non24HrApprovalForm.dayHours.toFixed(2)} hours</div>
+              <div>Night Shift: {non24HrApprovalForm.nightHours.toFixed(2)} hours</div>
+              <div style={{ fontWeight: '600', color: '#ef4444' }}>Total: {non24HrApprovalForm.totalHours.toFixed(2)} hours (Expected: 24 hours)</div>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+              Approved By (Admin Name) *
+            </label>
+            <input
+              type="text"
+              placeholder="Enter your name"
+              value={non24HrApprovalForm.approvedBy}
+              onChange={(e) => setNon24HrApprovalForm({ ...non24HrApprovalForm, approvedBy: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                outline: 'none'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+              Reason for Non-24-Hour Shift *
+            </label>
+            <textarea
+              placeholder="e.g., Previous shift overtime, Handover period, Special circumstances"
+              value={non24HrApprovalForm.reason}
+              onChange={(e) => setNon24HrApprovalForm({ ...non24HrApprovalForm, reason: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                outline: 'none',
+                minHeight: '80px',
+                resize: 'vertical'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+            <button
+              onClick={() => {
+                setShowNon24HrApproval(false);
+                setPendingNon24HrShifts(null);
+                setNon24HrApprovalForm({ approvedBy: '', reason: '', totalHours: 0, dayHours: 0, nightHours: 0 });
+              }}
+              style={{
+                flex: 1,
+                padding: '12px',
+                backgroundColor: '#3a3a3a',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleApproveNon24Hr}
+              style={{
+                flex: 1,
+                padding: '12px',
+                backgroundColor: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer'
               }}
             >
               Approve & Assign
