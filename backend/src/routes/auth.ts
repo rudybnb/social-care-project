@@ -19,12 +19,12 @@ const TEST_CREDENTIALS: { [key: string]: { password: string; role: string; staff
   // Other Workers
   'evander': { password: 'Evander123', role: 'worker', staffId: 3, name: 'Evander Fisher' },
   'Evander': { password: 'Evander123', role: 'worker', staffId: 3, name: 'Evander Fisher' },
-  'narfisa': { password: 'Narfisa123', role: 'worker', staffId: 4, name: 'Narfisa Patel' },
-  'Narfisa': { password: 'Narfisa123', role: 'worker', staffId: 4, name: 'Narfisa Patel' },
+  'narfisa': { password: 'Narfisa123', role: 'worker', staffId: 4, name: 'Narfisa Posey' },
+  'Narfisa': { password: 'Narfisa123', role: 'worker', staffId: 4, name: 'Narfisa Posey' },
   'singita': { password: 'Singita123', role: 'worker', staffId: 5, name: 'Singita Zoe' },
   'Singita': { password: 'Singita123', role: 'worker', staffId: 5, name: 'Singita Zoe' },
-  'rudy': { password: 'Rudy123', role: 'worker', staffId: 9, name: 'Rudy Diedericks' },
-  'Rudy': { password: 'Rudy123', role: 'worker', staffId: 9, name: 'Rudy Diedericks' }
+  'prudence': { password: 'Prudence123', role: 'worker', staffId: 9, name: 'Prudence Diedericks' },
+  'Prudence': { password: 'Prudence123', role: 'worker', staffId: 9, name: 'Prudence Diedericks' }
 };
 
 // POST /api/auth/login
