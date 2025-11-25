@@ -29,7 +29,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
       const staffId = qrData.replace('STAFF_LOGIN:', '');
 
       // Call backend to get staff details and generate token
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/auth/staff/qr-login`, {
+      const response = await fetch('https://social-care-backend.onrender.com/api/auth/staff/qr-login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
       setLoading(true);
       setError('');
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/auth/staff/login`, {
+      const response = await fetch('https://social-care-backend.onrender.com/api/auth/staff/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
