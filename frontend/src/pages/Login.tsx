@@ -21,10 +21,32 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
-      const role = username.toLowerCase().includes('admin') ? 'admin' : 'worker';
-      await login(username, role);
-      console.log('Login successful, navigating to:', role);
-      navigate(role === 'admin' ? '/admin' : '/worker');
+      // Call authentication API
+      const response = await fetch('https://social-care-backend.onrender.com/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || 'Invalid username or password');
+        setLoading(false);
+        return;
+      }
+
+      const data = await response.json();
+      const { user } = data;
+      
+      // Store user info and login
+      await login(user.username, user.role);
+      if (user.staffId) {
+        localStorage.setItem('staffId', user.staffId.toString());
+        localStorage.setItem('staffName', user.name);
+      }
+      
+      console.log('Login successful, navigating to:', user.role);
+      navigate(user.role === 'admin' ? '/admin' : '/worker');
     } catch (error) {
       console.error('Login failed:', error);
       alert('Login failed. Please try again.');

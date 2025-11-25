@@ -7,6 +7,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { users, staff, sites, shifts } from './schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
+import authRoutes from './routes/auth.js';
 
 dotenv.config();
 
@@ -20,6 +21,9 @@ const DATABASE_URL = process.env.DATABASE_URL || '';
 // Initialize Postgres pool and Drizzle ORM
 const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL }) : undefined;
 export const db = pool ? drizzle(pool) : undefined;
+
+// Auth routes
+app.use('/api/auth', authRoutes);
 
 // Health check for Render
 app.get('/api/health', async (_req: Request, res: Response) => {
