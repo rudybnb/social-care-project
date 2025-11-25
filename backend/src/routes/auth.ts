@@ -1,6 +1,6 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 
-const router = Router();
+const router: Router = Router();
 
 // Test credentials (firstname / firstname123)
 const TEST_CREDENTIALS: { [key: string]: { password: string; role: string; staffId?: number; name: string } } = {
@@ -28,7 +28,7 @@ const TEST_CREDENTIALS: { [key: string]: { password: string; role: string; staff
 };
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
 
@@ -60,7 +60,7 @@ router.post('/login', async (req, res) => {
 });
 
 // GET /api/auth/verify - Verify if user is logged in
-router.get('/verify', async (req, res) => {
+router.get('/verify', async (req: Request, res: Response) => {
   // For now, just return success (no session management yet)
   res.json({ success: true });
 });
