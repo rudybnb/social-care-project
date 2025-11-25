@@ -74,3 +74,4 @@ serviceWorkerRegistration.checkForUpdates().then((hasUpdate) => {
     }, 1000);
   }
 });
+// Force rebuild Tue Nov 25 09:15:04 EST 2025
