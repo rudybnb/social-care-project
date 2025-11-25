@@ -930,6 +930,45 @@ const runStartupMigration = async () => {
     `);
     console.log('✅ Migration 3 complete');
     
+    // Migration 4: Create annual leave tables
+    console.log('📝 Migration 4: Creating annual leave tables...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS leave_balances (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        staff_id TEXT NOT NULL,
+        staff_name TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        total_entitlement INTEGER NOT NULL DEFAULT 112,
+        hours_accrued INTEGER NOT NULL DEFAULT 0,
+        hours_used INTEGER NOT NULL DEFAULT 0,
+        hours_remaining INTEGER NOT NULL DEFAULT 112,
+        carry_over_from_previous INTEGER DEFAULT 0,
+        carry_over_to_next INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        UNIQUE(staff_id, year)
+      );
+      
+      CREATE TABLE IF NOT EXISTS leave_requests (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        staff_id TEXT NOT NULL,
+        staff_name TEXT NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        total_days INTEGER NOT NULL,
+        total_hours INTEGER NOT NULL,
+        reason TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        requested_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        reviewed_at TIMESTAMP,
+        reviewed_by TEXT,
+        admin_notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+    `);
+    console.log('✅ Migration 4 complete');
+    
     console.log('✅ All migrations completed successfully!');
   } catch (error: any) {
     console.error('❌ Migration failed:', error.message);
