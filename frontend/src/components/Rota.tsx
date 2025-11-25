@@ -53,23 +53,38 @@ const Rota: React.FC = () => {
   const [shifts, setShifts] = useState<Shift[]>(getShifts());
   const [isLoadingShifts, setIsLoadingShifts] = useState(true);
 
-  // Fetch shifts from API on component mount
+  // Fetch shifts from API on component mount and whenever shifts change
   useEffect(() => {
+    let isMounted = true;
     const loadShifts = async () => {
       try {
         setIsLoadingShifts(true);
         const fetchedShifts = await shiftsAPI.getAll();
-        setShifts(fetchedShifts);
-        setSharedShifts(fetchedShifts);
+        if (isMounted) {
+          setShifts(fetchedShifts);
+          setSharedShifts(fetchedShifts);
+        }
       } catch (error) {
         console.error('Failed to load shifts:', error);
         // Fall back to cached data
-        setShifts(getShifts());
+        if (isMounted) {
+          setShifts(getShifts());
+        }
       } finally {
-        setIsLoadingShifts(false);
+        if (isMounted) {
+          setIsLoadingShifts(false);
+        }
       }
     };
     loadShifts();
+    
+    // Set up interval to refresh every 5 seconds when on Rota page
+    const refreshInterval = setInterval(loadShifts, 5000);
+    
+    return () => {
+      isMounted = false;
+      clearInterval(refreshInterval);
+    };
   }, []);
 
   // Subscribe to shift changes from other components
