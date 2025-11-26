@@ -25,6 +25,7 @@ export const leaveRequests = pgTable('leave_requests', {
   totalDays: integer('total_days').notNull(), // Number of days
   totalHours: integer('total_hours').notNull(), // Total hours (days × 8)
   reason: text('reason'), // Optional reason for leave
+  leaveType: text('leave_type').notNull().default('annual'), // 'annual' | 'sick' | 'personal'
   status: text('status').notNull().default('pending'), // 'pending' | 'approved' | 'rejected'
   requestedAt: timestamp('requested_at').defaultNow().notNull(),
   reviewedBy: text('reviewed_by'), // Admin who approved/rejected

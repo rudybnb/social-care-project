@@ -16,6 +16,7 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
+  const [leaveType, setLeaveType] = useState<'annual' | 'sick' | 'personal'>('annual');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -83,7 +84,8 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
         endDate,
         totalDays,
         totalHours,
-        reason: reason.trim() || undefined
+        reason: reason.trim() || undefined,
+        leaveType
       });
       
       alert('Leave request submitted successfully! Awaiting admin approval.');
@@ -91,6 +93,7 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
       setStartDate('');
       setEndDate('');
       setReason('');
+      setLeaveType('annual');
       loadData();
     } catch (error: any) {
       alert(`Error: ${error.message}`);
@@ -126,7 +129,7 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
       <h1 className="text-3xl font-bold">My Annual Leave</h1>
 
       {/* Leave Balance Card */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg shadow-lg p-6">
+      <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg shadow-lg p-6">
         <h2 className="text-2xl font-semibold mb-4">Leave Balance</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
@@ -163,7 +166,7 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
       {/* Request Leave Button */}
       <button
         onClick={() => setShowRequestForm(!showRequestForm)}
-        className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow"
+        className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg shadow"
         disabled={availableHours === 0}
       >
         {availableHours === 0 ? 'No Leave Available' : '+ Request Annual Leave'}
@@ -199,8 +202,22 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
               </div>
             </div>
 
+            <div>
+              <label className="block text-sm font-semibold mb-1">Leave Type *</label>
+              <select
+                value={leaveType}
+                onChange={(e) => setLeaveType(e.target.value as 'annual' | 'sick' | 'personal')}
+                className="w-full border rounded px-3 py-2"
+                required
+              >
+                <option value="annual">Annual Leave</option>
+                <option value="sick">Sick Leave</option>
+                <option value="personal">Personal Leave</option>
+              </select>
+            </div>
+
             {startDate && endDate && (
-              <div className="bg-blue-50 p-3 rounded">
+              <div className="bg-purple-50 p-3 rounded">
                 <p className="text-sm">
                   <strong>Duration:</strong> {calculateDays(startDate, endDate)} days ({calculateDays(startDate, endDate) * 8} hours)
                 </p>
@@ -225,7 +242,7 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
               >
                 {submitting ? 'Submitting...' : 'Submit Request'}
               </button>
@@ -259,9 +276,18 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-semibold">
-                      {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()}
-                    </p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-semibold">
+                        {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()}
+                      </p>
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        request.leaveType === 'annual' ? 'bg-purple-200 text-purple-800' :
+                        request.leaveType === 'sick' ? 'bg-red-200 text-red-800' :
+                        'bg-blue-200 text-blue-800'
+                      }`}>
+                        {request.leaveType === 'annual' ? 'Annual' : request.leaveType === 'sick' ? 'Sick' : 'Personal'}
+                      </span>
+                    </div>
                     <p className="text-sm text-gray-600">
                       {request.totalDays} days ({request.totalHours} hours)
                     </p>

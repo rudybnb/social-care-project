@@ -96,6 +96,7 @@ export const leaveRequests = pgTable('leave_requests', {
   totalDays: integer('total_days').notNull(),
   totalHours: integer('total_hours').notNull(),
   reason: text('reason'),
+  leaveType: text('leave_type').notNull().default('annual'),
   status: text('status').notNull().default('pending'),
   requestedAt: timestamp('requested_at').defaultNow().notNull(),
   reviewedBy: text('reviewed_by'),

@@ -160,7 +160,7 @@ router.get('/requests/:staffId', async (req, res) => {
 // Create new leave request
 router.post('/requests', async (req, res) => {
   try {
-    const { staffId, staffName, startDate, endDate, totalDays, totalHours, reason } = req.body;
+    const { staffId, staffName, startDate, endDate, totalDays, totalHours, reason, leaveType } = req.body;
     
     // Check if staff has enough leave balance
     const currentYear = new Date().getFullYear();
@@ -221,6 +221,7 @@ router.post('/requests', async (req, res) => {
         totalDays,
         totalHours,
         reason,
+        leaveType: leaveType || 'annual',
         status: 'pending'
       })
       .returning();

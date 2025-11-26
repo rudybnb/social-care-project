@@ -30,6 +30,7 @@ export interface LeaveRequest {
   totalDays: number;
   totalHours: number;
   reason?: string;
+  leaveType: 'annual' | 'sick' | 'personal';
   status: 'pending' | 'approved' | 'rejected';
   requestedAt: string;
   reviewedBy?: string;
@@ -76,6 +77,7 @@ export const leaveAPI = {
     totalDays: number;
     totalHours: number;
     reason?: string;
+    leaveType?: 'annual' | 'sick' | 'personal';
   }): Promise<LeaveRequest> {
     const response = await fetch(`${API_URL}/api/leave/requests`, {
       method: 'POST',

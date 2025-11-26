@@ -978,6 +978,14 @@ const runStartupMigration = async () => {
     `);
     console.log('✅ Migration 5 complete');
     
+    // Migration 6: Add leave_type column to leave_requests
+    console.log('📝 Migration 6: Adding leave_type column to leave_requests...');
+    await pool.query(`
+      ALTER TABLE leave_requests 
+      ADD COLUMN IF NOT EXISTS leave_type TEXT NOT NULL DEFAULT 'annual';
+    `);
+    console.log('✅ Migration 6 complete');
+    
     console.log('✅ All migrations completed successfully!');
   } catch (error: any) {
     console.error('❌ Migration failed:', error.message);
