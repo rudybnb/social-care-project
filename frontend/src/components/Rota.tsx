@@ -131,6 +131,12 @@ const Rota: React.FC = () => {
     nightEndTime: '08:00'
   });
 
+  // Staff search states
+  const [dayStaffSearch, setDayStaffSearch] = useState('');
+  const [nightStaffSearch, setNightStaffSearch] = useState('');
+  const [showDayStaffList, setShowDayStaffList] = useState(false);
+  const [showNightStaffList, setShowNightStaffList] = useState(false);
+
   // Delete confirmation states
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [shiftToDelete, setShiftToDelete] = useState<Shift | null>(null);
@@ -251,6 +257,27 @@ const Rota: React.FC = () => {
     }
 
     return { valid: errors.length === 0, errors };
+  };
+
+  // Filter staff by search term (name or initials)
+  const filterStaff = (searchTerm: string) => {
+    if (!searchTerm) return staff.filter(s => s.status === 'Active');
+    
+    const search = searchTerm.toLowerCase().trim();
+    return staff.filter(s => {
+      if (s.status !== 'Active') return false;
+      
+      const name = s.name.toLowerCase();
+      // Match full name
+      if (name.includes(search)) return true;
+      
+      // Match initials (e.g., "MB" for "Melissa Blake")
+      const nameParts = s.name.split(' ');
+      const initials = nameParts.map((part: string) => part[0]).join('').toLowerCase();
+      if (initials.includes(search)) return true;
+      
+      return false;
+    });
   };
 
   const handleAssignShift = async () => {
@@ -1716,13 +1743,19 @@ const Rota: React.FC = () => {
             </div>
           </div>
 
-          <div>
+          <div style={{ position: 'relative' }}>
             <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              Day Shift Staff *
+              Day Shift Staff * <span style={{ color: '#9ca3af', fontSize: '11px' }}>(Type name or initials)</span>
             </label>
-            <select
-              value={shiftForm.dayStaffId}
-              onChange={(e) => setShiftForm({ ...shiftForm, dayStaffId: e.target.value })}
+            <input
+              type="text"
+              value={dayStaffSearch}
+              onChange={(e) => {
+                setDayStaffSearch(e.target.value);
+                setShowDayStaffList(true);
+              }}
+              onFocus={() => setShowDayStaffList(true)}
+              placeholder="Type name or initials (e.g., MB)..."
               style={{
                 width: '100%',
                 padding: '12px',
@@ -1733,21 +1766,66 @@ const Rota: React.FC = () => {
                 fontSize: '14px',
                 outline: 'none'
               }}
-            >
-              <option value="">Select Day shift staff...</option>
-              <option value="BANK" style={{ backgroundColor: '#f59e0b20', color: '#f59e0b', fontWeight: 'bold' }}>
-                🏦 BANK (Placeholder - Must be filled by day before)
-              </option>
-              {staff.filter(s => s.status === 'Active').map(s => {
-                // Check if this is an agency worker (has agencyName property)
-                const isAgency = 'agencyName' in s;
-                return (
-                  <option key={s.id} value={s.id}>
-                    {s.name} {isAgency ? '(AGENCY)' : ''}
-                  </option>
-                );
-              })}
-            </select>
+            />
+            {showDayStaffList && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                maxHeight: '200px',
+                overflowY: 'auto',
+                backgroundColor: '#1a1a1a',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                marginTop: '4px',
+                zIndex: 1000
+              }}>
+                <div
+                  onClick={() => {
+                    setShiftForm({ ...shiftForm, dayStaffId: 'BANK' });
+                    setDayStaffSearch('🏦 BANK');
+                    setShowDayStaffList(false);
+                  }}
+                  style={{
+                    padding: '10px 12px',
+                    cursor: 'pointer',
+                    backgroundColor: shiftForm.dayStaffId === 'BANK' ? '#f59e0b20' : 'transparent',
+                    color: '#f59e0b',
+                    fontWeight: 'bold',
+                    borderBottom: '1px solid #3a3a3a'
+                  }}
+                >
+                  🏦 BANK (Placeholder)
+                </div>
+                {filterStaff(dayStaffSearch).map(s => {
+                  const isAgency = 'agencyName' in s;
+                  const nameParts = s.name.split(' ');
+                  const initials = nameParts.map((part: string) => part[0]).join('');
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => {
+                        setShiftForm({ ...shiftForm, dayStaffId: String(s.id) });
+                        setDayStaffSearch(s.name);
+                        setShowDayStaffList(false);
+                      }}
+                      style={{
+                        padding: '10px 12px',
+                        cursor: 'pointer',
+                        backgroundColor: shiftForm.dayStaffId === String(s.id) ? '#3b82f620' : 'transparent',
+                        color: 'white',
+                        borderBottom: '1px solid #3a3a3a'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#3a3a3a'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = shiftForm.dayStaffId === String(s.id) ? '#3b82f620' : 'transparent'}
+                    >
+                      <span style={{ fontWeight: '600' }}>{initials}</span> - {s.name} {isAgency ? '(AGENCY)' : ''}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Day shift times */}
@@ -1810,13 +1888,19 @@ const Rota: React.FC = () => {
             </div>
           </div>
 
-          <div>
+          <div style={{ position: 'relative' }}>
             <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-              Night Shift Staff *
+              Night Shift Staff * <span style={{ color: '#9ca3af', fontSize: '11px' }}>(Type name or initials)</span>
             </label>
-            <select
-              value={shiftForm.nightStaffId}
-              onChange={(e) => setShiftForm({ ...shiftForm, nightStaffId: e.target.value })}
+            <input
+              type="text"
+              value={nightStaffSearch}
+              onChange={(e) => {
+                setNightStaffSearch(e.target.value);
+                setShowNightStaffList(true);
+              }}
+              onFocus={() => setShowNightStaffList(true)}
+              placeholder="Type name or initials (e.g., LA)..."
               style={{
                 width: '100%',
                 padding: '12px',
@@ -1827,21 +1911,66 @@ const Rota: React.FC = () => {
                 fontSize: '14px',
                 outline: 'none'
               }}
-            >
-              <option value="">Select Night shift staff...</option>
-              <option value="BANK" style={{ backgroundColor: '#f59e0b20', color: '#f59e0b', fontWeight: 'bold' }}>
-                🏦 BANK (Placeholder - Must be filled by day before)
-              </option>
-              {staff.filter(s => s.status === 'Active').map(s => {
-                // Check if this is an agency worker (has agencyName property)
-                const isAgency = 'agencyName' in s;
-                return (
-                  <option key={s.id} value={s.id}>
-                    {s.name} {isAgency ? '(AGENCY)' : ''}
-                  </option>
-                );
-              })}
-            </select>
+            />
+            {showNightStaffList && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                maxHeight: '200px',
+                overflowY: 'auto',
+                backgroundColor: '#1a1a1a',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                marginTop: '4px',
+                zIndex: 1000
+              }}>
+                <div
+                  onClick={() => {
+                    setShiftForm({ ...shiftForm, nightStaffId: 'BANK' });
+                    setNightStaffSearch('🏦 BANK');
+                    setShowNightStaffList(false);
+                  }}
+                  style={{
+                    padding: '10px 12px',
+                    cursor: 'pointer',
+                    backgroundColor: shiftForm.nightStaffId === 'BANK' ? '#f59e0b20' : 'transparent',
+                    color: '#f59e0b',
+                    fontWeight: 'bold',
+                    borderBottom: '1px solid #3a3a3a'
+                  }}
+                >
+                  🏦 BANK (Placeholder)
+                </div>
+                {filterStaff(nightStaffSearch).map(s => {
+                  const isAgency = 'agencyName' in s;
+                  const nameParts = s.name.split(' ');
+                  const initials = nameParts.map((part: string) => part[0]).join('');
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => {
+                        setShiftForm({ ...shiftForm, nightStaffId: String(s.id) });
+                        setNightStaffSearch(s.name);
+                        setShowNightStaffList(false);
+                      }}
+                      style={{
+                        padding: '10px 12px',
+                        cursor: 'pointer',
+                        backgroundColor: shiftForm.nightStaffId === String(s.id) ? '#6366f120' : 'transparent',
+                        color: 'white',
+                        borderBottom: '1px solid #3a3a3a'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#3a3a3a'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = shiftForm.nightStaffId === String(s.id) ? '#6366f120' : 'transparent'}
+                    >
+                      <span style={{ fontWeight: '600' }}>{initials}</span> - {s.name} {isAgency ? '(AGENCY)' : ''}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Night shift times */}
