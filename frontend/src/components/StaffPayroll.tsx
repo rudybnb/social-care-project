@@ -61,7 +61,7 @@ const StaffPayroll: React.FC<StaffPayrollProps> = ({ staffId, staffName, onBack 
     
     const periodEnd = new Date(periodStart);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
-    periodEnd.setDate(13); // Ends on 13th of next month
+    periodEnd.setDate(14); // Ends on 14th of next month (14-14 period)
     
     return {
       start: periodStart,
