@@ -129,7 +129,7 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
       <h1 className="text-3xl font-bold">My Annual Leave</h1>
 
       {/* Leave Balance Card */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg shadow-lg p-6">
+      <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg shadow-lg p-6">
         <h2 className="text-2xl font-semibold mb-4">Leave Balance</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
