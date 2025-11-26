@@ -198,9 +198,21 @@ const AnnualLeave: React.FC = () => {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
-                      {request.staffName}
-                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', margin: 0 }}>
+                        {request.staffName}
+                      </h3>
+                      <span style={{
+                        fontSize: '11px',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontWeight: '600',
+                        backgroundColor: request.leaveType === 'annual' ? '#ddd6fe' : request.leaveType === 'sick' ? '#fecaca' : '#bfdbfe',
+                        color: request.leaveType === 'annual' ? '#6b21a8' : request.leaveType === 'sick' ? '#991b1b' : '#1e3a8a'
+                      }}>
+                        {request.leaveType === 'annual' ? 'Annual' : request.leaveType === 'sick' ? 'Sick' : 'Personal'}
+                      </span>
+                    </div>
                     <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '4px' }}>
                       📅 {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()}
                     </p>
@@ -285,9 +297,21 @@ const AnnualLeave: React.FC = () => {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <div>
-                    <h3 style={{ color: 'white', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
-                      {request.staffName}
-                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <h3 style={{ color: 'white', fontSize: '14px', fontWeight: '600', margin: 0 }}>
+                        {request.staffName}
+                      </h3>
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '2px 6px',
+                        borderRadius: '3px',
+                        fontWeight: '600',
+                        backgroundColor: request.leaveType === 'annual' ? '#ddd6fe' : request.leaveType === 'sick' ? '#fecaca' : '#bfdbfe',
+                        color: request.leaveType === 'annual' ? '#6b21a8' : request.leaveType === 'sick' ? '#991b1b' : '#1e3a8a'
+                      }}>
+                        {request.leaveType === 'annual' ? 'Annual' : request.leaveType === 'sick' ? 'Sick' : 'Personal'}
+                      </span>
+                    </div>
                     <p style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '4px' }}>
                       {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()} ({request.totalDays} days)
                     </p>
@@ -324,9 +348,21 @@ const AnnualLeave: React.FC = () => {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <div>
-                    <h3 style={{ color: 'white', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
-                      {request.staffName}
-                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <h3 style={{ color: 'white', fontSize: '14px', fontWeight: '600', margin: 0 }}>
+                        {request.staffName}
+                      </h3>
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '2px 6px',
+                        borderRadius: '3px',
+                        fontWeight: '600',
+                        backgroundColor: request.leaveType === 'annual' ? '#ddd6fe' : request.leaveType === 'sick' ? '#fecaca' : '#bfdbfe',
+                        color: request.leaveType === 'annual' ? '#6b21a8' : request.leaveType === 'sick' ? '#991b1b' : '#1e3a8a'
+                      }}>
+                        {request.leaveType === 'annual' ? 'Annual' : request.leaveType === 'sick' ? 'Sick' : 'Personal'}
+                      </span>
+                    </div>
                     <p style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '4px' }}>
                       {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()}
                     </p>
@@ -367,6 +403,19 @@ const AnnualLeave: React.FC = () => {
             <div style={{ marginBottom: '16px' }}>
               <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '4px' }}>
                 <strong style={{ color: 'white' }}>Staff:</strong> {selectedRequest.staffName}
+              </p>
+              <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '4px' }}>
+                <strong style={{ color: 'white' }}>Leave Type:</strong>{' '}
+                <span style={{
+                  fontSize: '11px',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  fontWeight: '600',
+                  backgroundColor: selectedRequest.leaveType === 'annual' ? '#ddd6fe' : selectedRequest.leaveType === 'sick' ? '#fecaca' : '#bfdbfe',
+                  color: selectedRequest.leaveType === 'annual' ? '#6b21a8' : selectedRequest.leaveType === 'sick' ? '#991b1b' : '#1e3a8a'
+                }}>
+                  {selectedRequest.leaveType === 'annual' ? 'Annual' : selectedRequest.leaveType === 'sick' ? 'Sick' : 'Personal'}
+                </span>
               </p>
               <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '4px' }}>
                 <strong style={{ color: 'white' }}>Dates:</strong> {new Date(selectedRequest.startDate).toLocaleDateString()} - {new Date(selectedRequest.endDate).toLocaleDateString()}
@@ -483,6 +532,19 @@ const AnnualLeave: React.FC = () => {
             <div style={{ marginBottom: '16px' }}>
               <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '4px' }}>
                 <strong style={{ color: 'white' }}>Staff:</strong> {selectedRequest.staffName}
+              </p>
+              <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '4px' }}>
+                <strong style={{ color: 'white' }}>Leave Type:</strong>{' '}
+                <span style={{
+                  fontSize: '11px',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  fontWeight: '600',
+                  backgroundColor: selectedRequest.leaveType === 'annual' ? '#ddd6fe' : selectedRequest.leaveType === 'sick' ? '#fecaca' : '#bfdbfe',
+                  color: selectedRequest.leaveType === 'annual' ? '#6b21a8' : selectedRequest.leaveType === 'sick' ? '#991b1b' : '#1e3a8a'
+                }}>
+                  {selectedRequest.leaveType === 'annual' ? 'Annual' : selectedRequest.leaveType === 'sick' ? 'Sick' : 'Personal'}
+                </span>
               </p>
               <p style={{ color: '#9ca3af', fontSize: '13px' }}>
                 <strong style={{ color: 'white' }}>Dates:</strong> {new Date(selectedRequest.startDate).toLocaleDateString()} - {new Date(selectedRequest.endDate).toLocaleDateString()}
