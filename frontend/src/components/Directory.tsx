@@ -146,7 +146,7 @@ const Directory: React.FC = () => {
       role: staff.role || 'Worker',
       site: staff.site || 'All Sites',
       employmentType: 'Full-time',
-      startDate: '',
+      startDate: staff.startDate || '',
       taxCode: staff.tax || '',
       standardRate: staff.standardRate || '12.50',
       enhancedRate: staff.enhancedRate || '',
@@ -171,6 +171,7 @@ const Directory: React.FC = () => {
       username: formData.username,
       role: formData.role,
       site: formData.site,
+      startDate: formData.startDate,
       tax: formData.taxCode,
       standardRate: formData.standardRate,
       enhancedRate: formData.enhancedRate,
@@ -1638,6 +1639,27 @@ const Directory: React.FC = () => {
                   step="0.01"
                   value={formData.nightRate}
                   onChange={(e) => setFormData({ ...formData, nightRate: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+
+              {/* Start Date */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '12px',

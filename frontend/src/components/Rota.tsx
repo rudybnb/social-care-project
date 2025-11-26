@@ -149,6 +149,15 @@ const Rota: React.FC = () => {
     reason: ''
   });
 
+  // Shift edit states
+  const [showEditShiftModal, setShowEditShiftModal] = useState(false);
+  const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [editShiftForm, setEditShiftForm] = useState({
+    date: '',
+    startTime: '',
+    endTime: ''
+  });
+
   // Get current week dates
   const getWeekDates = (weekOffset: number = 0) => {
     const today = new Date();
@@ -174,15 +183,15 @@ const Rota: React.FC = () => {
   const validateShift = (newShift: any): { valid: boolean; errors: string[] } => {
     const errors: string[] = [];
 
-    // NEW RULE: No past date assignments
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const shiftDate = new Date(newShift.date);
-    shiftDate.setHours(0, 0, 0, 0);
-    
-    if (shiftDate < today) {
-      errors.push(`INVALID DATE: Cannot assign shifts to past dates. Selected date: ${newShift.date}`);
-    }
+    // NEW RULE: No past date assignments (TEMPORARILY DISABLED FOR SYSTEM POPULATION)
+    // const today = new Date();
+    // today.setHours(0, 0, 0, 0);
+    // const shiftDate = new Date(newShift.date);
+    // shiftDate.setHours(0, 0, 0, 0);
+    // 
+    // if (shiftDate < today) {
+    //   errors.push(`INVALID DATE: Cannot assign shifts to past dates. Selected date: ${newShift.date}`);
+    // }
 
     // R1: No same-shift duplication (unless replacing a declined shift OR admin approved)
     const duplicateShift = shifts.find(s => 
@@ -976,6 +985,48 @@ const Rota: React.FC = () => {
     );
   };
 
+  const handleEditShift = (shift: Shift) => {
+    setEditingShift(shift);
+    setEditShiftForm({
+      date: shift.date,
+      startTime: shift.startTime,
+      endTime: shift.endTime
+    });
+    setShowEditShiftModal(true);
+  };
+
+  const handleSubmitEditShift = async () => {
+    if (!editingShift) return;
+
+    try {
+      // Calculate new duration
+      const duration = calculateDuration(editShiftForm.startTime, editShiftForm.endTime);
+
+      // Update the shift
+      await updateShift(editingShift.id, {
+        date: editShiftForm.date,
+        startTime: editShiftForm.startTime,
+        endTime: editShiftForm.endTime,
+        duration
+      });
+
+      setShifts(getShifts());
+      setShowEditShiftModal(false);
+      setEditingShift(null);
+      setEditShiftForm({ date: '', startTime: '', endTime: '' });
+
+      alert(
+        `✅ SHIFT UPDATED\n\n` +
+        `Staff: ${editingShift.staffName}\n` +
+        `New Date: ${editShiftForm.date}\n` +
+        `New Time: ${editShiftForm.startTime}-${editShiftForm.endTime}\n` +
+        `Duration: ${duration} hours`
+      );
+    } catch (error: any) {
+      alert(`Error updating shift: ${error.message}`);
+    }
+  };
+
   return (
     <div style={{ padding: '20px 16px', maxWidth: '1600px', margin: '0 auto' }}>
       {/* Sticky Header */}
@@ -1337,6 +1388,27 @@ const Rota: React.FC = () => {
                                 </div>
                                 <div style={{ display: 'flex', gap: '4px' }}>
                                   <button
+                                    onClick={() => handleEditShift(shift)}
+                                    onTouchEnd={(e) => {
+                                      e.preventDefault();
+                                      handleEditShift(shift);
+                                    }}
+                                    style={{
+                                      flex: 1,
+                                      padding: '4px',
+                                      backgroundColor: '#3b82f6',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      fontSize: '10px',
+                                      fontWeight: '600',
+                                      cursor: 'pointer',
+                                      touchAction: 'manipulation'
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
                                     onClick={() => handleExtendShift(shift)}
                                     onTouchEnd={(e) => {
                                       e.preventDefault();
@@ -1495,6 +1567,27 @@ const Rota: React.FC = () => {
                                   )}
                                 </div>
                                 <div style={{ display: 'flex', gap: '4px' }}>
+                                  <button
+                                    onClick={() => handleEditShift(shift)}
+                                    onTouchEnd={(e) => {
+                                      e.preventDefault();
+                                      handleEditShift(shift);
+                                    }}
+                                    style={{
+                                      flex: 1,
+                                      padding: '4px',
+                                      backgroundColor: '#3b82f6',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      fontSize: '10px',
+                                      fontWeight: '600',
+                                      cursor: 'pointer',
+                                      touchAction: 'manipulation'
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
                                   <button
                                     onClick={() => handleExtendShift(shift)}
                                     onTouchEnd={(e) => {
@@ -2553,6 +2646,129 @@ const Rota: React.FC = () => {
                 }}
               >
                 Extend Shift
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Edit Shift Modal */}
+      <Modal isOpen={showEditShiftModal} onClose={() => setShowEditShiftModal(false)} title="Edit Shift">
+        {editingShift && (
+          <div>
+            <h2 style={{ color: 'white', fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' }}>
+              ✏️ Edit Shift
+            </h2>
+
+            <div style={{
+              backgroundColor: '#1f2937',
+              borderRadius: '8px',
+              padding: '16px',
+              marginBottom: '20px',
+              border: '1px solid #3a3a3a'
+            }}>
+              <div style={{ color: '#9ca3af', fontSize: '13px', lineHeight: '1.8' }}>
+                <div><strong style={{ color: 'white' }}>Staff:</strong> {editingShift.staffName}</div>
+                <div><strong style={{ color: 'white' }}>Site:</strong> {editingShift.siteName}</div>
+                <div><strong style={{ color: 'white' }}>Shift Type:</strong> {editingShift.type}</div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                Date *
+              </label>
+              <input
+                type="date"
+                value={editShiftForm.date}
+                onChange={(e) => setEditShiftForm({ ...editShiftForm, date: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: '#1f2937',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                Start Time *
+              </label>
+              <input
+                type="time"
+                value={editShiftForm.startTime}
+                onChange={(e) => setEditShiftForm({ ...editShiftForm, startTime: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: '#1f2937',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                End Time *
+              </label>
+              <input
+                type="time"
+                value={editShiftForm.endTime}
+                onChange={(e) => setEditShiftForm({ ...editShiftForm, endTime: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: '#1f2937',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => {
+                  setShowEditShiftModal(false);
+                  setEditShiftForm({ date: '', startTime: '', endTime: '' });
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: '#4b5563',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitEditShift}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Save Changes
               </button>
             </div>
           </div>

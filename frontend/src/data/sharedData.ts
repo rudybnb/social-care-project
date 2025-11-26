@@ -52,6 +52,7 @@ export interface StaffMember {
   deductions: string;
   tax: string;
   weeklyHours?: number;
+  startDate?: string;
 }
 
 // Local cache
