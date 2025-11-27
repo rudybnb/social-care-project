@@ -65,10 +65,21 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
     let totalHours = 0;
     let dayHours = 0;
     let nightHours = 0;
+    let regularHours = 0;
+    let overtimeHours = 0;
 
     myShifts.forEach(shift => {
       const hours = shift.extended ? shift.duration + (shift.extensionHours || 0) : shift.duration;
       totalHours += hours;
+      
+      // Calculate regular vs overtime per shift (first 12 hours = regular, rest = overtime)
+      if (hours <= 12) {
+        regularHours += hours;
+      } else {
+        regularHours += 12;
+        overtimeHours += (hours - 12);
+      }
+      
       if (shift.type === 'Day') {
         dayHours += hours;
       } else {
@@ -93,7 +104,9 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
       leaveHours += days * 8;
     });
 
-    const shiftPay = (dayHours + nightHours) * standardRate;
+    const regularPay = regularHours * standardRate;
+    const overtimePay = overtimeHours * standardRate; // Same rate, just shown separately
+    const shiftPay = regularPay + overtimePay;
     const leavePay = leaveHours * 12.50; // Fixed rate for all leave pay
     const totalPay = shiftPay + leavePay;
 
@@ -102,6 +115,10 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
       totalHours,
       dayHours,
       nightHours,
+      regularHours,
+      overtimeHours,
+      regularPay,
+      overtimePay,
       leaveHours,
       leaveDays: leaveHours / 8,
       shiftPay,
@@ -196,7 +213,7 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
           Earnings Breakdown
         </h3>
 
-        {/* Shift Pay */}
+        {/* Regular Pay (First 12 hours per shift) */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -204,15 +221,35 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
           borderBottom: '1px solid #2a2a2a'
         }}>
           <div>
-            <div style={{ color: 'white', fontWeight: '600' }}>Shift Pay</div>
+            <div style={{ color: 'white', fontWeight: '600' }}>Regular Pay</div>
             <div style={{ color: '#9ca3af', fontSize: '13px' }}>
-              {payroll.totalHours.toFixed(1)}h worked ({payroll.shiftsWorked} shifts)
+              {payroll.regularHours.toFixed(1)}h (first 12h per shift)
             </div>
           </div>
           <div style={{ color: '#10b981', fontSize: '18px', fontWeight: 'bold' }}>
-            £{payroll.shiftPay.toFixed(2)}
+            £{payroll.regularPay.toFixed(2)}
           </div>
         </div>
+
+        {/* Overtime Pay (Hours over 12 per shift) */}
+        {payroll.overtimeHours > 0 && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            padding: '12px 0',
+            borderBottom: '1px solid #2a2a2a'
+          }}>
+            <div>
+              <div style={{ color: 'white', fontWeight: '600' }}>Overtime Pay</div>
+              <div style={{ color: '#9ca3af', fontSize: '13px' }}>
+                {payroll.overtimeHours.toFixed(1)}h (over 12h per shift)
+              </div>
+            </div>
+            <div style={{ color: '#f59e0b', fontSize: '18px', fontWeight: 'bold' }}>
+              £{payroll.overtimePay.toFixed(2)}
+            </div>
+          </div>
+        )}
 
         {/* Leave Pay */}
         <div style={{
@@ -291,10 +328,13 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
           border: '1px solid #3a3a3a'
         }}>
           <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
-            Day Hours
+            Regular Hours
           </div>
           <div style={{ color: '#10b981', fontSize: '24px', fontWeight: 'bold' }}>
-            {payroll.dayHours.toFixed(1)}h
+            {payroll.regularHours.toFixed(1)}h
+          </div>
+          <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '4px' }}>
+            First 12h/shift
           </div>
         </div>
 
@@ -305,10 +345,13 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
           border: '1px solid #3a3a3a'
         }}>
           <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
-            Night Hours
+            Overtime Hours
           </div>
-          <div style={{ color: '#8b5cf6', fontSize: '24px', fontWeight: 'bold' }}>
-            {payroll.nightHours.toFixed(1)}h
+          <div style={{ color: '#f59e0b', fontSize: '24px', fontWeight: 'bold' }}>
+            {payroll.overtimeHours.toFixed(1)}h
+          </div>
+          <div style={{ color: '#6b7280', fontSize: '11px', marginTop: '4px' }}>
+            Over 12h/shift
           </div>
         </div>
 
