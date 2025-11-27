@@ -157,7 +157,7 @@ const Payroll: React.FC = () => {
         
         // Simple flat rate: all hours at standard rate (day or night)
         const workPay = (dayHours + nightHours) * standardRate;
-        const leavePay = leaveHours * standardRate;
+        const leavePay = leaveHours * 12.50; // Fixed rate for all leave pay
         
         totalPay = workPay + leavePay;
         standardPay = totalPay;
@@ -178,7 +178,7 @@ const Payroll: React.FC = () => {
         standardPay,
         enhancedPay,
         nightPay,
-        leavePay: isAgency ? 0 : (leaveHours * (parseFloat(staffMember.standardRate) || 12.50)),
+        leavePay: isAgency ? 0 : (leaveHours * 12.50), // Fixed £12.50 rate for all leave pay
         totalPay,
         shifts: staffShifts.length
       };

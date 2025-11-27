@@ -94,7 +94,7 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
     });
 
     const shiftPay = (dayHours + nightHours) * standardRate;
-    const leavePay = leaveHours * standardRate;
+    const leavePay = leaveHours * 12.50; // Fixed rate for all leave pay
     const totalPay = shiftPay + leavePay;
 
     return {
@@ -224,7 +224,7 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
           <div>
             <div style={{ color: 'white', fontWeight: '600' }}>Leave Pay</div>
             <div style={{ color: '#9ca3af', fontSize: '13px' }}>
-              {payroll.leaveDays} day{payroll.leaveDays !== 1 ? 's' : ''} approved leave
+              {payroll.leaveDays} day{payroll.leaveDays !== 1 ? 's' : ''} approved leave @ £12.50/day
             </div>
           </div>
           <div style={{ color: '#3b82f6', fontSize: '18px', fontWeight: 'bold' }}>
