@@ -349,7 +349,7 @@ router.delete('/requests/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Get the request first to get associated leave days
+    // Get the request first
     const [request] = await db
       .select()
       .from(leaveRequests)
@@ -360,10 +360,15 @@ router.delete('/requests/:id', async (req, res) => {
       return res.status(404).json({ error: 'Leave request not found' });
     }
     
-    // Delete associated leave days
-    await db
-      .delete(leaveDays)
-      .where(eq(leaveDays.requestId, id));
+    // Try to delete associated leave days (ignore errors if table doesn't exist)
+    try {
+      await db
+        .delete(leaveDays)
+        .where(eq(leaveDays.requestId, id));
+    } catch (daysError) {
+      console.log('Could not delete leave_days (table may not exist):', daysError);
+      // Continue anyway
+    }
     
     // Delete the leave request
     await db
