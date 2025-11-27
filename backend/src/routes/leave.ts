@@ -360,6 +360,33 @@ router.delete('/requests/:id', async (req, res) => {
       return res.status(404).json({ error: 'Leave request not found' });
     }
     
+    // If the request was approved, restore the hours to the balance
+    if (request.status === 'approved') {
+      const year = new Date(request.startDate).getFullYear();
+      
+      // Get current balance
+      const [balance] = await db
+        .select()
+        .from(leaveBalances)
+        .where(and(
+          eq(leaveBalances.staffId, request.staffId),
+          eq(leaveBalances.year, year)
+        ))
+        .limit(1);
+      
+      if (balance) {
+        // Restore the hours
+        await db
+          .update(leaveBalances)
+          .set({
+            hoursUsed: balance.hoursUsed - request.totalHours,
+            hoursRemaining: balance.hoursRemaining + request.totalHours,
+            updatedAt: new Date()
+          })
+          .where(eq(leaveBalances.id, balance.id));
+      }
+    }
+    
     // Try to delete associated leave days (ignore errors if table doesn't exist)
     try {
       await db
