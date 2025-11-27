@@ -150,32 +150,19 @@ const Payroll: React.FC = () => {
         nightPay = nightHours * agencyRate;
         enhancedPay = 0; // Agency workers don't have enhanced rate
       } else {
-        // PERMANENT STAFF: Two-tier rate calculation
-        const standardRate = parseFloat(staffMember.standardRate) || 12.50; // First 20 hours
-        const enhancedRate = parseFloat(staffMember.enhancedRate) || 14.00; // After 20 hours
-        const nightRate = parseFloat(staffMember.nightRate) || 15.00; // Night shift premium
-
-        // Calculate day shift pay with two-tier system
-        let first20Hours = 0;
-        let remainingHours = 0;
+        // PERMANENT STAFF: Flat rate calculation
+        // Irina Mitrovici: £14/hour for all hours
+        // Everyone else: £12.50/hour for all hours
+        const standardRate = parseFloat(staffMember.standardRate) || 12.50;
         
-        if (dayHours <= 20) {
-          first20Hours = dayHours;
-          standardPay = dayHours * standardRate;
-        } else {
-          first20Hours = 20;
-          remainingHours = dayHours - 20;
-          standardPay = 20 * standardRate;
-          enhancedPay = (dayHours - 20) * enhancedRate;
-        }
-
-        // Calculate night shift pay (always at night rate)
-        nightPay = nightHours * nightRate;
-
-        // Calculate annual leave pay (at standard rate, 8h per day)
+        // Simple flat rate: all hours at standard rate (day or night)
+        const workPay = (dayHours + nightHours) * standardRate;
         const leavePay = leaveHours * standardRate;
-
-        totalPay = standardPay + enhancedPay + nightPay + leavePay;
+        
+        totalPay = workPay + leavePay;
+        standardPay = totalPay;
+        enhancedPay = 0;
+        nightPay = 0;
       }
       
       return {
