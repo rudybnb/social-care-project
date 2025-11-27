@@ -344,6 +344,39 @@ router.put('/requests/:id/reject', async (req, res) => {
   }
 });
 
+// Delete leave request
+router.delete('/requests/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get the request first to get associated leave days
+    const [request] = await db
+      .select()
+      .from(leaveRequests)
+      .where(eq(leaveRequests.id, id))
+      .limit(1);
+    
+    if (!request) {
+      return res.status(404).json({ error: 'Leave request not found' });
+    }
+    
+    // Delete associated leave days
+    await db
+      .delete(leaveDays)
+      .where(eq(leaveDays.requestId, id));
+    
+    // Delete the leave request
+    await db
+      .delete(leaveRequests)
+      .where(eq(leaveRequests.id, id));
+    
+    res.json({ message: 'Leave request deleted successfully' });
+  } catch (error: any) {
+    console.error('Error deleting leave request:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== LEAVE DAYS ====================
 
 // Get leave days for a date range
