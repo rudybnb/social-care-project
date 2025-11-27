@@ -94,7 +94,7 @@ const Overview: React.FC = () => {
             margin: 0,
             lineHeight: '1.5'
           }}>
-            Sunday, October 19, 2025 • Managing 3 locations
+            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} • Managing 3 locations
           </p>
         </div>
       </div>
