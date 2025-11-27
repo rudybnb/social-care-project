@@ -72,6 +72,20 @@ const AnnualLeave: React.FC = () => {
     }
   };
 
+  const handleDelete = async (requestId: string) => {
+    if (!window.confirm('Are you sure you want to delete this leave request? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await leaveAPI.deleteRequest(requestId);
+      loadData();
+      alert('Leave request deleted successfully');
+    } catch (error: any) {
+      alert(`Error: ${error.message}`);
+    }
+  };
+
   const pendingRequests = requests.filter(r => r.status === 'pending');
   const approvedRequests = requests.filter(r => r.status === 'approved');
   const rejectedRequests = requests.filter(r => r.status === 'rejected');
@@ -265,6 +279,21 @@ const AnnualLeave: React.FC = () => {
                     >
                       ✗ Reject
                     </button>
+                    <button
+                      onClick={() => handleDelete(request.id)}
+                      style={{
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
                   </div>
                 </div>
               </div>
@@ -319,7 +348,24 @@ const AnnualLeave: React.FC = () => {
                       Approved by {request.reviewedBy} on {request.reviewedAt && new Date(request.reviewedAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <div style={{ color: '#10b981', fontSize: '14px', fontWeight: '600' }}>✓ Approved</div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ color: '#10b981', fontSize: '14px', fontWeight: '600' }}>✓ Approved</div>
+                    <button
+                      onClick={() => handleDelete(request.id)}
+                      style={{
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        padding: '4px 12px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -370,7 +416,24 @@ const AnnualLeave: React.FC = () => {
                       Reason: {request.rejectionReason}
                     </p>
                   </div>
-                  <div style={{ color: '#ef4444', fontSize: '14px', fontWeight: '600' }}>✗ Rejected</div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ color: '#ef4444', fontSize: '14px', fontWeight: '600' }}>✗ Rejected</div>
+                    <button
+                      onClick={() => handleDelete(request.id)}
+                      style={{
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        padding: '4px 12px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Overview from '../components/Overview';
 import Rota from '../components/Rota';
@@ -11,6 +11,25 @@ const AdminDashboard: React.FC = () => {
   const { logout, user } = useAuth();
   const [currentPage, setCurrentPage] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+
+  // Fetch pending leave count
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      try {
+        const response = await fetch('https://social-care-backend.onrender.com/api/leave/requests');
+        const requests = await response.json();
+        const pending = requests.filter((r: any) => r.status === 'pending');
+        setPendingLeaveCount(pending.length);
+      } catch (error) {
+        console.error('Failed to fetch pending leave count:', error);
+      }
+    };
+    fetchPendingCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
@@ -158,7 +177,23 @@ const AdminDashboard: React.FC = () => {
                 borderLeft: currentPage === item.id ? '3px solid #9333ea' : '3px solid transparent'
               }}
             >
-              <span>{item.label}</span>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <span>{item.label}</span>
+                {item.id === 'annual-leave' && pendingLeaveCount > 0 && (
+                  <span style={{
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    minWidth: '20px',
+                    textAlign: 'center'
+                  }}>
+                    {pendingLeaveCount}
+                  </span>
+                )}
+              </span>
             </button>
           ))}
 
@@ -198,7 +233,23 @@ const AdminDashboard: React.FC = () => {
                 borderLeft: currentPage === item.id ? '3px solid #9333ea' : '3px solid transparent'
               }}
             >
-              <span>{item.label}</span>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <span>{item.label}</span>
+                {item.id === 'annual-leave' && pendingLeaveCount > 0 && (
+                  <span style={{
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    minWidth: '20px',
+                    textAlign: 'center'
+                  }}>
+                    {pendingLeaveCount}
+                  </span>
+                )}
+              </span>
             </button>
           ))}
         </div>
