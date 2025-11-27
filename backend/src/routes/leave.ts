@@ -81,6 +81,48 @@ router.get('/balances', async (req, res) => {
   }
 });
 
+// Update leave balance
+router.put('/balance/:staffId/:year', async (req, res) => {
+  try {
+    const { staffId, year } = req.params;
+    const { hoursUsed, hoursRemaining, hoursAccrued } = req.body;
+    
+    // Get existing balance
+    const [existing] = await db
+      .select()
+      .from(leaveBalances)
+      .where(and(
+        eq(leaveBalances.staffId, staffId),
+        eq(leaveBalances.year, parseInt(year))
+      ))
+      .limit(1);
+    
+    if (!existing) {
+      return res.status(404).json({ error: 'Balance not found' });
+    }
+    
+    // Update balance
+    const updateData: any = {
+      updatedAt: new Date()
+    };
+    
+    if (hoursUsed !== undefined) updateData.hoursUsed = hoursUsed;
+    if (hoursRemaining !== undefined) updateData.hoursRemaining = hoursRemaining;
+    if (hoursAccrued !== undefined) updateData.hoursAccrued = hoursAccrued;
+    
+    const [updated] = await db
+      .update(leaveBalances)
+      .set(updateData)
+      .where(eq(leaveBalances.id, existing.id))
+      .returning();
+    
+    res.json(updated);
+  } catch (error: any) {
+    console.error('Error updating leave balance:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Create or update leave balance
 router.post('/balances', async (req, res) => {
   try {
