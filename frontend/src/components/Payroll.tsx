@@ -417,7 +417,7 @@ const Payroll: React.FC = () => {
       }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '2fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr 1fr 1fr 1.2fr',
+          gridTemplateColumns: '2fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 1.2fr',
           padding: '16px',
           backgroundColor: '#252525',
           borderBottom: '1px solid #3a3a3a',
@@ -433,6 +433,7 @@ const Payroll: React.FC = () => {
           <div style={{ textAlign: 'right' }}>Standard Pay</div>
           <div style={{ textAlign: 'right' }}>Enhanced Pay</div>
           <div style={{ textAlign: 'right' }}>Night Pay</div>
+          <div style={{ textAlign: 'right' }}>Leave Pay</div>
           <div style={{ textAlign: 'right' }}>Total Pay</div>
         </div>
 
@@ -456,7 +457,7 @@ const Payroll: React.FC = () => {
               key={index}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr 1fr 1fr 1.2fr',
+                gridTemplateColumns: '2fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 1.2fr',
                 padding: '16px',
                 borderBottom: index < payrollData.length - 1 ? '1px solid #2a2a2a' : 'none',
                 fontSize: '13px',
@@ -506,6 +507,9 @@ const Payroll: React.FC = () => {
               </div>
               <div style={{ textAlign: 'right', color: '#8b5cf6' }}>
                 {staff.nightPay > 0 ? `£${staff.nightPay.toFixed(2)}` : '—'}
+              </div>
+              <div style={{ textAlign: 'right', color: '#3b82f6' }}>
+                {staff.leavePay > 0 ? `£${staff.leavePay.toFixed(2)}` : '—'}
               </div>
               <div style={{ textAlign: 'right', color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
                 £{staff.totalPay.toFixed(2)}

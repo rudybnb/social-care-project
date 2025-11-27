@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import StaffLogin from './StaffLogin';
 import StaffDashboard from './StaffDashboard';
 import StaffProgress from './StaffProgress';
-import StaffPayroll from './StaffPayroll';
+import StaffPayrollView from './StaffPayrollView';
 import WorkerLeave from './WorkerLeave';
 
 type View = 'login' | 'dashboard' | 'progress' | 'payroll' | 'leave';
@@ -82,12 +82,48 @@ const StaffApp: React.FC = () => {
   }
 
   if (currentView === 'payroll') {
+    // Get staff member's standard rate
+    const { getAllWorkers } = require('../data/sharedData');
+    const allWorkers = getAllWorkers();
+    const worker = allWorkers.find((w: any) => w.id === staffId);
+    const standardRate = worker ? parseFloat(worker.standardRate) || 12.50 : 12.50;
+
     return (
-      <StaffPayroll 
-        staffId={staffId}
-        staffName={staffName}
-        onBack={handleBackToDashboard}
-      />
+      <div style={{ minHeight: '100vh', backgroundColor: '#1a1a1a' }}>
+        <div style={{
+          backgroundColor: '#8b5cf6',
+          color: 'white',
+          padding: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px'
+        }}>
+          <button
+            onClick={handleBackToDashboard}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              color: 'white',
+              fontSize: '24px',
+              cursor: 'pointer',
+              borderRadius: '8px',
+              width: '40px',
+              height: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            ←
+          </button>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>My Payroll</h1>
+        </div>
+        <StaffPayrollView 
+          staffId={staffId}
+          staffName={staffName}
+          standardRate={standardRate}
+        />
+      </div>
     );
   }
 
