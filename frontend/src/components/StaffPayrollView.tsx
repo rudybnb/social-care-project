@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getShifts } from '../data/sharedData';
+import { shiftsAPI } from '../services/api';
 import { leaveAPI } from '../services/leaveAPI';
 
 interface StaffPayrollViewProps {
@@ -9,24 +9,29 @@ interface StaffPayrollViewProps {
 }
 
 const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName, standardRate }) => {
-  const [shifts, setShifts] = useState(getShifts());
+  const [shifts, setShifts] = useState<any[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(0);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
 
-  // Load approved leave requests
+  // Load shifts and leave requests from API
   useEffect(() => {
-    const loadLeaveRequests = async () => {
+    const loadData = async () => {
       try {
+        // Load shifts
+        const allShifts = await shiftsAPI.getAll();
+        setShifts(allShifts);
+        
+        // Load approved leave requests
         const requests = await leaveAPI.getAllRequests();
         const myApprovedLeave = requests.filter(r => 
           r.status === 'approved' && r.staffId === staffId
         );
         setLeaveRequests(myApprovedLeave);
       } catch (error) {
-        console.error('Error loading leave requests:', error);
+        console.error('Error loading data:', error);
       }
     };
-    loadLeaveRequests();
+    loadData();
   }, [staffId]);
 
   // Get month dates (14th to 14th)
