@@ -199,19 +199,31 @@ const Rota: React.FC = () => {
     //   errors.push(`INVALID DATE: Cannot assign shifts to past dates. Selected date: ${newShift.date}`);
     // }
 
-    // R1: No same-shift duplication (unless replacing a declined shift OR admin approved)
-    const duplicateShift = shifts.find(s => 
+    // R1: Maximum 4 workers per site per day (flexible shift patterns)
+    // Count total workers assigned to this site on this date (excluding declined shifts)
+    const workersOnSiteToday = shifts.filter(s => 
       s.date === newShift.date && 
       s.siteId === newShift.siteId && 
-      s.type === newShift.type
+      s.staffStatus !== 'declined' &&
+      s.staffId !== newShift.staffId // Don't count the new worker yet
     );
-    if (duplicateShift) {
-      // Allow replacement if the existing shift is declined
-      if (duplicateShift.staffStatus !== 'declined') {
-        // Require admin approval for duplicate shift assignment
-        if (!newShift.duplicateShiftApprovedBy) {
-          errors.push(`DUPLICATE SHIFT: ${duplicateShift.staffName} is already assigned to ${newShift.type} shift at this site on this date. Admin approval required to assign multiple workers.`);
-        }
+    
+    const totalWorkers = workersOnSiteToday.length + 1; // +1 for the new worker
+    
+    // Hard limit: Maximum 4 workers per site per day
+    if (totalWorkers > 4) {
+      errors.push(`MAXIMUM WORKERS EXCEEDED: This site already has 4 workers assigned on ${newShift.date}. Cannot assign more than 4 workers per site per day.`);
+    }
+    // If 3-4 workers: Require admin approval
+    else if (totalWorkers >= 3 && !newShift.duplicateShiftApprovedBy) {
+      const workerNames = workersOnSiteToday.map(s => s.staffName).join(', ');
+      errors.push(`MULTIPLE WORKERS: ${workerNames} already assigned to this site on ${newShift.date}. Admin approval required to assign ${totalWorkers} workers (max 4).`);
+    }
+    // If 2 workers on same shift type: Require admin approval
+    else if (totalWorkers === 2) {
+      const sameShiftType = workersOnSiteToday.find(s => s.type === newShift.type);
+      if (sameShiftType && !newShift.duplicateShiftApprovedBy) {
+        errors.push(`DUPLICATE SHIFT: ${sameShiftType.staffName} is already assigned to ${newShift.type} shift at this site on this date. Admin approval required to assign multiple workers to same shift type.`);
       }
     }
 
