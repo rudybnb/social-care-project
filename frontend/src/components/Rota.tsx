@@ -541,99 +541,27 @@ const Rota: React.FC = () => {
     setPending24HrShift(null);
     setApprovalForm({ approvedBy: '', reason: '' });
     setShiftForm({
-      dayStaffId: '',
-      nightStaffId: '',
       siteId: '',
       date: '',
-      is24Hour: false,
-      notes: '',
-      dayStartTime: '08:00',
-      dayEndTime: '20:00',
-      nightStartTime: '20:00',
-      nightEndTime: '08:00'
+      workerCount: 1,
+      workers: [
+        {
+          staffId: '',
+          shiftType: 'Day',
+          startTime: '08:00',
+          endTime: '20:00'
+        }
+      ],
+      notes: ''
     });
     alert(`24-hour shift approved and assigned!\n\nApproved by: ${approvalForm.approvedBy}`);
   };
 
   const handleApproveNon24Hr = async () => {
-    if (!non24HrApprovalForm.approvedBy.trim()) {
-      alert('Please enter admin name for approval');
-      return;
-    }
-    
-    if (!non24HrApprovalForm.reason.trim()) {
-      alert('Please enter reason for non-24-hour shift');
-      return;
-    }
-
-    const { dayStaff, nightStaff, selectedSite, formData } = pendingNon24HrShifts;
-    
-    // Calculate durations
-    const dayDuration = calculateDuration(formData.dayStartTime, formData.dayEndTime);
-    const nightDuration = calculateDuration(formData.nightStartTime, formData.nightEndTime);
-    
-    // Create Day shift with approval note
-    const dayShift: Shift = {
-      id: `SHIFT_DAY_${Date.now()}`,
-      staffId: formData.dayStaffId,
-      staffName: dayStaff!.name,
-      siteId: formData.siteId,
-      siteName: selectedSite.name,
-      siteColor: selectedSite.color,
-      date: formData.date,
-      type: 'Day',
-      startTime: formData.dayStartTime,
-      endTime: formData.dayEndTime,
-      duration: Math.round(dayDuration),
-      is24Hour: false,
-      isBank: formData.dayStaffId === 'BANK',
-      notes: `Non-24hr approved by ${non24HrApprovalForm.approvedBy}. Reason: ${non24HrApprovalForm.reason}. Total: ${non24HrApprovalForm.totalHours.toFixed(2)}h`
-    };
-
-    // Create Night shift with approval note
-    const nightShift: Shift = {
-      id: `SHIFT_NIGHT_${Date.now()}`,
-      staffId: formData.nightStaffId,
-      staffName: nightStaff!.name,
-      siteId: formData.siteId,
-      siteName: selectedSite.name,
-      siteColor: selectedSite.color,
-      date: formData.date,
-      type: 'Night',
-      startTime: formData.nightStartTime,
-      endTime: formData.nightEndTime,
-      duration: Math.round(nightDuration),
-      is24Hour: false,
-      isBank: formData.nightStaffId === 'BANK',
-      notes: `Non-24hr approved by ${non24HrApprovalForm.approvedBy}. Reason: ${non24HrApprovalForm.reason}. Total: ${non24HrApprovalForm.totalHours.toFixed(2)}h`
-    };
-
-    // Add shifts to database
-    await addShift(dayShift);
-    await addShift(nightShift);
-    
-    // Refresh shifts
-    setShifts(getShifts());
-    
-    // Close modals and reset forms
+    // NOTE: This function is deprecated with the new multi-worker form
+    // It's kept for compatibility but should not be called
+    alert('This approval workflow is no longer used. Please use the new multi-worker assignment form.');
     setShowNon24HrApproval(false);
-    setShowAssignShift(false);
-    setPendingNon24HrShifts(null);
-    setNon24HrApprovalForm({ approvedBy: '', reason: '', totalHours: 0, dayHours: 0, nightHours: 0 });
-    setShiftForm({
-      dayStaffId: '',
-      nightStaffId: '',
-      siteId: '',
-      date: '',
-      is24Hour: false,
-      notes: '',
-      dayStartTime: '08:00',
-      dayEndTime: '20:00',
-      nightStartTime: '20:00',
-      nightEndTime: '08:00'
-    });
-    
-    alert(`Non-24-hour shift approved!\n\nApproved by: ${non24HrApprovalForm.approvedBy}\nTotal hours: ${non24HrApprovalForm.totalHours.toFixed(2)}h\nReason: ${non24HrApprovalForm.reason}`);
   };
 
   const handleApproveDuplicateShift = async () => {
@@ -741,16 +669,18 @@ const Rota: React.FC = () => {
         await removeShift(shiftToDelete.id);
         setShifts(getShifts());
         setShiftForm({
-          dayStaffId: shiftToDelete.type === 'Day' ? '' : oppositeShift.staffId,
-          nightStaffId: shiftToDelete.type === 'Night' ? '' : oppositeShift.staffId,
           siteId: shiftToDelete.siteId,
           date: shiftToDelete.date,
-          is24Hour: false,
-          notes: `Replacement for removed shift`,
-          dayStartTime: '08:00',
-          dayEndTime: '20:00',
-          nightStartTime: '20:00',
-          nightEndTime: '08:00'
+          workerCount: 1,
+          workers: [
+            {
+              staffId: shiftToDelete.type === 'Day' ? '' : oppositeShift.staffId,
+              shiftType: shiftToDelete.type === 'Day' ? 'Night' : 'Day',
+              startTime: shiftToDelete.type === 'Day' ? '20:00' : '08:00',
+              endTime: shiftToDelete.type === 'Day' ? '08:00' : '20:00'
+            }
+          ],
+          notes: `Replacement for removed shift`
         });
         setShowDeleteConfirm(false);
         setShiftToDelete(null);
