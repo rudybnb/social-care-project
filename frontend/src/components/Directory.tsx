@@ -4,6 +4,8 @@ import { calculateWeeklyHours } from '../utils/hoursCalculator';
 import StaffQRCodeModal from './StaffQRCodeModal';
 
 const Directory: React.FC = () => {
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
   const [activeTab, setActiveTab] = useState<'staff' | 'agency'>('staff');
   const [qrModalStaff, setQrModalStaff] = useState<{ id: string | number; name: string } | null>(null);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
@@ -291,6 +293,100 @@ const Directory: React.FC = () => {
       alert(`${name} has been deleted`);
     }
   };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === '123admin') {
+      setIsUnlocked(true);
+      setPasswordInput('');
+    } else {
+      alert('❌ Incorrect password');
+      setPasswordInput('');
+    }
+  };
+
+  // Show password screen if not unlocked
+  if (!isUnlocked) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        backgroundColor: '#0a0a0a',
+        padding: '20px'
+      }}>
+        <div style={{
+          backgroundColor: '#1a1a1a',
+          border: '1px solid #3a3a3a',
+          borderRadius: '16px',
+          padding: '40px',
+          maxWidth: '400px',
+          width: '100%',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
+            <h2 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>
+              Directory Access
+            </h2>
+            <p style={{ color: '#9ca3af', fontSize: '14px' }}>
+              This page is password protected
+            </p>
+          </div>
+          <form onSubmit={handlePasswordSubmit}>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                color: '#9ca3af',
+                fontSize: '14px',
+                fontWeight: '600',
+                marginBottom: '8px'
+              }}>
+                Password
+              </label>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="Enter password"
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  backgroundColor: '#0a0a0a',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '16px',
+                  outline: 'none'
+                }}
+                autoFocus
+              />
+            </div>
+            <button
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#7c3aed'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#8b5cf6'}
+            >
+              🔓 Unlock Directory
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '20px 16px', maxWidth: '1400px', margin: '0 auto' }}>
