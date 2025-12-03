@@ -218,7 +218,7 @@ const Rota: React.FC = () => {
     }
     // If 3-4 workers: Require admin approval
     else if (totalWorkers >= 3 && !newShift.duplicateShiftApprovedBy) {
-      const workerNames = workersOnSiteToday.map(s => s.staffName).join(', ');
+      const workerNames = workersOnSiteToday.map((s: Shift) => s.staffName).join(', ');
       errors.push(`MULTIPLE WORKERS: ${workerNames} already assigned to this site on ${newShift.date}. Admin approval required to assign ${totalWorkers} workers (max 4).`);
     }
     // If 2 workers on same shift type: Require admin approval
@@ -336,7 +336,7 @@ const Rota: React.FC = () => {
     }
     
     // Check for duplicate staff
-    const staffIds = shiftForm.workers.map(w => w.staffId);
+    const staffIds = shiftForm.workers.map((w: any) => w.staffId);
     const duplicates = staffIds.filter((id, index) => staffIds.indexOf(id) !== index);
     if (duplicates.length > 0) {
       alert('ERROR: Cannot assign the same worker multiple times.');
@@ -627,7 +627,7 @@ const Rota: React.FC = () => {
       notes: ''
     });
     
-    const workerNames = approvedShifts.map(s => `${s.type}: ${s.staffName}`).join('\n');
+    const workerNames = approvedShifts.map((s: Shift) => `${s.type}: ${s.staffName}`).join('\n');
     alert(`✅ SHIFTS APPROVED AND ASSIGNED!\n\n${workerNames}\n\nApproved by: ${approvalForm.approvedBy}\nReason: ${approvalForm.reason}`);
   };
 
@@ -1741,7 +1741,7 @@ const Rota: React.FC = () => {
                   >
                     <option value="">Select staff...</option>
                     <option value="BANK" style={{ color: '#f59e0b', fontWeight: 'bold' }}>🏦 BANK (Placeholder)</option>
-                    {staff.filter(s => s.status === 'Active').map(s => {
+                    {staff.filter((s: any) => s.status === 'Active').map((s: any) => {
                       const isAgency = 'agencyName' in s;
                       return (
                         <option key={s.id} value={s.id}>
