@@ -130,6 +130,9 @@ const Rota: React.FC = () => {
     nightStartTime: '20:00',
     nightEndTime: '08:00'
   });
+  
+  const [lastAssignedSite, setLastAssignedSite] = useState('');
+  const [lastAssignedDate, setLastAssignedDate] = useState('');
 
   // Staff search states
   const [dayStaffSearch, setDayStaffSearch] = useState('');
@@ -566,6 +569,11 @@ const Rota: React.FC = () => {
     // Refresh shifts from shared data
     setShifts(getShifts());
     console.log('Shifts created and refreshed');
+    
+    // Save site and date for quick add
+    setLastAssignedSite(shiftForm.siteId);
+    setLastAssignedDate(shiftForm.date);
+    
     setShowAssignShift(false);
     setShiftForm({
       dayStaffId: '',
@@ -581,9 +589,28 @@ const Rota: React.FC = () => {
     });
     
     const assignedShifts = [];
-    if (dayShift) assignedShifts.push(`Day: ${dayStaff.name}`);
-    if (nightShift) assignedShifts.push(`Night: ${nightStaff.name}`);
-    alert(`SHIFT(S) ASSIGNED!\n\n${assignedShifts.join('\n')}\n\nSite: ${selectedSite.name}\nDate: ${shiftForm.date}`);
+    if (dayShift) assignedShifts.push(`Day: ${dayStaff!.name}`);
+    if (nightShift) assignedShifts.push(`Night: ${nightStaff!.name}`);
+    
+    // Show success message with option to add another worker
+    const addAnother = window.confirm(`✅ SHIFT(S) ASSIGNED!\n\n${assignedShifts.join('\n')}\n\nSite: ${selectedSite.name}\nDate: ${shiftForm.date}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nAdd another worker to this site/date?\n\nClick OK to assign another worker\nClick Cancel to finish`);
+    
+    if (addAnother) {
+      // Reopen form with site and date pre-filled
+      setShiftForm({
+        dayStaffId: '',
+        nightStaffId: '',
+        siteId: lastAssignedSite,
+        date: lastAssignedDate,
+        is24Hour: false,
+        notes: '',
+        dayStartTime: '08:00',
+        dayEndTime: '20:00',
+        nightStartTime: '20:00',
+        nightEndTime: '08:00'
+      });
+      setShowAssignShift(true);
+    }
   };
 
   const handleApprove24Hr = async () => {
