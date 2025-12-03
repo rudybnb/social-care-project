@@ -293,31 +293,51 @@ const Rota: React.FC = () => {
   };
 
   const handleAssignShift = async () => {
-    // NEW RULE: Must assign both Day and Night shifts together
-    if (!shiftForm.dayStaffId || !shiftForm.nightStaffId || !shiftForm.siteId || !shiftForm.date) {
-      alert('Please fill in all required fields\n\nYou must assign BOTH Day and Night shifts to complete the 24-hour cycle.');
+    // Validate required fields
+    if (!shiftForm.siteId || !shiftForm.date) {
+      alert('Please select a site and date.');
+      return;
+    }
+    
+    // Check if at least one shift is assigned
+    if (!shiftForm.dayStaffId && !shiftForm.nightStaffId) {
+      alert('Please assign at least one shift (Day or Night).');
       return;
     }
 
     // Check if same worker assigned to both shifts
-    if (shiftForm.dayStaffId === shiftForm.nightStaffId && !shiftForm.is24Hour) {
+    if (shiftForm.dayStaffId && shiftForm.nightStaffId && shiftForm.dayStaffId === shiftForm.nightStaffId && !shiftForm.is24Hour) {
       alert('ERROR: Same worker cannot work both Day and Night shifts unless it\'s a 24-hour shift approved by admin.');
       return;
     }
 
-    // Handle BANK placeholder or regular staff
-    const dayStaff = shiftForm.dayStaffId === 'BANK' 
-      ? { id: 'BANK', name: 'BANK (Placeholder)', status: 'Active' } 
-      : staff.find(s => String(s.id) === String(shiftForm.dayStaffId));
+    // Handle BANK placeholder or regular staff (only if assigned)
+    const dayStaff = shiftForm.dayStaffId ? (
+      shiftForm.dayStaffId === 'BANK' 
+        ? { id: 'BANK', name: 'BANK (Placeholder)', status: 'Active' } 
+        : staff.find(s => String(s.id) === String(shiftForm.dayStaffId))
+    ) : null;
     
-    const nightStaff = shiftForm.nightStaffId === 'BANK' 
-      ? { id: 'BANK', name: 'BANK (Placeholder)', status: 'Active' } 
-      : staff.find(s => String(s.id) === String(shiftForm.nightStaffId));
+    const nightStaff = shiftForm.nightStaffId ? (
+      shiftForm.nightStaffId === 'BANK' 
+        ? { id: 'BANK', name: 'BANK (Placeholder)', status: 'Active' } 
+        : staff.find(s => String(s.id) === String(shiftForm.nightStaffId))
+    ) : null;
     
     const selectedSite = sites.find(s => String(s.id) === String(shiftForm.siteId));
 
-    if (!dayStaff || !nightStaff || !selectedSite) {
-      alert('Invalid staff or site selection');
+    if (!selectedSite) {
+      alert('Invalid site selection');
+      return;
+    }
+    
+    // Validate assigned staff
+    if (shiftForm.dayStaffId && !dayStaff) {
+      alert('Invalid day shift staff selection');
+      return;
+    }
+    if (shiftForm.nightStaffId && !nightStaff) {
+      alert('Invalid night shift staff selection');
       return;
     }
 
@@ -339,8 +359,8 @@ const Rota: React.FC = () => {
     
     // AGENCY WORKER VALIDATION
     
-    // Check day staff if they're an agency worker (skip for BANK)
-    const isDayAgency = dayStaff.id !== 'BANK' && 'agencyName' in dayStaff;
+    // Check day staff if they're an agency worker (skip for BANK and null)
+    const isDayAgency = dayStaff && dayStaff.id !== 'BANK' && 'agencyName' in dayStaff;
     
     // VALIDATE HOURLY RATE FOR DAY STAFF (if agency)
     if (isDayAgency) {
@@ -372,8 +392,8 @@ const Rota: React.FC = () => {
       }
     }
     
-    // Check night staff if they're an agency worker (skip for BANK)
-    const isNightAgency = nightStaff.id !== 'BANK' && 'agencyName' in nightStaff;
+    // Check night staff if they're an agency worker (skip for BANK and null)
+    const isNightAgency = nightStaff && nightStaff.id !== 'BANK' && 'agencyName' in nightStaff;
     
     // VALIDATE HOURLY RATE FOR NIGHT STAFF (if agency)
     if (isNightAgency) {
@@ -405,15 +425,16 @@ const Rota: React.FC = () => {
       }
     }
 
-    // Calculate durations from custom times
-    const dayDuration = calculateDuration(shiftForm.dayStartTime, shiftForm.dayEndTime);
-    const nightDuration = calculateDuration(shiftForm.nightStartTime, shiftForm.nightEndTime);
+    // Calculate durations from custom times (only for assigned shifts)
+    const dayDuration = dayStaff ? calculateDuration(shiftForm.dayStartTime, shiftForm.dayEndTime) : 0;
+    const nightDuration = nightStaff ? calculateDuration(shiftForm.nightStartTime, shiftForm.nightEndTime) : 0;
     const totalDuration = dayDuration + nightDuration;
     
-    // Validate 24-hour coverage
+    // Validate 24-hour coverage (only if both shifts assigned)
     const is24HourCoverage = Math.abs(totalDuration - 24) < 0.1; // Allow small rounding difference
     
-    if (!is24HourCoverage) {
+    // If assigning both shifts and not 24-hour coverage, require approval
+    if (dayStaff && nightStaff && !is24HourCoverage) {
       // Trigger approval modal for non-24-hour shifts
       setNon24HrApprovalForm({
         approvedBy: '',
@@ -434,11 +455,11 @@ const Rota: React.FC = () => {
       return;
     }
     
-    // Create Day shift
-    const dayShift: Shift = {
+    // Create Day shift (only if assigned)
+    const dayShift: Shift | null = dayStaff ? {
       id: `SHIFT_DAY_${Date.now()}`,
       staffId: shiftForm.dayStaffId,
-      staffName: dayStaff.name,
+      staffName: dayStaff!.name,
       siteId: shiftForm.siteId,
       siteName: selectedSite.name,
       siteColor: selectedSite.color,
@@ -450,13 +471,13 @@ const Rota: React.FC = () => {
       is24Hour: false,
       isBank: shiftForm.dayStaffId === 'BANK',
       notes: shiftForm.notes
-    };
+    } : null;
 
-    // Create Night shift
-    const nightShift: Shift = {
+    // Create Night shift (only if assigned)
+    const nightShift: Shift | null = nightStaff ? {
       id: `SHIFT_NIGHT_${Date.now()}`,
       staffId: shiftForm.nightStaffId,
-      staffName: nightStaff.name,
+      staffName: nightStaff!.name,
       siteId: shiftForm.siteId,
       siteName: selectedSite.name,
       siteColor: selectedSite.color,
@@ -468,10 +489,10 @@ const Rota: React.FC = () => {
       is24Hour: false,
       isBank: shiftForm.nightStaffId === 'BANK',
       notes: shiftForm.notes
-    };
+    } : null;
 
     // If 24-hour shift (same worker), require approval
-    if (shiftForm.is24Hour && shiftForm.dayStaffId === shiftForm.nightStaffId) {
+    if (dayShift && nightShift && shiftForm.is24Hour && shiftForm.dayStaffId === shiftForm.nightStaffId) {
       const combined24HrShift = {
         ...dayShift,
         is24Hour: true,
@@ -484,80 +505,65 @@ const Rota: React.FC = () => {
       return;
     }
 
-    // Check if Day shift needs duplicate approval
-    const dayDuplicateCheck = shifts.find(s => 
-      s.date === dayShift.date && 
-      s.siteId === dayShift.siteId && 
-      s.type === 'Day' &&
-      s.staffStatus !== 'declined'
-    );
-    if (dayDuplicateCheck) {
-      // Trigger duplicate approval workflow
-      setPendingDuplicateShift({ shift: dayShift, type: 'Day', existing: dayDuplicateCheck });
-      setShowDuplicateApproval(true);
-      return;
+    // Validate and assign Day shift (if assigned)
+    if (dayShift) {
+      // Check if Day shift needs duplicate/multiple worker approval
+      const dayValidation = validateShift(dayShift);
+      if (!dayValidation.valid) {
+        // Check if error is about multiple workers (requires approval)
+        if (dayValidation.errors.some(e => e.includes('MULTIPLE WORKERS') || e.includes('DUPLICATE SHIFT'))) {
+          setPendingDuplicateShift({ shift: dayShift, type: 'Day', existing: null });
+          setShowDuplicateApproval(true);
+          return;
+        }
+        alert(`CANNOT ASSIGN DAY SHIFT:\n\n${dayValidation.errors.join('\n\n')}`);
+        return;
+      }
+      
+      // Check if replacing declined shift
+      const declinedDayShift = shifts.find(s => 
+        s.date === dayShift.date && 
+        s.siteId === dayShift.siteId && 
+        s.type === 'Day' && 
+        s.staffStatus === 'declined'
+      );
+      if (declinedDayShift) {
+        await removeShift(declinedDayShift.id);
+      }
+      
+      await addShift(dayShift);
     }
 
-    // Validate Day shift
-    const dayValidation = validateShift(dayShift);
-    if (!dayValidation.valid) {
-      alert(`CANNOT ASSIGN DAY SHIFT:\n\n${dayValidation.errors.join('\n\n')}`);
-      return;
-    }
-
-    // Check if Night shift needs duplicate approval
-    const nightDuplicateCheck = shifts.find(s => 
-      s.date === nightShift.date && 
-      s.siteId === nightShift.siteId && 
-      s.type === 'Night' &&
-      s.staffStatus !== 'declined'
-    );
-    if (nightDuplicateCheck) {
-      // Trigger duplicate approval workflow
-      setPendingDuplicateShift({ shift: nightShift, type: 'Night', existing: nightDuplicateCheck });
-      setShowDuplicateApproval(true);
-      return;
-    }
-
-    // Validate Night shift
-    const nightValidation = validateShift(nightShift);
-    if (!nightValidation.valid) {
-      alert(`CANNOT ASSIGN NIGHT SHIFT:\n\n${nightValidation.errors.join('\n\n')}`);
-      return;
-    }
-
-    // Both shifts valid, assign them
-    console.log('Creating shifts:', { dayShift, nightShift });
-    console.log('Current shifts before:', shifts);
-    
-    // Check if replacing declined shifts and remove them first
-    const declinedDayShift = shifts.find(s => 
-      s.date === dayShift.date && 
-      s.siteId === dayShift.siteId && 
-      s.type === 'Day' && 
-      s.staffStatus === 'declined'
-    );
-    const declinedNightShift = shifts.find(s => 
-      s.date === nightShift.date && 
-      s.siteId === nightShift.siteId && 
-      s.type === 'Night' && 
-      s.staffStatus === 'declined'
-    );
-    
-    if (declinedDayShift) {
-      console.log('Removing declined Day shift:', declinedDayShift);
-      await removeShift(declinedDayShift.id);
-    }
-    if (declinedNightShift) {
-      console.log('Removing declined Night shift:', declinedNightShift);
-      await removeShift(declinedNightShift.id);
+    // Validate and assign Night shift (if assigned)
+    if (nightShift) {
+      // Check if Night shift needs duplicate/multiple worker approval
+      const nightValidation = validateShift(nightShift);
+      if (!nightValidation.valid) {
+        // Check if error is about multiple workers (requires approval)
+        if (nightValidation.errors.some(e => e.includes('MULTIPLE WORKERS') || e.includes('DUPLICATE SHIFT'))) {
+          setPendingDuplicateShift({ shift: nightShift, type: 'Night', existing: null });
+          setShowDuplicateApproval(true);
+          return;
+        }
+        alert(`CANNOT ASSIGN NIGHT SHIFT:\n\n${nightValidation.errors.join('\n\n')}`);
+        return;
+      }
+      
+      // Check if replacing declined shift
+      const declinedNightShift = shifts.find(s => 
+        s.date === nightShift.date && 
+        s.siteId === nightShift.siteId && 
+        s.type === 'Night' && 
+        s.staffStatus === 'declined'
+      );
+      if (declinedNightShift) {
+        await removeShift(declinedNightShift.id);
+      }
+      
+      await addShift(nightShift);
     }
     
-    // Add shifts to shared data store
-    await addShift(dayShift);
-    await addShift(nightShift);
-    
-    // Manually refresh shifts from shared data
+    // Refresh shifts from shared data
     setShifts(getShifts());
     console.log('Shifts created and refreshed');
     setShowAssignShift(false);
@@ -573,7 +579,11 @@ const Rota: React.FC = () => {
       nightStartTime: '20:00',
       nightEndTime: '08:00'
     });
-    alert(`24-HOUR CYCLE COMPLETED!\n\nDay Shift: ${dayStaff.name}\nNight Shift: ${nightStaff.name}\nSite: ${selectedSite.name}\nDate: ${shiftForm.date}`);
+    
+    const assignedShifts = [];
+    if (dayShift) assignedShifts.push(`Day: ${dayStaff.name}`);
+    if (nightShift) assignedShifts.push(`Night: ${nightStaff.name}`);
+    alert(`SHIFT(S) ASSIGNED!\n\n${assignedShifts.join('\n')}\n\nSite: ${selectedSite.name}\nDate: ${shiftForm.date}`);
   };
 
   const handleApprove24Hr = async () => {
@@ -642,7 +652,7 @@ const Rota: React.FC = () => {
     const dayShift: Shift = {
       id: `SHIFT_DAY_${Date.now()}`,
       staffId: formData.dayStaffId,
-      staffName: dayStaff.name,
+      staffName: dayStaff!.name,
       siteId: formData.siteId,
       siteName: selectedSite.name,
       siteColor: selectedSite.color,
@@ -660,7 +670,7 @@ const Rota: React.FC = () => {
     const nightShift: Shift = {
       id: `SHIFT_NIGHT_${Date.now()}`,
       staffId: formData.nightStaffId,
-      staffName: nightStaff.name,
+      staffName: nightStaff!.name,
       siteId: formData.siteId,
       siteName: selectedSite.name,
       siteColor: selectedSite.color,
