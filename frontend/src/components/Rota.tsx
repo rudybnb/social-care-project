@@ -574,7 +574,7 @@ const Rota: React.FC = () => {
     const shiftsToCreate = pendingDuplicateShift.allShifts || [pendingDuplicateShift.shift];
     
     // Add approval to all shifts
-    const approvedShifts = shiftsToCreate.map(shift => ({
+    const approvedShifts = shiftsToCreate.map((shift: Shift) => ({
       ...shift,
       duplicateShiftApprovedBy: approvalForm.approvedBy,
       notes: `APPROVED: ${approvalForm.reason}. ${shift.notes || ''}`
