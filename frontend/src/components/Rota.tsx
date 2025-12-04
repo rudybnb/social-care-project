@@ -88,13 +88,14 @@ const Rota: React.FC = () => {
     };
   }, []);
 
-  // Subscribe to shift changes from other components
-  useEffect(() => {
-    const unsubscribe = subscribeToDataChange(() => {
-      setShifts(getShifts());
-    });
-    return unsubscribe;
-  }, []);
+  // DISABLED: This subscription causes infinite loop with the data change notifications
+  // The 5-second refresh interval (line 82) is sufficient for keeping shifts updated
+  // useEffect(() => {
+  //   const unsubscribe = subscribeToDataChange(() => {
+  //     setShifts(getShifts());
+  //   });
+  //   return unsubscribe;
+  // }, []);
 
   // REMOVED: This was causing an infinite loop
   // The shifts are already synced when fetched from API (line 65)
