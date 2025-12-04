@@ -1776,8 +1776,8 @@ const Rota: React.FC = () => {
             </div>
           </div>
 
-          {/* 24h Balance Display */}
-          {balanceDisplay}
+          {/* 24h Balance Display - Temporarily disabled for debugging */}
+          {/* {balanceDisplay} */}
 
           {/* Dynamic Worker Fields */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
