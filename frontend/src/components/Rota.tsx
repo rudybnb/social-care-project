@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import { getSites, getStaff, subscribeToSitesChange, Site as SharedSite, StaffMember, getShifts, setShifts as setSharedShifts, subscribeToDataChange, addShift, updateShift, removeShift, getAllWorkers } from '../data/sharedData';
 import { shiftsAPI } from '../services/api';
@@ -978,8 +978,10 @@ const Rota: React.FC = () => {
     }
   };
 
-  // Render balance display inline to avoid re-render issues
-  const renderBalanceDisplay = () => {
+  // Memoize balance display to prevent infinite re-renders
+  const balanceDisplay = useMemo(() => {
+    if (!shiftForm.siteId || !shiftForm.date) return null;
+    
     const remaining = calculateRemainingHours();
     const allocated = 24 - remaining.total;
     const isComplete = Math.abs(remaining.total) < 0.01;
@@ -1016,7 +1018,7 @@ const Rota: React.FC = () => {
         </div>
       </div>
     );
-  };
+  }, [shiftForm.siteId, shiftForm.date, shiftForm.workers, shifts]);
 
   return (
     <div style={{ padding: '20px 16px', maxWidth: '1600px', margin: '0 auto' }}>
@@ -1775,7 +1777,7 @@ const Rota: React.FC = () => {
           </div>
 
           {/* 24h Balance Display */}
-          {shiftForm.siteId && shiftForm.date && renderBalanceDisplay()}
+          {balanceDisplay}
 
           {/* Dynamic Worker Fields */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
