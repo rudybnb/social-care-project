@@ -62,7 +62,8 @@ const Rota: React.FC = () => {
         const fetchedShifts = await shiftsAPI.getAll();
         if (isMounted) {
           setShifts(fetchedShifts);
-          setSharedShifts(fetchedShifts);
+          // REMOVED: setSharedShifts triggers notifyDataChanged which causes subscription loop
+          // setSharedShifts(fetchedShifts);
         }
       } catch (error) {
         console.error('Failed to load shifts:', error);
