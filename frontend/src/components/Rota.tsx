@@ -979,6 +979,8 @@ const Rota: React.FC = () => {
   };
 
   // Memoize balance display to prevent infinite re-renders
+  // TEMPORARILY DISABLED FOR DEBUGGING
+  /*
   const balanceDisplay = useMemo(() => {
     if (!shiftForm.siteId || !shiftForm.date) return null;
     
@@ -1019,6 +1021,7 @@ const Rota: React.FC = () => {
       </div>
     );
   }, [shiftForm.siteId, shiftForm.date, shiftForm.workers, shifts]);
+  */
 
   return (
     <div style={{ padding: '20px 16px', maxWidth: '1600px', margin: '0 auto' }}>
