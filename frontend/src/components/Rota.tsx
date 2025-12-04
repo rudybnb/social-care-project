@@ -95,10 +95,11 @@ const Rota: React.FC = () => {
     return unsubscribe;
   }, []);
 
-  // Sync local shifts to shared data whenever they change
-  useEffect(() => {
-    setSharedShifts(shifts);
-  }, [shifts]);
+  // REMOVED: This was causing an infinite loop
+  // The shifts are already synced when fetched from API (line 65)
+  // useEffect(() => {
+  //   setSharedShifts(shifts);
+  // }, [shifts]);
 
   const [showAssignShift, setShowAssignShift] = useState(false);
   const [show24HrApproval, setShow24HrApproval] = useState(false);
