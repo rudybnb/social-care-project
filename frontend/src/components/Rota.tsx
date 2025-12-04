@@ -126,8 +126,8 @@ const Rota: React.FC = () => {
       hours: number;
       minutes: number;
       startTime: string;
-      }
-    ],
+    }>,
+    workerCount: 1,
     notes: ''
   });
 
@@ -486,9 +486,10 @@ const Rota: React.FC = () => {
       const shiftType = startHour >= 8 && startHour < 20 ? 'Day' : 'Night';
       
       const newShift: Shift = {
-        id: Date.now() + i,
+        id: (Date.now() + i).toString(),
         siteId: shiftForm.siteId,
         siteName: selectedSite.name,
+        siteColor: selectedSite.color,
         staffId: worker.staffId,
         staffName: staffMember.name,
         date: shiftForm.date,
@@ -496,12 +497,9 @@ const Rota: React.FC = () => {
         startTime: worker.startTime,
         endTime: endTime,
         duration: duration,
-        status: 'Scheduled',
+        is24Hour: false,
         staffStatus: 'pending',
-        notes: shiftForm.notes || '',
-        isAgency: isAgency,
-        agencyName: isAgency ? (staffMember as any).agencyName : undefined,
-        hourlyRate: isAgency ? parseFloat((staffMember as any).hourlyRate) : undefined
+        notes: shiftForm.notes || ''
       };
       
       shiftsToCreate.push(newShift);
@@ -521,6 +519,7 @@ const Rota: React.FC = () => {
         siteId: '',
         date: '',
         workers: [],
+        workerCount: 1,
         notes: ''
       });
       setNewWorker({
@@ -574,9 +573,9 @@ const Rota: React.FC = () => {
       workers: [
         {
           staffId: '',
-          shiftType: 'Day',
-          startTime: '08:00',
-          endTime: '20:00'
+          hours: 12,
+          minutes: 0,
+          startTime: '08:00'
         }
       ],
       notes: ''
@@ -646,9 +645,9 @@ const Rota: React.FC = () => {
       workers: [
         {
           staffId: '',
-          shiftType: 'Day',
-          startTime: '08:00',
-          endTime: '20:00'
+          hours: 12,
+          minutes: 0,
+          startTime: '08:00'
         }
       ],
       notes: ''
@@ -702,9 +701,9 @@ const Rota: React.FC = () => {
           workers: [
             {
               staffId: shiftToDelete.type === 'Day' ? '' : oppositeShift.staffId,
-              shiftType: shiftToDelete.type === 'Day' ? 'Night' : 'Day',
-              startTime: shiftToDelete.type === 'Day' ? '20:00' : '08:00',
-              endTime: shiftToDelete.type === 'Day' ? '08:00' : '20:00'
+              hours: 12,
+              minutes: 0,
+              startTime: shiftToDelete.type === 'Day' ? '20:00' : '08:00'
             }
           ],
           notes: `Replacement for removed shift`
