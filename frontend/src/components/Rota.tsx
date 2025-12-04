@@ -128,9 +128,9 @@ const Rota: React.FC = () => {
     workers: [
       {
         staffId: '',
-        shiftType: 'Day',
-        startTime: '08:00',
-        endTime: '20:00'
+        hours: 0,
+        minutes: 0,
+        startTime: '08:00'
       }
     ],
     notes: ''
@@ -305,12 +305,12 @@ const Rota: React.FC = () => {
         // Keep existing worker data
         newWorkers.push(shiftForm.workers[i]);
       } else {
-        // Add new empty worker
+        // Add new empty worker with hours/minutes
         newWorkers.push({
           staffId: '',
-          shiftType: i % 2 === 0 ? 'Day' : 'Night', // Alternate Day/Night
-          startTime: i % 2 === 0 ? '08:00' : '20:00',
-          endTime: i % 2 === 0 ? '20:00' : '08:00'
+          hours: 0,
+          minutes: 0,
+          startTime: '08:00'
         });
       }
     }
@@ -320,8 +320,29 @@ const Rota: React.FC = () => {
   // Update worker field
   const updateWorker = (index: number, field: string, value: string) => {
     const newWorkers = [...shiftForm.workers];
-    newWorkers[index] = { ...newWorkers[index], [field]: value };
+    if (field === 'hours' || field === 'minutes') {
+      newWorkers[index] = { ...newWorkers[index], [field]: parseInt(value) || 0 };
+    } else {
+      newWorkers[index] = { ...newWorkers[index], [field]: value };
+    }
     setShiftForm({ ...shiftForm, workers: newWorkers });
+  };
+
+  // Calculate total allocated hours from all workers
+  const calculateAllocatedHours = (): number => {
+    return shiftForm.workers.reduce((total, worker) => {
+      const workerHours = worker.hours + (worker.minutes / 60);
+      return total + workerHours;
+    }, 0);
+  };
+
+  // Calculate remaining hours to reach 24
+  const calculateRemainingHours = (): { hours: number; minutes: number; total: number } => {
+    const allocated = calculateAllocatedHours();
+    const remaining = 24 - allocated;
+    const hours = Math.floor(Math.abs(remaining));
+    const minutes = Math.round((Math.abs(remaining) - hours) * 60);
+    return { hours, minutes, total: remaining };
   };
 
   const handleAssignShift = async () => {
@@ -359,15 +380,7 @@ const Rota: React.FC = () => {
     const shiftDateOnly = new Date(shiftDate);
     shiftDateOnly.setHours(0, 0, 0, 0);
     
-    // If assigning for today and current time is past 20:00 (8pm)
-    if (shiftDateOnly.getTime() === today.getTime()) {
-      const currentHour = new Date().getHours();
-      const hasDayShift = shiftForm.workers.some(w => w.shiftType === 'Day');
-      if (currentHour >= 20 && hasDayShift) {
-        alert(`❌ CANNOT ASSIGN DAY SHIFT\\n\\nIt is currently ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}.\\n\\nDay shifts (08:00-20:00) have already finished for today.\\n\\nYou can only assign Night shifts (20:00-08:00) for today.`);
-        return;
-      }
-    }
+    // Removed: Day/Night shift type validation (now using flexible hours)
 
     // Validate each worker and create shifts
     const shiftsToCreate: Shift[] = [];
@@ -418,22 +431,32 @@ const Rota: React.FC = () => {
         }
       }
       
-      // Calculate duration
-      const duration = calculateDuration(worker.startTime, worker.endTime);
+      // Calculate duration from hours and minutes
+      const durationHours = worker.hours + (worker.minutes / 60);
+      
+      // Calculate end time from start time + duration
+      const [startHour, startMin] = worker.startTime.split(':').map(Number);
+      const totalMinutes = startHour * 60 + startMin + worker.hours * 60 + worker.minutes;
+      const endHour = Math.floor(totalMinutes / 60) % 24;
+      const endMin = totalMinutes % 60;
+      const endTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
+      
+      // Determine if it's a day or night shift based on start time
+      const shiftType = startHour >= 8 && startHour < 20 ? 'Day' : 'Night';
       
       // Create shift object
       const shift: Shift = {
-        id: `SHIFT_${worker.shiftType.toUpperCase()}_${Date.now()}_${i}`,
+        id: `SHIFT_${shiftType.toUpperCase()}_${Date.now()}_${i}`,
         staffId: worker.staffId,
         staffName: staffMember.name,
         siteId: shiftForm.siteId,
         siteName: selectedSite.name,
         siteColor: selectedSite.color,
         date: shiftForm.date,
-        type: worker.shiftType as 'Day' | 'Night',
+        type: shiftType as 'Day' | 'Night',
         startTime: worker.startTime,
-        endTime: worker.endTime,
-        duration: Math.round(duration),
+        endTime: endTime,
+        duration: Math.round(durationHours),
         is24Hour: false,
         isBank: worker.staffId === 'BANK',
         notes: shiftForm.notes,
@@ -441,7 +464,7 @@ const Rota: React.FC = () => {
       };
       
       shiftsToCreate.push(shift);
-      assignedWorkers.push(`${worker.shiftType}: ${staffMember.name}`);
+      assignedWorkers.push(`${staffMember.name} (${durationHours.toFixed(1)}h)`);
     }
     
     // Validate all shifts (check for conflicts, multiple workers, etc.)
@@ -502,9 +525,9 @@ const Rota: React.FC = () => {
       workers: [
         {
           staffId: '',
-          shiftType: 'Day',
-          startTime: '08:00',
-          endTime: '20:00'
+          hours: 0,
+          minutes: 0,
+          startTime: '08:00'
         }
       ],
       notes: ''
@@ -550,9 +573,9 @@ const Rota: React.FC = () => {
       workers: [
         {
           staffId: '',
-          shiftType: 'Day',
-          startTime: '08:00',
-          endTime: '20:00'
+          hours: 0,
+          minutes: 0,
+          startTime: '08:00'
         }
       ],
       notes: ''
@@ -622,9 +645,9 @@ const Rota: React.FC = () => {
       workers: [
         {
           staffId: '',
-          shiftType: 'Day',
-          startTime: '08:00',
-          endTime: '20:00'
+          hours: 0,
+          minutes: 0,
+          startTime: '08:00'
         }
       ],
       notes: ''
@@ -678,9 +701,9 @@ const Rota: React.FC = () => {
           workers: [
             {
               staffId: shiftToDelete.type === 'Day' ? '' : oppositeShift.staffId,
-              shiftType: shiftToDelete.type === 'Day' ? 'Night' : 'Day',
-              startTime: shiftToDelete.type === 'Day' ? '20:00' : '08:00',
-              endTime: shiftToDelete.type === 'Day' ? '08:00' : '20:00'
+              hours: 0,
+              minutes: 0,
+              startTime: shiftToDelete.type === 'Day' ? '20:00' : '08:00'
             }
           ],
           notes: `Replacement for removed shift`
@@ -1711,6 +1734,46 @@ const Rota: React.FC = () => {
             </div>
           </div>
 
+          {/* 24-Hour Balance Display */}
+          {shiftForm.siteId && shiftForm.date && (() => {
+            const remaining = calculateRemainingHours();
+            const allocated = 24 - remaining.total;
+            const isComplete = Math.abs(remaining.total) < 0.01;
+            const isOver = remaining.total < 0;
+            
+            return (
+              <div style={{
+                padding: '16px',
+                backgroundColor: isComplete ? '#10b98120' : isOver ? '#ef444420' : '#f59e0b20',
+                border: `2px solid ${isComplete ? '#10b981' : isOver ? '#ef4444' : '#f59e0b'}`,
+                borderRadius: '8px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>24-Hour Coverage</span>
+                  <span style={{ color: isComplete ? '#10b981' : isOver ? '#ef4444' : '#f59e0b', fontSize: '14px', fontWeight: '600' }}>
+                    {isComplete ? '✅ Complete' : isOver ? '❌ Exceeded' : '⚠️ Incomplete'}
+                  </span>
+                </div>
+                <div style={{ marginBottom: '8px' }}>
+                  <div style={{ height: '8px', backgroundColor: '#1a1a1a', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${Math.min((allocated / 24) * 100, 100)}%`,
+                      backgroundColor: isComplete ? '#10b981' : isOver ? '#ef4444' : '#f59e0b',
+                      transition: 'width 0.3s'
+                    }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#9ca3af', fontSize: '13px' }}>Allocated: {allocated.toFixed(2)}h</span>
+                  <span style={{ color: isComplete ? '#10b981' : '#9ca3af', fontSize: '13px', fontWeight: '600' }}>
+                    Remaining: {Math.abs(remaining.hours)}h {Math.abs(remaining.minutes)}m
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Dynamic Worker Fields */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {shiftForm.workers.map((worker, index) => (
@@ -1755,101 +1818,73 @@ const Rota: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Shift Type */}
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                    Shift Type *
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <label style={{
-                      flex: 1,
-                      padding: '10px',
-                      backgroundColor: worker.shiftType === 'Day' ? '#fbbf2420' : '#0a0a0a',
-                      border: `1px solid ${worker.shiftType === 'Day' ? '#fbbf24' : '#3a3a3a'}`,
-                      borderRadius: '6px',
-                      textAlign: 'center',
-                      cursor: 'pointer'
-                    }}>
-                      <input
-                        type="radio"
-                        name={`shiftType_${index}`}
-                        value="Day"
-                        checked={worker.shiftType === 'Day'}
-                        onChange={(e) => {
-                          updateWorker(index, 'shiftType', 'Day');
-                          updateWorker(index, 'startTime', '08:00');
-                          updateWorker(index, 'endTime', '20:00');
-                        }}
-                        style={{ marginRight: '8px' }}
-                      />
-                      <span style={{ color: 'white', fontSize: '13px' }}>☀️ Day</span>
+                {/* Duration Input */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                      Hours *
                     </label>
-                    <label style={{
-                      flex: 1,
-                      padding: '10px',
-                      backgroundColor: worker.shiftType === 'Night' ? '#3b82f620' : '#0a0a0a',
-                      border: `1px solid ${worker.shiftType === 'Night' ? '#3b82f6' : '#3a3a3a'}`,
-                      borderRadius: '6px',
-                      textAlign: 'center',
-                      cursor: 'pointer'
-                    }}>
-                      <input
-                        type="radio"
-                        name={`shiftType_${index}`}
-                        value="Night"
-                        checked={worker.shiftType === 'Night'}
-                        onChange={(e) => {
-                          updateWorker(index, 'shiftType', 'Night');
-                          updateWorker(index, 'startTime', '20:00');
-                          updateWorker(index, 'endTime', '08:00');
-                        }}
-                        style={{ marginRight: '8px' }}
-                      />
-                      <span style={{ color: 'white', fontSize: '13px' }}>🌙 Night</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="24"
+                      value={worker.hours}
+                      onChange={(e) => updateWorker(index, 'hours', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        backgroundColor: '#0a0a0a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px'
+                      }}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                      Minutes *
                     </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="59"
+                      value={worker.minutes}
+                      onChange={(e) => updateWorker(index, 'minutes', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        backgroundColor: '#0a0a0a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px'
+                      }}
+                      placeholder="0"
+                    />
                   </div>
                 </div>
 
-                {/* Time Selection */}
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                      Start Time *
-                    </label>
-                    <input
-                      type="time"
-                      value={worker.startTime}
-                      onChange={(e) => updateWorker(index, 'startTime', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        backgroundColor: '#0a0a0a',
-                        color: 'white',
-                        border: '1px solid #3a3a3a',
-                        borderRadius: '6px',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                      End Time *
-                    </label>
-                    <input
-                      type="time"
-                      value={worker.endTime}
-                      onChange={(e) => updateWorker(index, 'endTime', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        backgroundColor: '#0a0a0a',
-                        color: 'white',
-                        border: '1px solid #3a3a3a',
-                        borderRadius: '6px',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
+                {/* Start Time */}
+                <div>
+                  <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                    Start Time *
+                  </label>
+                  <input
+                    type="time"
+                    value={worker.startTime}
+                    onChange={(e) => updateWorker(index, 'startTime', e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      backgroundColor: '#0a0a0a',
+                      color: 'white',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '6px',
+                      fontSize: '14px'
+                    }}
+                  />
                 </div>
               </div>
             ))}
