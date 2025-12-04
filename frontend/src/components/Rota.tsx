@@ -978,8 +978,8 @@ const Rota: React.FC = () => {
     }
   };
 
-  // Balance Display Component
-  const BalanceDisplay = () => {
+  // Render balance display inline to avoid re-render issues
+  const renderBalanceDisplay = () => {
     const remaining = calculateRemainingHours();
     const allocated = 24 - remaining.total;
     const isComplete = Math.abs(remaining.total) < 0.01;
@@ -1775,7 +1775,7 @@ const Rota: React.FC = () => {
           </div>
 
           {/* 24h Balance Display */}
-          {shiftForm.siteId && shiftForm.date && <BalanceDisplay />}
+          {shiftForm.siteId && shiftForm.date && renderBalanceDisplay()}
 
           {/* Dynamic Worker Fields */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
