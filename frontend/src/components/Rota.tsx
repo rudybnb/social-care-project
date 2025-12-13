@@ -470,19 +470,37 @@ const Rota: React.FC = () => {
     // Validate all shifts (check for conflicts, multiple workers, etc.)
     let needsApproval = false;
     let approvalShift: Shift | null = null;
+    const allValidationErrors: string[] = [];
     
+    // First pass: Check ALL shifts for validation errors
     for (const shift of shiftsToCreate) {
       const validation = validateShift(shift);
       if (!validation.valid) {
-        // Check if error is about multiple workers (requires approval)
-        if (validation.errors.some(e => e.includes('MULTIPLE WORKERS') || e.includes('DUPLICATE SHIFT'))) {
+        // Separate approval-required errors from blocking errors
+        const approvalErrors = validation.errors.filter(e => 
+          e.includes('MULTIPLE WORKERS') || e.includes('DUPLICATE SHIFT')
+        );
+        const blockingErrors = validation.errors.filter(e => 
+          !e.includes('MULTIPLE WORKERS') && !e.includes('DUPLICATE SHIFT')
+        );
+        
+        // If there are blocking errors (conflicts, rest period, etc.), stop immediately
+        if (blockingErrors.length > 0) {
+          allValidationErrors.push(`${shift.staffName}:\n${blockingErrors.join('\n')}`);
+        }
+        
+        // If only approval errors, mark for approval
+        if (approvalErrors.length > 0 && blockingErrors.length === 0) {
           needsApproval = true;
           approvalShift = shift;
-          break;
         }
-        alert(`CANNOT ASSIGN SHIFT:\\n\\n${validation.errors.join('\\n\\n')}`);
-        return;
       }
+    }
+    
+    // If there are any blocking errors, show them all and stop
+    if (allValidationErrors.length > 0) {
+      alert(`CANNOT ASSIGN SHIFT:\\n\\n${allValidationErrors.join('\\n\\n')}`);
+      return;
     }
     
     // If approval needed, show dialog for first conflicting shift
