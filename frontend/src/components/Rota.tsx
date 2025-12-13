@@ -255,10 +255,10 @@ const Rota: React.FC = () => {
       }
     }
 
-    // R3: 24-hour shift requires admin approval
-    if (newShift.is24Hour && !newShift.approved24HrBy) {
-      errors.push(`24-hour shifts require admin or site manager approval.`);
-    }
+    // R3: 24-hour shift requires admin approval (DISABLED)
+    // if (newShift.is24Hour && !newShift.approved24HrBy) {
+    //   errors.push(`24-hour shifts require admin or site manager approval.`);
+    // }
 
     // R5: Rest period (12 hours minimum)
     const staffShifts = shifts.filter(s => s.staffId === newShift.staffId);
@@ -1752,45 +1752,7 @@ const Rota: React.FC = () => {
             </div>
           </div>
 
-          {/* 24-Hour Balance Display */}
-          {shiftForm.siteId && shiftForm.date && (() => {
-            const remaining = calculateRemainingHours();
-            const allocated = 24 - remaining.total;
-            const isComplete = Math.abs(remaining.total) < 0.01;
-            const isOver = remaining.total < 0;
-            
-            return (
-              <div style={{
-                padding: '16px',
-                backgroundColor: isComplete ? '#10b98120' : isOver ? '#ef444420' : '#f59e0b20',
-                border: `2px solid ${isComplete ? '#10b981' : isOver ? '#ef4444' : '#f59e0b'}`,
-                borderRadius: '8px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>24-Hour Coverage</span>
-                  <span style={{ color: isComplete ? '#10b981' : isOver ? '#ef4444' : '#f59e0b', fontSize: '14px', fontWeight: '600' }}>
-                    {isComplete ? '✅ Complete' : isOver ? '❌ Exceeded' : '⚠️ Incomplete'}
-                  </span>
-                </div>
-                <div style={{ marginBottom: '8px' }}>
-                  <div style={{ height: '8px', backgroundColor: '#1a1a1a', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%',
-                      width: `${Math.min((allocated / 24) * 100, 100)}%`,
-                      backgroundColor: isComplete ? '#10b981' : isOver ? '#ef4444' : '#f59e0b',
-                      transition: 'width 0.3s'
-                    }} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#9ca3af', fontSize: '13px' }}>Allocated: {allocated.toFixed(2)}h</span>
-                  <span style={{ color: isComplete ? '#10b981' : '#9ca3af', fontSize: '13px', fontWeight: '600' }}>
-                    Remaining: {Math.abs(remaining.hours)}h {Math.abs(remaining.minutes)}m
-                  </span>
-                </div>
-              </div>
-            );
-          })()}
+          {/* 24-Hour Balance Display - DISABLED */}
 
           {/* Dynamic Worker Fields */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
