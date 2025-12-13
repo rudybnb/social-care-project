@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getShifts, getStaff, subscribeToDataChange, getAllWorkers } from '../data/sharedData';
 import { calculateWeeklyHours } from '../utils/hoursCalculator';
 import { leaveAPI } from '../services/leaveAPI';
+import * as XLSX from 'xlsx';
 
 const Payroll: React.FC = () => {
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -201,6 +202,70 @@ const Payroll: React.FC = () => {
     }
   };
 
+  // Export to Excel function
+  const exportToExcel = () => {
+    // Prepare data for export
+    const exportData = payrollData.map(staff => ({
+      'Staff Name': staff.name,
+      'Type': staff.isAgency ? `Agency (${staff.agencyName})` : 'Permanent',
+      'Total Hours': staff.totalHours.toFixed(2),
+      'Day Hours': staff.dayHours.toFixed(2),
+      'Night Hours': staff.nightHours.toFixed(2),
+      'Leave Hours': staff.leaveHours.toFixed(2),
+      'Standard Pay': `£${staff.standardPay.toFixed(2)}`,
+      'Enhanced Pay': `£${staff.enhancedPay.toFixed(2)}`,
+      'Night Pay': `£${staff.nightPay.toFixed(2)}`,
+      'Leave Pay': `£${staff.leavePay.toFixed(2)}`,
+      'Total Pay': `£${staff.totalPay.toFixed(2)}`,
+      'Shifts': staff.shifts
+    }));
+
+    // Add summary row
+    exportData.push({
+      'Staff Name': 'TOTAL',
+      'Type': '',
+      'Total Hours': payrollData.reduce((sum, p) => sum + p.totalHours, 0).toFixed(2),
+      'Day Hours': payrollData.reduce((sum, p) => sum + p.dayHours, 0).toFixed(2),
+      'Night Hours': payrollData.reduce((sum, p) => sum + p.nightHours, 0).toFixed(2),
+      'Leave Hours': payrollData.reduce((sum, p) => sum + p.leaveHours, 0).toFixed(2),
+      'Standard Pay': `£${payrollData.reduce((sum, p) => sum + p.standardPay, 0).toFixed(2)}`,
+      'Enhanced Pay': `£${payrollData.reduce((sum, p) => sum + p.enhancedPay, 0).toFixed(2)}`,
+      'Night Pay': `£${payrollData.reduce((sum, p) => sum + p.nightPay, 0).toFixed(2)}`,
+      'Leave Pay': `£${payrollData.reduce((sum, p) => sum + p.leavePay, 0).toFixed(2)}`,
+      'Total Pay': `£${totalPayroll.toFixed(2)}`,
+      'Shifts': payrollData.reduce((sum, p) => sum + p.shifts, 0)
+    });
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 25 }, // Staff Name
+      { wch: 20 }, // Type
+      { wch: 12 }, // Total Hours
+      { wch: 12 }, // Day Hours
+      { wch: 12 }, // Night Hours
+      { wch: 12 }, // Leave Hours
+      { wch: 14 }, // Standard Pay
+      { wch: 14 }, // Enhanced Pay
+      { wch: 14 }, // Night Pay
+      { wch: 14 }, // Leave Pay
+      { wch: 14 }, // Total Pay
+      { wch: 10 }  // Shifts
+    ];
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Payroll');
+
+    // Generate filename with period
+    const filename = `Payroll_${currentPeriod.label.replace(/\s+/g, '_')}.xlsx`;
+
+    // Download file
+    XLSX.writeFile(wb, filename);
+  };
+
   // Show password screen if not unlocked
   if (!isUnlocked) {
     return (
@@ -344,6 +409,32 @@ const Payroll: React.FC = () => {
             }}
           >
             📊 Monthly ({currentMonth.start.toLocaleDateString('en-GB', { month: 'short' })}-{currentMonth.end.toLocaleDateString('en-GB', { month: 'short' })})
+          </button>
+        </div>
+
+        {/* Export Button */}
+        <div style={{ marginBottom: '16px' }}>
+          <button
+            onClick={exportToExcel}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+          >
+            <span style={{ fontSize: '18px' }}>📊</span>
+            Export to Excel
           </button>
         </div>
 
