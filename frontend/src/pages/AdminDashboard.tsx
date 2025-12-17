@@ -6,6 +6,7 @@ import Sites from '../components/Sites';
 import Directory from '../components/Directory';
 import Payroll from '../components/Payroll';
 import AnnualLeave from '../components/AnnualLeave';
+import Attendance from '../components/Attendance';
 
 const AdminDashboard: React.FC = () => {
   const { logout, user } = useAuth();
@@ -73,6 +74,8 @@ const AdminDashboard: React.FC = () => {
         return <AnnualLeave />;
       case 'payroll':
         return <Payroll />;
+      case 'attendance':
+        return <Attendance />;
       default:
         return <div style={{ padding: '20px', color: 'white' }}>
           <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '12px' }}>

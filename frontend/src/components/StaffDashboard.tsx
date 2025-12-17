@@ -4,6 +4,7 @@ import { calendar, time, location, qrCode, logOut, statsChart } from 'ionicons/i
 import QRScanner from './QRScanner';
 import StaffCalendar from './StaffCalendar';
 import ShiftDetailsModal from './ShiftDetailsModal';
+import StaffAttendance from './StaffAttendance';
 
 interface Shift {
   id: string;
@@ -38,6 +39,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [modalShift, setModalShift] = useState<Shift | null>(null);
   const [allShifts, setAllShifts] = useState<any[]>([]);
+  const [showAttendance, setShowAttendance] = useState(false);
 
   // Fetch staff shifts
   const fetchShifts = async () => {
@@ -147,6 +149,11 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
       setSelectedShift(null);
     }
   };
+
+  // Render attendance view if active
+  if (showAttendance) {
+    return <StaffAttendance staffId={staffId} onBack={() => setShowAttendance(false)} />;
+  }
 
   return (
     <IonPage>
@@ -282,6 +289,26 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
                 🏖️ Annual Leave
               </button>
             )}
+            <button
+              onClick={() => setShowAttendance(true)}
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '16px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+              }}
+            >
+              📊 My Attendance
+            </button>
           </div>
         </div>
 
