@@ -5,6 +5,7 @@ export const staff = pgTable('staff', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
   email: text('email'), // Staff email address
+  phone: text('phone'), // Staff phone number for authentication
   username: text('username'), // For staff login
   password: text('password'), // Hashed password for staff login
   role: text('role').notNull(), // 'Admin' | 'Site Manager' | 'Worker'
@@ -116,6 +117,23 @@ export const leaveDays = pgTable('leave_days', {
   date: text('date').notNull(),
   hours: integer('hours').notNull().default(8),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Unscheduled Shift Approval Requests
+export const approvalRequests = pgTable('approval_requests', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  staffId: text('staff_id').notNull(),
+  staffName: text('staff_name').notNull(),
+  siteId: text('site_id').notNull(),
+  siteName: text('site_name').notNull(),
+  date: text('date').notNull(), // YYYY-MM-DD format
+  requestTime: timestamp('request_time').defaultNow().notNull(),
+  status: text('status').notNull().default('pending'), // 'pending' | 'approved' | 'rejected'
+  approvedBy: text('approved_by'),
+  approvedAt: timestamp('approved_at'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 // Legacy tables (keep for compatibility)

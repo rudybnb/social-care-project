@@ -1715,6 +1715,31 @@ const Directory: React.FC = () => {
                 />
               </div>
 
+              {/* Phone Number */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  placeholder="e.g., 07123456789"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+                <div style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px' }}>
+                  Used for clock in/out authentication (last 4 digits)
+                </div>
+              </div>
+
               {/* Standard Rate */}
               <div>
                 <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>

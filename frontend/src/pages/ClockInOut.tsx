@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { approvalAPI } from '../services/approvalAPI';
 
 interface Shift {
   id: string;
@@ -28,6 +29,8 @@ const ClockInOut: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
+  const [isUnscheduled, setIsUnscheduled] = useState(false);
+  const [approvalRequested, setApprovalRequested] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -78,9 +81,25 @@ const ClockInOut: React.FC = () => {
         setShifts(todayShifts);
         
         if (todayShifts.length === 0) {
-          setMessage(`Hello ${matchingStaff.name}! You are not scheduled to work today at this site. If you need to clock in anyway, please request approval from admin.`);
-          setMessageType('error');
+          setIsUnscheduled(true);
+          
+          // Check if there's already an approved request
+          try {
+            const approvedRequest = await approvalAPI.checkApprovedRequest(matchingStaff.id, siteId, today);
+            if (approvedRequest) {
+              setMessage(`Hello ${matchingStaff.name}! Your unscheduled shift has been approved. You may clock in.`);
+              setMessageType('success');
+              setApprovalRequested(true);
+            } else {
+              setMessage(`Hello ${matchingStaff.name}! You are not scheduled to work today at this site. Please request approval from admin to clock in.`);
+              setMessageType('error');
+            }
+          } catch (err) {
+            setMessage(`Hello ${matchingStaff.name}! You are not scheduled to work today at this site. Please request approval from admin to clock in.`);
+            setMessageType('error');
+          }
         } else {
+          setIsUnscheduled(false);
           setMessage(`Welcome ${matchingStaff.name}!`);
           setMessageType('success');
         }
@@ -127,6 +146,36 @@ const ClockInOut: React.FC = () => {
       }
     } catch (error) {
       setMessage('Network error. Please try again.');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestApproval = async () => {
+    if (!staffId || !staffName || !siteId) return;
+    
+    setLoading(true);
+    try {
+      // Get site name
+      const sitesResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/sites`);
+      const sites = await sitesResponse.json();
+      const site = sites.find((s: any) => s.id === siteId);
+      const siteName = site?.name || 'Unknown Site';
+      
+      await approvalAPI.createRequest({
+        staffId,
+        staffName,
+        siteId,
+        siteName,
+        date: today
+      });
+      
+      setMessage('Approval request sent to admin. Please wait for approval before clocking in.');
+      setMessageType('success');
+      setApprovalRequested(true);
+    } catch (error) {
+      setMessage('Failed to send approval request. Please try again.');
       setMessageType('error');
     } finally {
       setLoading(false);
@@ -380,9 +429,13 @@ const ClockInOut: React.FC = () => {
             {/* Back Button */}
             <button
               onClick={() => {
+                setPhoneDigits('');
                 setStaffId('');
+                setStaffName('');
                 setShifts([]);
                 setMessage('');
+                setIsUnscheduled(false);
+                setApprovalRequested(false);
               }}
               style={{
                 width: '100%',
@@ -397,7 +450,78 @@ const ClockInOut: React.FC = () => {
                 marginTop: '16px'
               }}
             >
-              ← Back to Staff ID
+              ← Back to Phone Number
+            </button>
+          </div>
+        )}
+
+        {/* Unscheduled - Request Approval */}
+        {isUnscheduled && staffId && shifts.length === 0 && (
+          <div>
+            <div style={{ 
+              color: 'white', 
+              fontSize: '18px', 
+              fontWeight: 'bold',
+              marginBottom: '16px'
+            }}>
+              Request Approval to Clock In
+            </div>
+
+            <div style={{
+              backgroundColor: '#1a1a1a',
+              borderRadius: '16px',
+              padding: '24px',
+              marginBottom: '16px',
+              border: '2px solid #3a3a3a'
+            }}>
+              <div style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '16px' }}>
+                You are not scheduled to work today at this site. Click the button below to request admin approval for an unscheduled shift.
+              </div>
+              
+              <button
+                onClick={handleRequestApproval}
+                disabled={loading || approvalRequested}
+                style={{
+                  width: '100%',
+                  backgroundColor: !approvalRequested && !loading ? '#f59e0b' : '#3a3a3a',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: !approvalRequested && !loading ? 'pointer' : 'not-allowed',
+                  opacity: !approvalRequested && !loading ? 1 : 0.5
+                }}
+              >
+                {loading ? 'Sending Request...' : approvalRequested ? '✓ Request Sent' : '📋 Request Admin Approval'}
+              </button>
+            </div>
+
+            {/* Back Button */}
+            <button
+              onClick={() => {
+                setPhoneDigits('');
+                setStaffId('');
+                setStaffName('');
+                setShifts([]);
+                setMessage('');
+                setIsUnscheduled(false);
+                setApprovalRequested(false);
+              }}
+              style={{
+                width: '100%',
+                backgroundColor: 'transparent',
+                color: '#9ca3af',
+                border: '2px solid #3a3a3a',
+                borderRadius: '12px',
+                padding: '14px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              ← Back to Phone Number
             </button>
           </div>
         )}

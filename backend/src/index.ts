@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { users, staff, sites, shifts } from './schema.js';
+import { users, staff, sites, shifts, approvalRequests } from './schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import authRoutes from './routes/auth.js';
@@ -992,6 +992,168 @@ const runStartupMigration = async () => {
     console.error('Full error:', error);
   }
 };
+
+// ==================== APPROVAL REQUEST ROUTES ====================
+
+// Create approval request
+app.post('/api/approvals', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { staffId, staffName, siteId, siteName, date } = req.body;
+    
+    if (!staffId || !staffName || !siteId || !siteName || !date) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Check if request already exists for this staff/site/date
+    const existing = await db.select()
+      .from(approvalRequests)
+      .where(
+        and(
+          eq(approvalRequests.staffId, staffId),
+          eq(approvalRequests.siteId, siteId),
+          eq(approvalRequests.date, date)
+        )
+      );
+    
+    if (existing.length > 0 && existing[0].status === 'pending') {
+      return res.status(400).json({ error: 'Approval request already exists' });
+    }
+    
+    const newRequest = await db.insert(approvalRequests)
+      .values({
+        staffId,
+        staffName,
+        siteId,
+        siteName,
+        date,
+        status: 'pending'
+      })
+      .returning();
+    
+    res.json(newRequest[0]);
+  } catch (error) {
+    console.error('Error creating approval request:', error);
+    res.status(500).json({ error: 'Failed to create approval request' });
+  }
+});
+
+// Get all approval requests
+app.get('/api/approvals', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { status } = req.query;
+    
+    let requests;
+    if (status) {
+      requests = await db.select()
+        .from(approvalRequests)
+        .where(eq(approvalRequests.status, status as string))
+        .orderBy(sql`${approvalRequests.requestTime} DESC`);
+    } else {
+      requests = await db.select()
+        .from(approvalRequests)
+        .orderBy(sql`${approvalRequests.requestTime} DESC`);
+    }
+    
+    res.json(requests);
+  } catch (error) {
+    console.error('Error fetching approval requests:', error);
+    res.status(500).json({ error: 'Failed to fetch approval requests' });
+  }
+});
+
+// Check if staff has approved request
+app.get('/api/approvals/check', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { staffId, siteId, date } = req.query;
+    
+    if (!staffId || !siteId || !date) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+    
+    const request = await db.select()
+      .from(approvalRequests)
+      .where(
+        and(
+          eq(approvalRequests.staffId, staffId as string),
+          eq(approvalRequests.siteId, siteId as string),
+          eq(approvalRequests.date, date as string),
+          eq(approvalRequests.status, 'approved')
+        )
+      );
+    
+    if (request.length > 0) {
+      res.json({ approved: true, request: request[0] });
+    } else {
+      res.json({ approved: false });
+    }
+  } catch (error) {
+    console.error('Error checking approval:', error);
+    res.status(500).json({ error: 'Failed to check approval' });
+  }
+});
+
+// Approve request
+app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { id } = req.params;
+    const { approvedBy } = req.body;
+    
+    if (!approvedBy) {
+      return res.status(400).json({ error: 'approvedBy is required' });
+    }
+    
+    const updated = await db.update(approvalRequests)
+      .set({
+        status: 'approved',
+        approvedBy,
+        approvedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(approvalRequests.id, id))
+      .returning();
+    
+    if (updated.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+    
+    res.json(updated[0]);
+  } catch (error) {
+    console.error('Error approving request:', error);
+    res.status(500).json({ error: 'Failed to approve request' });
+  }
+});
+
+// Reject request
+app.post('/api/approvals/:id/reject', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { id } = req.params;
+    const { rejectedBy, notes } = req.body;
+    
+    const updated = await db.update(approvalRequests)
+      .set({
+        status: 'rejected',
+        approvedBy: rejectedBy,
+        notes,
+        updatedAt: new Date()
+      })
+      .where(eq(approvalRequests.id, id))
+      .returning();
+    
+    if (updated.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+    
+    res.json(updated[0]);
+  } catch (error) {
+    console.error('Error rejecting request:', error);
+    res.status(500).json({ error: 'Failed to reject request' });
+  }
+});
 
 app.listen(PORT, async () => {
   console.log(`API server listening on http://localhost:${PORT}`);

@@ -7,6 +7,7 @@ import Directory from '../components/Directory';
 import Payroll from '../components/Payroll';
 import AnnualLeave from '../components/AnnualLeave';
 import Attendance from '../components/Attendance';
+import ApprovalRequests from '../components/ApprovalRequests';
 
 const AdminDashboard: React.FC = () => {
   const { logout, user } = useAuth();
@@ -47,6 +48,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'overview', label: 'Overview' },
     { id: 'rota', label: 'Rota' },
     { id: 'attendance', label: 'Attendance' },
+    { id: 'approvals', label: 'Approvals' },
     { id: 'room-scans', label: 'Room Scans' },
     { id: 'annual-leave', label: 'Annual Leave' },
     { id: 'payroll', label: 'Payroll' },
@@ -76,6 +78,8 @@ const AdminDashboard: React.FC = () => {
         return <Payroll />;
       case 'attendance':
         return <Attendance />;
+      case 'approvals':
+        return <ApprovalRequests />;
       default:
         return <div style={{ padding: '20px', color: 'white' }}>
           <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '12px' }}>
