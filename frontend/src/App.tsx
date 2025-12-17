@@ -3,6 +3,7 @@ import { IonApp, IonContent } from '@ionic/react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
+import ClockInOut from './pages/ClockInOut';
 import WorkerDashboard from './pages/WorkerDashboard';
 import StaffApp from './components/StaffApp';
 import DynamicSiteQR from './components/DynamicSiteQR';
@@ -21,6 +22,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Login />} />
       <Route path="/staff" element={<StaffApp />} />
+      <Route path="/clock" element={<ClockInOut />} />
       <Route path="/site-qr/:siteId" element={<DynamicSiteQR />} />
       <Route
         path="/admin/*"
