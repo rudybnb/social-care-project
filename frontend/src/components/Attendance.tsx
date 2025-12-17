@@ -33,10 +33,15 @@ const Attendance: React.FC = () => {
 
   const fetchShifts = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/shifts`);
+      console.log('Fetching shifts from backend...');
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts`);
+      console.log('Shifts response status:', response.status);
       if (response.ok) {
         const data = await response.json();
+        console.log(`Fetched ${data.length} shifts`);
         setShifts(data);
+      } else {
+        console.error('Failed to fetch shifts:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching shifts:', error);
@@ -47,7 +52,7 @@ const Attendance: React.FC = () => {
 
   const fetchSites = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/sites`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/sites`);
       if (response.ok) {
         const data = await response.json();
         setSites(data);
