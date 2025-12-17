@@ -21,7 +21,9 @@ const ClockInOut: React.FC = () => {
   const navigate = useNavigate();
   const siteId = searchParams.get('site');
   
+  const [phoneDigits, setPhoneDigits] = useState('');
   const [staffId, setStaffId] = useState('');
+  const [staffName, setStaffName] = useState('');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -30,13 +32,45 @@ const ClockInOut: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
 
   const fetchShifts = async () => {
-    if (!staffId || !siteId) return;
+    if (!phoneDigits || phoneDigits.length !== 4 || !siteId) {
+      setMessage('Please enter exactly 4 digits');
+      setMessageType('error');
+      return;
+    }
     
     setLoading(true);
+    setMessage('');
+    setMessageType('');
+    
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/staff/${staffId}/shifts`);
-      if (response.ok) {
-        const data = await response.json();
+      // First, fetch all staff to find matching phone number
+      const staffResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/staff`);
+      if (!staffResponse.ok) {
+        setMessage('Error loading staff data');
+        setMessageType('error');
+        setLoading(false);
+        return;
+      }
+      
+      const allStaff = await staffResponse.json();
+      const matchingStaff = allStaff.find((s: any) => 
+        s.phone && s.phone.slice(-4) === phoneDigits
+      );
+      
+      if (!matchingStaff) {
+        setMessage('Phone number not found. Please check the last 4 digits or contact your supervisor.');
+        setMessageType('error');
+        setLoading(false);
+        return;
+      }
+      
+      setStaffId(matchingStaff.id);
+      setStaffName(matchingStaff.name);
+      
+      // Now fetch shifts for this staff member
+      const shiftsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/staff/${matchingStaff.id}/shifts`);
+      if (shiftsResponse.ok) {
+        const data = await shiftsResponse.json();
         // Filter for today's shifts at this site
         const todayShifts = data.filter((s: Shift) => 
           s.date === today && s.siteId === siteId
@@ -44,11 +78,14 @@ const ClockInOut: React.FC = () => {
         setShifts(todayShifts);
         
         if (todayShifts.length === 0) {
-          setMessage('You are not scheduled to work today at this site. Please check with your supervisor if you believe this is an error.');
+          setMessage(`Hello ${matchingStaff.name}! You are not scheduled to work today at this site. If you need to clock in anyway, please request approval from admin.`);
           setMessageType('error');
+        } else {
+          setMessage(`Welcome ${matchingStaff.name}!`);
+          setMessageType('success');
         }
       } else {
-        setMessage('Staff ID not found');
+        setMessage('Error loading shifts');
         setMessageType('error');
       }
     } catch (error) {
@@ -163,13 +200,19 @@ const ClockInOut: React.FC = () => {
               display: 'block',
               marginBottom: '8px'
             }}>
-              Enter Your Staff ID
+              Enter Last 4 Digits of Your Phone Number
             </label>
             <input
-              type="text"
-              value={staffId}
-              onChange={(e) => setStaffId(e.target.value)}
-              placeholder="e.g., STAFF_001"
+              type="tel"
+              value={phoneDigits}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                setPhoneDigits(value);
+              }}
+              placeholder="e.g., 1234"
+              maxLength={4}
+              inputMode="numeric"
+              pattern="[0-9]*"
               style={{
                 width: '100%',
                 backgroundColor: '#0a0a0a',
@@ -177,28 +220,30 @@ const ClockInOut: React.FC = () => {
                 borderRadius: '12px',
                 padding: '14px',
                 color: 'white',
-                fontSize: '16px',
+                fontSize: '24px',
+                letterSpacing: '8px',
+                textAlign: 'center',
                 marginBottom: '16px',
                 boxSizing: 'border-box'
               }}
               onKeyPress={(e) => {
-                if (e.key === 'Enter') fetchShifts();
+                if (e.key === 'Enter' && phoneDigits.length === 4) fetchShifts();
               }}
             />
             <button
               onClick={fetchShifts}
-              disabled={!staffId || loading}
+              disabled={phoneDigits.length !== 4 || loading}
               style={{
                 width: '100%',
-                backgroundColor: staffId && !loading ? '#3b82f6' : '#3a3a3a',
+                backgroundColor: phoneDigits.length === 4 && !loading ? '#3b82f6' : '#3a3a3a',
                 color: 'white',
                 border: 'none',
                 borderRadius: '12px',
                 padding: '16px',
                 fontSize: '16px',
                 fontWeight: 'bold',
-                cursor: staffId && !loading ? 'pointer' : 'not-allowed',
-                opacity: staffId && !loading ? 1 : 0.5
+                cursor: phoneDigits.length === 4 && !loading ? 'pointer' : 'not-allowed',
+                opacity: phoneDigits.length === 4 && !loading ? 1 : 0.5
               }}
             >
               {loading ? 'Loading...' : 'Find My Shifts'}

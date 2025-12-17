@@ -44,6 +44,7 @@ export interface StaffMember {
   role: string;
   site: string;
   status: 'Active' | 'Inactive';
+  phone?: string;
   standardRate: string;
   enhancedRate: string;
   nightRate: string;

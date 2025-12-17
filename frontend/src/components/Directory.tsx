@@ -16,6 +16,7 @@ const Directory: React.FC = () => {
     firstName: '',
     lastName: '',
     email: '',
+    phone: '',
     username: '',
     password: '',
     role: 'Worker',
@@ -76,6 +77,7 @@ const Directory: React.FC = () => {
     const newStaff: Partial<StaffMember> = {
       name: `${formData.firstName} ${formData.lastName}`,
       email: formData.email || undefined,
+      phone: formData.phone || undefined,
       username: formData.username || undefined,
       password: formData.password || undefined,
       role: formData.role,
@@ -98,6 +100,7 @@ const Directory: React.FC = () => {
         firstName: '',
         lastName: '',
         email: '',
+        phone: '',
         username: '',
         password: '',
         role: 'Worker',
@@ -143,6 +146,7 @@ const Directory: React.FC = () => {
       firstName,
       lastName,
       email: staff.email || '',
+      phone: staff.phone || '',
       username: staff.username || '',
       password: '',
       role: staff.role || 'Worker',
@@ -170,6 +174,7 @@ const Directory: React.FC = () => {
     const updatedStaff = {
       name: `${formData.firstName} ${formData.lastName}`,
       email: formData.email,
+      phone: formData.phone,
       username: formData.username,
       role: formData.role,
       site: formData.site,
@@ -189,6 +194,7 @@ const Directory: React.FC = () => {
       firstName: '',
       lastName: '',
       email: '',
+      phone: '',
       username: '',
       password: '',
       role: 'Worker',
@@ -538,6 +544,34 @@ const Directory: React.FC = () => {
                   onFocus={(e) => e.target.style.borderColor = '#9333ea'}
                   onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
                 />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Phone Number <span style={{ color: '#9333ea' }}>*</span>
+                </label>
+                <input
+                  type="tel"
+                  placeholder="e.g., 07123456789"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
+                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+                />
+                <div style={{ fontSize: '11px', color: '#888', marginTop: '4px' }}>
+                  Staff will use last 4 digits to clock in/out
+                </div>
               </div>
 
               {/* Username */}
