@@ -150,20 +150,26 @@ const Attendance: React.FC = () => {
           </div>
 
           <button
-            onClick={fetchShifts}
+            onClick={(e) => {
+              e.preventDefault();
+              fetchShifts();
+            }}
+            disabled={loading}
             style={{
-              backgroundColor: '#3b82f6',
+              backgroundColor: loading ? '#6b7280' : '#3b82f6',
               border: 'none',
               borderRadius: '8px',
               padding: '10px 20px',
               color: 'white',
               fontSize: '14px',
               fontWeight: '600',
-              cursor: 'pointer',
-              alignSelf: 'flex-end'
+              cursor: loading ? 'not-allowed' : 'pointer',
+              alignSelf: 'flex-end',
+              opacity: loading ? 0.7 : 1,
+              transition: 'all 0.2s'
             }}
           >
-            🔄 Refresh
+            {loading ? '⏳ Loading...' : '🔄 Refresh'}
           </button>
         </div>
 

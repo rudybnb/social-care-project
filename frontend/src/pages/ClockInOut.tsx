@@ -158,7 +158,7 @@ const ClockInOut: React.FC = () => {
     setLoading(true);
     try {
       // Get site name
-      const sitesResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/sites`);
+      const sitesResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/sites`);
       const sites = await sitesResponse.json();
       const site = sites.find((s: any) => s.id === siteId);
       const siteName = site?.name || 'Unknown Site';
