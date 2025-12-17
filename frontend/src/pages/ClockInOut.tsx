@@ -44,7 +44,7 @@ const ClockInOut: React.FC = () => {
         setShifts(todayShifts);
         
         if (todayShifts.length === 0) {
-          setMessage('No shifts found for today at this site');
+          setMessage('You are not scheduled to work today at this site. Please check with your supervisor if you believe this is an error.');
           setMessageType('error');
         }
       } else {
