@@ -47,7 +47,7 @@ const ClockInOut: React.FC = () => {
     
     try {
       // First, fetch all staff to find matching phone number
-      const staffResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/staff`);
+      const staffResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff`);
       if (!staffResponse.ok) {
         setMessage('Error loading staff data');
         setMessageType('error');
@@ -71,7 +71,7 @@ const ClockInOut: React.FC = () => {
       setStaffName(matchingStaff.name);
       
       // Now fetch shifts for this staff member
-      const shiftsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/staff/${matchingStaff.id}/shifts`);
+      const shiftsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${matchingStaff.id}/shifts`);
       if (shiftsResponse.ok) {
         const data = await shiftsResponse.json();
         // Filter for today's shifts at this site
@@ -122,7 +122,7 @@ const ClockInOut: React.FC = () => {
     try {
       const endpoint = action === 'in' ? 'clock-in' : 'clock-out';
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/shifts/${shift.id}/${endpoint}`,
+        `${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts/${shift.id}/${endpoint}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
