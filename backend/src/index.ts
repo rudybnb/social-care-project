@@ -1097,6 +1097,13 @@ app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'approvedBy is required' });
     }
     
+    // Get the approval request first
+    const request = await db.select().from(approvalRequests).where(eq(approvalRequests.id, id));
+    if (request.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+    
+    // Update approval status
     const updated = await db.update(approvalRequests)
       .set({
         status: 'approved',
@@ -1107,11 +1114,35 @@ app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
       .where(eq(approvalRequests.id, id))
       .returning();
     
-    if (updated.length === 0) {
-      return res.status(404).json({ error: 'Request not found' });
-    }
+    // Create a shift for the approved unscheduled request
+    const approvalData = request[0];
+    const shiftId = `SHIFT_UNSCHEDULED_${Date.now()}`;
     
-    res.json(updated[0]);
+    // Get site color
+    const site = await db.select().from(sites).where(eq(sites.id, approvalData.siteId));
+    const siteColor = site.length > 0 ? site[0].color : '#3b82f6';
+    
+    // Create shift with default times (can be edited later)
+    await db.insert(shifts).values({
+      id: shiftId,
+      staffId: approvalData.staffId,
+      staffName: approvalData.staffName,
+      siteId: approvalData.siteId,
+      siteName: approvalData.siteName,
+      siteColor,
+      date: approvalData.date,
+      type: 'Day',
+      startTime: '09:00',
+      endTime: '17:00',
+      duration: 8,
+      isBank: false,
+      clockedIn: false,
+      clockedOut: false,
+      staffStatus: 'accepted',
+      notes: `Approved unscheduled shift by ${approvedBy}`
+    });
+    
+    res.json({ ...updated[0], shiftCreated: true, shiftId });
   } catch (error) {
     console.error('Error approving request:', error);
     res.status(500).json({ error: 'Failed to approve request' });

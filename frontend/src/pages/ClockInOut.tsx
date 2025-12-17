@@ -87,9 +87,29 @@ const ClockInOut: React.FC = () => {
           try {
             const approvedRequest = await approvalAPI.checkApprovedRequest(matchingStaff.id, siteId, today);
             if (approvedRequest) {
-              setMessage(`Hello ${matchingStaff.name}! Your unscheduled shift has been approved. You may clock in.`);
-              setMessageType('success');
-              setApprovalRequested(true);
+              // Refetch shifts to get the newly created shift from approval
+              const refreshedShifts = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${matchingStaff.id}/shifts`);
+              if (refreshedShifts.ok) {
+                const refreshedData = await refreshedShifts.json();
+                const refreshedTodayShifts = refreshedData.filter((s: Shift) => s.date === today && s.siteId === siteId);
+                
+                if (refreshedTodayShifts.length > 0) {
+                  // Found the approved shift!
+                  setShifts(refreshedTodayShifts);
+                  setIsUnscheduled(false);
+                  setMessage(`Welcome ${matchingStaff.name}! Your unscheduled shift has been approved.`);
+                  setMessageType('success');
+                } else {
+                  // Approval exists but shift not created yet (shouldn't happen)
+                  setMessage(`Hello ${matchingStaff.name}! Your unscheduled shift has been approved. You may clock in.`);
+                  setMessageType('success');
+                  setApprovalRequested(true);
+                }
+              } else {
+                setMessage(`Hello ${matchingStaff.name}! Your unscheduled shift has been approved. You may clock in.`);
+                setMessageType('success');
+                setApprovalRequested(true);
+              }
             } else {
               setMessage(`Hello ${matchingStaff.name}! You are not scheduled to work today at this site. Please request approval from admin to clock in.`);
               setMessageType('error');
