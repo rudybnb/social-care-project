@@ -986,6 +986,45 @@ const runStartupMigration = async () => {
     `);
     console.log('✅ Migration 6 complete');
     
+    // Migration 7: Add phone column to staff and create approval_requests table
+    console.log('📝 Migration 7: Adding phone column to staff...');
+    await pool.query(`
+      ALTER TABLE staff 
+      ADD COLUMN IF NOT EXISTS phone TEXT;
+    `);
+    console.log('✅ Phone column added');
+    
+    console.log('📝 Migration 7: Creating approval_requests table...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS approval_requests (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        staff_id TEXT NOT NULL,
+        staff_name TEXT NOT NULL,
+        site_id TEXT NOT NULL,
+        site_name TEXT NOT NULL,
+        date TEXT NOT NULL,
+        request_time TIMESTAMP NOT NULL DEFAULT NOW(),
+        status TEXT NOT NULL DEFAULT 'pending',
+        approved_by TEXT,
+        approved_at TIMESTAMP,
+        notes TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
+    console.log('✅ Approval_requests table created');
+    
+    console.log('📝 Migration 7: Creating indexes on approval_requests...');
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_approval_requests_staff_site_date 
+      ON approval_requests(staff_id, site_id, date);
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_approval_requests_status 
+      ON approval_requests(status);
+    `);
+    console.log('✅ Migration 7 complete');
+    
     console.log('✅ All migrations completed successfully!');
   } catch (error: any) {
     console.error('❌ Migration failed:', error.message);
