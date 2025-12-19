@@ -185,8 +185,15 @@ app.put('/api/staff/:id', async (req: Request, res: Response) => {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: 'ID is required' });
+    
+    // Hash password if it's being updated and is not already hashed
+    const updateData = { ...req.body, updatedAt: new Date() };
+    if (updateData.password && !updateData.password.startsWith('$2b$')) {
+      updateData.password = await bcrypt.hash(updateData.password, 10);
+    }
+    
     const updated = await db.update(staff)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(staff.id, id))
       .returning();
     if (updated.length === 0) {
