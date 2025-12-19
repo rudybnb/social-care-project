@@ -45,7 +45,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
   const fetchShifts = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/staff/${staffId}/shifts`);
+      const response = await fetch(`https://social-care-backend.onrender.com/api/staff/${staffId}/shifts`);
       if (response.ok) {
         const data = await response.json();
         setShifts(data);
@@ -60,7 +60,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
   // Fetch all shifts for coworker info
   const fetchAllShifts = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/shifts`);
+      const response = await fetch(`https://social-care-backend.onrender.com/api/shifts`);
       if (response.ok) {
         const data = await response.json();
         setAllShifts(data);
@@ -113,7 +113,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
     try {
       const endpoint = selectedShift.clockedIn ? 'clock-out' : 'clock-in';
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/shifts/${selectedShift.id}/${endpoint}`,
+        `https://social-care-backend.onrender.com/api/shifts/${selectedShift.id}/${endpoint}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
