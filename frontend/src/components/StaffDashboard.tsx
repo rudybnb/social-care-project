@@ -444,7 +444,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             onAccept={async (shiftId) => {
               try {
                 const response = await fetch(
-                  `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/shifts/${shiftId}/status`,
+                  `https://social-care-backend.onrender.com/api/shifts/${shiftId}/status`,
                   {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -465,7 +465,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             onDecline={async (shiftId, reason) => {
               try {
                 const response = await fetch(
-                  `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/shifts/${shiftId}/status`,
+                  `https://social-care-backend.onrender.com/api/shifts/${shiftId}/status`,
                   {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
