@@ -1154,6 +1154,65 @@ const Rota: React.FC = () => {
                 </p>
               </div>
               
+              {/* Shift Status Summary */}
+              {(() => {
+                const siteShifts = shifts.filter(s => s.siteId === site.id && !s.isBank);
+                const pendingCount = siteShifts.filter(s => s.staffStatus === 'pending').length;
+                const acceptedCount = siteShifts.filter(s => s.staffStatus === 'accepted').length;
+                const declinedCount = siteShifts.filter(s => s.staffStatus === 'declined').length;
+                
+                if (pendingCount === 0 && acceptedCount === 0 && declinedCount === 0) return null;
+                
+                return (
+                  <div style={{
+                    display: 'flex',
+                    gap: '12px',
+                    marginBottom: '16px',
+                    marginLeft: '22px'
+                  }}>
+                    {pendingCount > 0 && (
+                      <div style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#f59e0b20',
+                        border: '1px solid #f59e0b',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        color: '#f59e0b'
+                      }}>
+                        ⏳ {pendingCount} Pending Response{pendingCount !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                    {acceptedCount > 0 && (
+                      <div style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#10b98120',
+                        border: '1px solid #10b981',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        color: '#10b981'
+                      }}>
+                        ✓ {acceptedCount} Accepted
+                      </div>
+                    )}
+                    {declinedCount > 0 && (
+                      <div style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#ef444420',
+                        border: '1px solid #ef4444',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        color: '#ef4444'
+                      }}>
+                        ✗ {declinedCount} Declined
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+              
               <div style={{
                 backgroundColor: '#2a2a2a',
                 borderRadius: '12px',
@@ -1308,6 +1367,21 @@ const Rota: React.FC = () => {
                                         letterSpacing: '0.3px'
                                       }}>
                                         AGENCY
+                                      </span>
+                                    )}
+                                    {shift.staffStatus === 'pending' && !shift.isBank && (
+                                      <span style={{
+                                        marginLeft: '4px',
+                                        padding: '1px 4px',
+                                        backgroundColor: '#f59e0b20',
+                                        border: '1px solid #f59e0b',
+                                        borderRadius: '3px',
+                                        fontSize: '9px',
+                                        fontWeight: '700',
+                                        letterSpacing: '0.3px',
+                                        color: '#f59e0b'
+                                      }}>
+                                        ⏳ PENDING
                                       </span>
                                     )}
                                     {shift.staffStatus === 'accepted' && (
@@ -1488,6 +1562,21 @@ const Rota: React.FC = () => {
                                         letterSpacing: '0.3px'
                                       }}>
                                         AGENCY
+                                      </span>
+                                    )}
+                                    {shift.staffStatus === 'pending' && !shift.isBank && (
+                                      <span style={{
+                                        marginLeft: '4px',
+                                        padding: '1px 4px',
+                                        backgroundColor: '#f59e0b20',
+                                        border: '1px solid #f59e0b',
+                                        borderRadius: '3px',
+                                        fontSize: '9px',
+                                        fontWeight: '700',
+                                        letterSpacing: '0.3px',
+                                        color: '#f59e0b'
+                                      }}>
+                                        ⏳ PENDING
                                       </span>
                                     )}
                                     {shift.staffStatus === 'accepted' && (
