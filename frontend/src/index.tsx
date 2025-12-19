@@ -48,18 +48,19 @@ console.log('Platform:', navigator.platform);
 console.log('Touch support:', 'ontouchstart' in window);
 
 // Register service worker for PWA with auto-updates
-serviceWorkerRegistration.register({
-  onUpdate: (registration) => {
-    console.log('[App] New version detected, updating...');
-    // Auto-reload when update is available
-    if (registration.waiting) {
-      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-    }
-  },
-  onSuccess: (registration) => {
-    console.log('[App] Service worker registered successfully');
-  }
-});
+// Temporarily disabled to prevent network errors from missing service-worker.js
+// serviceWorkerRegistration.register({
+//   onUpdate: (registration) => {
+//     console.log('[App] New version detected, updating...');
+//     // Auto-reload when update is available
+//     if (registration.waiting) {
+//       registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+//     }
+//   },
+//   onSuccess: (registration) => {
+//     console.log('[App] Service worker registered successfully');
+//   }
+// });
 
 // Check for updates every time the app loads
 // Temporarily disabled to prevent network errors until version.json is properly deployed
