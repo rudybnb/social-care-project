@@ -62,16 +62,17 @@ serviceWorkerRegistration.register({
 });
 
 // Check for updates every time the app loads
-serviceWorkerRegistration.checkForUpdates().then((hasUpdate) => {
-  if (hasUpdate) {
-    console.log('[App] New version available, reloading...');
-    // Clear cache and reload
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
-    }
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
-  }
-});
+// Temporarily disabled to prevent network errors until version.json is properly deployed
+// serviceWorkerRegistration.checkForUpdates().then((hasUpdate) => {
+//   if (hasUpdate) {
+//     console.log('[App] New version available, reloading...');
+//     // Clear cache and reload
+//     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+//       navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+//     }
+//     setTimeout(() => {
+//       window.location.reload();
+//     }, 1000);
+//   }
+// });
 // Force rebuild Tue Nov 25 09:15:04 EST 2025
