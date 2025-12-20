@@ -12,7 +12,7 @@ interface Shift {
   type: string;
   startTime: string;
   endTime: string;
-  siteId: string;
+  siteId?: string;
   siteName: string;
   siteColor: string;
   duration: number;
