@@ -435,7 +435,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             isOpen={showShiftModal}
             shift={modalShift}
             coworkers={allShifts
-              .filter(s => s.date === modalShift.date && s.staffId !== staffId)
+              .filter(s => s.date === modalShift.date && s.siteId === modalShift.siteId && s.staffId !== staffId)
               .map(s => ({ 
                 staffName: s.staffName, 
                 type: `${s.type} Shift ${s.startTime}-${s.endTime}` 
