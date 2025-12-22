@@ -86,6 +86,89 @@ const Attendance: React.FC = () => {
     return `${diff.toFixed(2)}h`;
   };
 
+  const handleAdminClockIn = async (shiftId: string) => {
+    if (!window.confirm('Clock in this staff member now?')) return;
+    
+    try {
+      const now = new Date().toISOString();
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts/${shiftId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clockedIn: true,
+          clockInTime: now
+        })
+      });
+      
+      if (response.ok) {
+        alert('Staff clocked in successfully!');
+        fetchShifts();
+      } else {
+        alert('Failed to clock in staff');
+      }
+    } catch (error) {
+      console.error('Error clocking in:', error);
+      alert('Error clocking in staff');
+    }
+  };
+
+  const handleAdminClockOut = async (shiftId: string) => {
+    if (!window.confirm('Clock out this staff member now?')) return;
+    
+    try {
+      const now = new Date().toISOString();
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts/${shiftId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clockedOut: true,
+          clockOutTime: now
+        })
+      });
+      
+      if (response.ok) {
+        alert('Staff clocked out successfully!');
+        fetchShifts();
+      } else {
+        alert('Failed to clock out staff');
+      }
+    } catch (error) {
+      console.error('Error clocking out:', error);
+      alert('Error clocking out staff');
+    }
+  };
+
+  const handleEditClockTime = async (shiftId: string, type: 'in' | 'out', currentTime?: string) => {
+    const timeType = type === 'in' ? 'Clock In' : 'Clock Out';
+    const currentTimeStr = currentTime ? new Date(currentTime).toLocaleString('en-GB') : 'Not set';
+    const newTime = prompt(`Edit ${timeType} time\n\nCurrent: ${currentTimeStr}\n\nEnter new time (YYYY-MM-DD HH:MM format):\nExample: 2025-12-22 08:30`);
+    
+    if (!newTime) return;
+    
+    try {
+      const timestamp = new Date(newTime).toISOString();
+      const updates = type === 'in' 
+        ? { clockedIn: true, clockInTime: timestamp }
+        : { clockedOut: true, clockOutTime: timestamp };
+      
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts/${shiftId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      
+      if (response.ok) {
+        alert(`${timeType} time updated successfully!`);
+        fetchShifts();
+      } else {
+        alert(`Failed to update ${timeType} time`);
+      }
+    } catch (error) {
+      console.error('Error updating time:', error);
+      alert('Invalid time format. Please use YYYY-MM-DD HH:MM format');
+    }
+  };
+
   return (
     <div style={{ padding: '20px', backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
@@ -297,6 +380,7 @@ const Attendance: React.FC = () => {
                     <th style={{ padding: '12px', textAlign: 'left', color: '#9ca3af', fontSize: '13px', fontWeight: '600' }}>Clock In</th>
                     <th style={{ padding: '12px', textAlign: 'left', color: '#9ca3af', fontSize: '13px', fontWeight: '600' }}>Clock Out</th>
                     <th style={{ padding: '12px', textAlign: 'left', color: '#9ca3af', fontSize: '13px', fontWeight: '600' }}>Duration</th>
+                    <th style={{ padding: '12px', textAlign: 'left', color: '#9ca3af', fontSize: '13px', fontWeight: '600' }}>Admin Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -309,6 +393,40 @@ const Attendance: React.FC = () => {
                       <td style={{ padding: '12px', color: '#ef4444', fontSize: '14px' }}>{formatTime(shift.clockOutTime)}</td>
                       <td style={{ padding: '12px', color: 'white', fontSize: '14px', fontWeight: '600' }}>
                         {calculateDuration(shift.clockInTime, shift.clockOutTime)}
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => handleEditClockTime(shift.id, 'in', shift.clockInTime)}
+                            style={{
+                              backgroundColor: '#10b98120',
+                              border: '1px solid #10b981',
+                              borderRadius: '6px',
+                              padding: '4px 8px',
+                              color: '#10b981',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              fontWeight: '600'
+                            }}
+                          >
+                            Edit In
+                          </button>
+                          <button
+                            onClick={() => handleEditClockTime(shift.id, 'out', shift.clockOutTime)}
+                            style={{
+                              backgroundColor: '#ef444420',
+                              border: '1px solid #ef4444',
+                              borderRadius: '6px',
+                              padding: '4px 8px',
+                              color: '#ef4444',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              fontWeight: '600'
+                            }}
+                          >
+                            Edit Out
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -335,7 +453,7 @@ const Attendance: React.FC = () => {
                   justifyContent: 'space-between',
                   alignItems: 'center'
                 }}>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ color: 'white', fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>
                       {shift.staffName}
                     </div>
@@ -343,16 +461,33 @@ const Attendance: React.FC = () => {
                       {shift.siteName} • {shift.startTime} - {shift.endTime}
                     </div>
                   </div>
-                  <div style={{ 
-                    backgroundColor: '#f59e0b20',
-                    border: '1px solid #f59e0b',
-                    borderRadius: '6px',
-                    padding: '6px 12px',
-                    color: '#f59e0b',
-                    fontSize: '13px',
-                    fontWeight: '600'
-                  }}>
-                    Not Started
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ 
+                      backgroundColor: '#f59e0b20',
+                      border: '1px solid #f59e0b',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      color: '#f59e0b',
+                      fontSize: '13px',
+                      fontWeight: '600'
+                    }}>
+                      Not Started
+                    </div>
+                    <button
+                      onClick={() => handleAdminClockIn(shift.id)}
+                      style={{
+                        backgroundColor: '#10b98120',
+                        border: '1px solid #10b981',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        color: '#10b981',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Clock In
+                    </button>
                   </div>
                 </div>
               ))}
