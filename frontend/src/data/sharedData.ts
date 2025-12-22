@@ -300,18 +300,19 @@ export const addShift = async (shift: any): Promise<void> => {
   }
 };
 
-export const updateShift = async (id: string, updates: any): Promise<void> => {
+export const updateShift = async (id: string, updates: Partial<Shift>): Promise<void> => {
   try {
+    console.log('Updating shift:', id, updates);
     // Update in backend database
     const updatedShift = await shiftsAPI.update(id, updates);
+    console.log('Shift updated successfully:', updatedShift);
     // Update local cache
     shifts = shifts.map(s => s.id === id ? updatedShift : s);
     notifyDataChanged();
   } catch (error) {
     console.error('Failed to update shift:', error);
-    // Fallback: update local cache only
-    shifts = shifts.map(s => s.id === id ? { ...s, ...updates } : s);
-    notifyDataChanged();
+    // Re-throw the error so the caller knows it failed
+    throw error;
   }
 };
 
