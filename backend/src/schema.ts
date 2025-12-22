@@ -67,6 +67,9 @@ export const shifts = pgTable('shifts', {
   clockOutTime: timestamp('clock_out_time'), // Actual clock-out time
   staffStatus: text('staff_status').default('pending'), // 'pending' | 'accepted' | 'declined'
   declineReason: text('decline_reason'), // Reason for declining shift
+  autoAccepted: boolean('auto_accepted').default(false), // True if shift was auto-accepted after deadline
+  responseLocked: boolean('response_locked').default(false), // True if past deadline and cannot be changed without admin approval
+  weekDeadline: timestamp('week_deadline'), // The Saturday midnight deadline for this shift's week
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

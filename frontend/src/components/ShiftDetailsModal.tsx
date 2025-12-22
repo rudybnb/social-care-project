@@ -42,6 +42,9 @@ interface Shift {
   clockInTime?: string;
   clockOutTime?: string;
   isBank: boolean;
+  responseLocked?: boolean;
+  autoAccepted?: boolean;
+  weekDeadline?: string;
 }
 
 interface Coworker {
@@ -83,12 +86,42 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
 
   if (!shift) return null;
 
+  // Check if response is locked
+  const isLocked = shift.responseLocked || false;
+  const wasAutoAccepted = shift.autoAccepted || false;
+  
+  // Calculate time until deadline
+  const getTimeUntilDeadline = () => {
+    if (!shift.weekDeadline) return null;
+    const deadline = new Date(shift.weekDeadline);
+    const now = new Date();
+    const diff = deadline.getTime() - now.getTime();
+    
+    if (diff < 0) return 'Deadline passed';
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) return `${days}d ${hours}h remaining`;
+    if (hours > 0) return `${hours}h ${minutes}m remaining`;
+    return `${minutes}m remaining`;
+  };
+
   const handleAccept = () => {
+    if (isLocked) {
+      alert('This shift is locked. Please contact admin to change your response.');
+      return;
+    }
     onAccept(shift.id);
     onClose();
   };
 
   const handleDecline = () => {
+    if (isLocked) {
+      alert('This shift is locked. Please contact admin to change your response.');
+      return;
+    }
     if (showDeclineReason) {
       onDecline(shift.id, reason);
       setReason('');
@@ -179,6 +212,68 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Deadline Warning Banner */}
+          {isPending && !isLocked && getTimeUntilDeadline() && getTimeUntilDeadline() !== 'Deadline passed' && (
+            <div style={{
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <IonIcon icon={alertCircle} style={{ fontSize: '24px', color: 'white', flexShrink: 0 }} />
+              <div style={{ color: 'white' }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>Response Required</div>
+                <div style={{ fontSize: '13px' }}>
+                  Accept or decline by Saturday midnight. {getTimeUntilDeadline()}
+                </div>
+                <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.9 }}>
+                  Pending shifts will be auto-accepted after the deadline.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Auto-Accepted Notice */}
+          {wasAutoAccepted && (
+            <div style={{
+              background: '#10b98120',
+              border: '1px solid #10b981',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <IonIcon icon={checkmarkCircle} style={{ fontSize: '24px', color: '#10b981', flexShrink: 0 }} />
+              <div style={{ color: '#10b981', fontSize: '14px' }}>
+                This shift was automatically accepted after the deadline passed.
+              </div>
+            </div>
+          )}
+
+          {/* Locked Notice */}
+          {isLocked && isPending && (
+            <div style={{
+              background: '#ef444420',
+              border: '1px solid #ef4444',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <IonIcon icon={alertCircle} style={{ fontSize: '24px', color: '#ef4444', flexShrink: 0 }} />
+              <div style={{ color: '#ef4444', fontSize: '14px' }}>
+                Response deadline passed. Contact admin to change your response.
+              </div>
+            </div>
+          )}
 
           {/* Coworkers */}
           {coworkers.length > 0 && (

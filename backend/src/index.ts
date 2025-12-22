@@ -338,7 +338,19 @@ app.get('/api/shifts/:id', async (req: Request, res: Response) => {
 app.post('/api/shifts', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const newShift = await db.insert(shifts).values(req.body).returning();
+    
+    // Calculate week deadline for the shift
+    const { getWeekDeadline } = await import('./jobs/autoAcceptShifts.js');
+    const shiftDate = new Date(req.body.date);
+    const weekDeadline = getWeekDeadline(shiftDate);
+    
+    // Add week deadline to shift data
+    const shiftData = {
+      ...req.body,
+      weekDeadline: weekDeadline
+    };
+    
+    const newShift = await db.insert(shifts).values(shiftData).returning();
     res.status(201).json(newShift[0]);
   } catch (error) {
     console.error('Error creating shift:', error);
@@ -352,6 +364,18 @@ app.put('/api/shifts/:id', async (req: Request, res: Response) => {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: 'ID is required' });
+    
+    // Check if trying to change staff_status on a locked shift
+    if (req.body.staff_status || req.body.staffStatus) {
+      const existingShift = await db.select().from(shifts).where(eq(shifts.id, id));
+      if (existingShift.length > 0 && existingShift[0].responseLocked) {
+        return res.status(403).json({ 
+          error: 'This shift is locked. Contact admin to change your response.',
+          locked: true
+        });
+      }
+    }
+    
     const updated = await db.update(shifts)
       .set({ ...req.body, updatedAt: new Date() })
       .where(eq(shifts.id, id))
@@ -1196,6 +1220,28 @@ app.listen(PORT, async () => {
   } catch (error: any) {
     console.error('⚠️  Failed to initialize automation agents:', error.message);
     console.error('   Server will continue running without automation agents.');
+  }
+
+  // Initialize auto-accept job scheduler
+  try {
+    const { autoAcceptPendingShifts, lockExpiredShifts, setWeekDeadlines } = await import('./jobs/autoAcceptShifts.js');
+    
+    // Set deadlines for existing shifts on startup
+    await setWeekDeadlines();
+    
+    // Run auto-accept and lock jobs immediately on startup
+    await autoAcceptPendingShifts();
+    await lockExpiredShifts();
+    
+    // Schedule jobs to run every minute
+    setInterval(async () => {
+      await autoAcceptPendingShifts();
+      await lockExpiredShifts();
+    }, 60000); // Run every 60 seconds
+    
+    console.log('✅ Auto-accept job scheduler initialized');
+  } catch (error: any) {
+    console.error('⚠️  Failed to initialize auto-accept scheduler:', error.message);
   }
 });
 
