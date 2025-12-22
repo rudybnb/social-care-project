@@ -60,7 +60,7 @@ export interface StaffMember {
 let sites: Site[] = [
   {
     id: 'SITE_001',
-    name: 'Thamesmead Care Home',
+    name: 'Thamesmead',
     location: 'Thamesmead',
     postcode: 'SE28 8LY',
     address: '65 Nickelby Close',
@@ -70,7 +70,7 @@ let sites: Site[] = [
   },
   {
     id: 'SITE_002',
-    name: 'Rochester Care Home',
+    name: 'Rochester',
     location: 'Rochester',
     postcode: 'ME1 2JH',
     address: 'Breton Road',
@@ -80,7 +80,7 @@ let sites: Site[] = [
   },
   {
     id: 'SITE_003',
-    name: 'Erith Care Home',
+    name: 'Erith',
     location: 'Erith',
     postcode: 'DA8 1PE',
     address: '31 St Johns Road',
