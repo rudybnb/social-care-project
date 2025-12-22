@@ -95,8 +95,8 @@ const Attendance: React.FC = () => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clockedIn: true,
-          clockInTime: now
+          clocked_in: true,
+          clock_in_time: now
         })
       });
       
@@ -104,6 +104,8 @@ const Attendance: React.FC = () => {
         alert('Staff clocked in successfully!');
         fetchShifts();
       } else {
+        const errorText = await response.text();
+        console.error('Clock in failed:', errorText);
         alert('Failed to clock in staff');
       }
     } catch (error) {
@@ -121,8 +123,8 @@ const Attendance: React.FC = () => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clockedOut: true,
-          clockOutTime: now
+          clocked_out: true,
+          clock_out_time: now
         })
       });
       
@@ -130,6 +132,8 @@ const Attendance: React.FC = () => {
         alert('Staff clocked out successfully!');
         fetchShifts();
       } else {
+        const errorText = await response.text();
+        console.error('Clock out failed:', errorText);
         alert('Failed to clock out staff');
       }
     } catch (error) {
@@ -148,8 +152,8 @@ const Attendance: React.FC = () => {
     try {
       const timestamp = new Date(newTime).toISOString();
       const updates = type === 'in' 
-        ? { clockedIn: true, clockInTime: timestamp }
-        : { clockedOut: true, clockOutTime: timestamp };
+        ? { clocked_in: true, clock_in_time: timestamp }
+        : { clocked_out: true, clock_out_time: timestamp };
       
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts/${shiftId}`, {
         method: 'PUT',
@@ -161,6 +165,8 @@ const Attendance: React.FC = () => {
         alert(`${timeType} time updated successfully!`);
         fetchShifts();
       } else {
+        const errorText = await response.text();
+        console.error('Edit time failed:', errorText);
         alert(`Failed to update ${timeType} time`);
       }
     } catch (error) {
