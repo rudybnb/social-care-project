@@ -343,7 +343,7 @@ const Attendance: React.FC = () => {
                   justifyContent: 'space-between',
                   alignItems: 'center'
                 }}>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ color: 'white', fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>
                       {shift.staffName}
                     </div>
@@ -351,13 +351,30 @@ const Attendance: React.FC = () => {
                       {shift.siteName} • {shift.startTime} - {shift.endTime}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ color: '#10b981', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
-                      Clocked In
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ color: '#10b981', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
+                        Clocked In
+                      </div>
+                      <div style={{ color: '#9ca3af', fontSize: '14px' }}>
+                        {formatTime(shift.clockInTime)}
+                      </div>
                     </div>
-                    <div style={{ color: '#9ca3af', fontSize: '14px' }}>
-                      {formatTime(shift.clockInTime)}
-                    </div>
+                    <button
+                      onClick={() => handleAdminClockOut(shift.id)}
+                      style={{
+                        backgroundColor: '#ef444420',
+                        border: '1px solid #ef4444',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        color: '#ef4444',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Clock Out
+                    </button>
                   </div>
                 </div>
               ))}
