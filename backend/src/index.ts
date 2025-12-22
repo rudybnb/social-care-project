@@ -775,6 +775,12 @@ app.post('/api/fix-staff-schema', async (req: Request, res: Response) => {
   return fixStaffSchema(req, res);
 });
 
+// Auto-accept migration endpoint
+app.post('/api/migrate-auto-accept', async (req: Request, res: Response) => {
+  const { migrateAutoAccept } = await import('./migrate-auto-accept.js');
+  return migrateAutoAccept(req, res);
+});
+
 // ==================== ADMIN ROUTES ====================
 
 // Add staff status columns migration
