@@ -568,6 +568,14 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Site not found' });
     }
     
+    // Verify shift is accepted
+    if (shift[0].staffStatus !== 'accepted') {
+      return res.status(403).json({ 
+        error: 'You must accept this shift before clocking in',
+        status: shift[0].staffStatus
+      });
+    }
+    
     // Simple QR code validation: SITE_{siteId}
     const expectedQR = `SITE_${shift[0].siteId}`;
     if (qrCode !== expectedQR) {
