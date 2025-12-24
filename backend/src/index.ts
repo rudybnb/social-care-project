@@ -1263,5 +1263,14 @@ app.listen(PORT, async () => {
   } catch (error: any) {
     console.error('⚠️  Failed to initialize auto-accept scheduler:', error.message);
   }
+  
+  // Initialize auto clock-out job for past shifts
+  try {
+    const { startAutoClockOutJob } = await import('./jobs/autoClockOutPastShifts.js');
+    startAutoClockOutJob();
+    console.log('✅ Auto clock-out job scheduler initialized');
+  } catch (error: any) {
+    console.error('⚠️  Failed to initialize auto clock-out scheduler:', error.message);
+  }
 });
 
