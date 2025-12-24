@@ -77,8 +77,8 @@ const Attendance: React.FC = () => {
   // Categorize shifts
   const currentlyClockedIn = filteredShifts.filter(s => s.clockedIn && !s.clockedOut);
   const completedShifts = filteredShifts.filter(s => s.clockedOut);
-  // Only show "Awaiting Clock In" for today or future dates
-  const notStarted = (isToday || isFuture) ? filteredShifts.filter(s => !s.clockedIn) : [];
+  // Show "Awaiting Clock In" for all dates (including past) so admin can manually enter times
+  const notStarted = filteredShifts.filter(s => !s.clockedIn);
 
   const formatTime = (timestamp?: string) => {
     if (!timestamp) return 'N/A';
@@ -517,6 +517,36 @@ const Attendance: React.FC = () => {
                       }}
                     >
                       Clock In
+                    </button>
+                    <button
+                      onClick={() => handleEditClockTime(shift.id, 'in')}
+                      style={{
+                        backgroundColor: '#10b98120',
+                        border: '1px solid #10b981',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        color: '#10b981',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Edit In
+                    </button>
+                    <button
+                      onClick={() => handleEditClockTime(shift.id, 'out')}
+                      style={{
+                        backgroundColor: '#ef444420',
+                        border: '1px solid #ef4444',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        color: '#ef4444',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Edit Out
                     </button>
                   </div>
                 </div>
