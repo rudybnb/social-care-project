@@ -95,8 +95,8 @@ const Attendance: React.FC = () => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clocked_in: true,
-          clock_in_time: now
+          clockedIn: true,
+          clockInTime: now
         })
       });
       
@@ -123,8 +123,8 @@ const Attendance: React.FC = () => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clocked_out: true,
-          clock_out_time: now
+          clockedOut: true,
+          clockOutTime: now
         })
       });
       
@@ -152,8 +152,8 @@ const Attendance: React.FC = () => {
     try {
       const timestamp = new Date(newTime).toISOString();
       const updates = type === 'in' 
-        ? { clocked_in: true, clock_in_time: timestamp }
-        : { clocked_out: true, clock_out_time: timestamp };
+        ? { clockedIn: true, clockInTime: timestamp }
+        : { clockedOut: true, clockOutTime: timestamp };
       
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts/${shiftId}`, {
         method: 'PUT',
