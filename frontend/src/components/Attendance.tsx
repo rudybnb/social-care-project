@@ -492,62 +492,102 @@ const Attendance: React.FC = () => {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ 
-                      backgroundColor: '#f59e0b20',
-                      border: '1px solid #f59e0b',
-                      borderRadius: '6px',
-                      padding: '6px 12px',
-                      color: '#f59e0b',
-                      fontSize: '13px',
-                      fontWeight: '600'
-                    }}>
-                      Not Started
-                    </div>
-                    <button
-                      onClick={() => handleAdminClockIn(shift.id)}
-                      style={{
-                        backgroundColor: '#10b98120',
-                        border: '1px solid #10b981',
-                        borderRadius: '6px',
-                        padding: '6px 12px',
-                        color: '#10b981',
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                        fontWeight: '600'
-                      }}
-                    >
-                      Clock In
-                    </button>
-                    <button
-                      onClick={() => handleEditClockTime(shift.id, 'in')}
-                      style={{
-                        backgroundColor: '#10b98120',
-                        border: '1px solid #10b981',
-                        borderRadius: '6px',
-                        padding: '6px 12px',
-                        color: '#10b981',
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                        fontWeight: '600'
-                      }}
-                    >
-                      Edit In
-                    </button>
-                    <button
-                      onClick={() => handleEditClockTime(shift.id, 'out')}
-                      style={{
-                        backgroundColor: '#ef444420',
-                        border: '1px solid #ef4444',
-                        borderRadius: '6px',
-                        padding: '6px 12px',
-                        color: '#ef4444',
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                        fontWeight: '600'
-                      }}
-                    >
-                      Edit Out
-                    </button>
+                    {/* Show different buttons for past dates vs today/future */}
+                    {isPast ? (
+                      // Past dates: Only show Edit In/Out buttons for manual time entry
+                      <>
+                        <button
+                          onClick={() => handleEditClockTime(shift.id, 'in')}
+                          style={{
+                            backgroundColor: '#10b98120',
+                            border: '1px solid #10b981',
+                            borderRadius: '6px',
+                            padding: '6px 12px',
+                            color: '#10b981',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            fontWeight: '600'
+                          }}
+                        >
+                          Edit In
+                        </button>
+                        <button
+                          onClick={() => handleEditClockTime(shift.id, 'out')}
+                          style={{
+                            backgroundColor: '#ef444420',
+                            border: '1px solid #ef4444',
+                            borderRadius: '6px',
+                            padding: '6px 12px',
+                            color: '#ef4444',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            fontWeight: '600'
+                          }}
+                        >
+                          Edit Out
+                        </button>
+                      </>
+                    ) : (
+                      // Today/Future: Show Not Started badge, Clock In, and Edit buttons
+                      <>
+                        <div style={{ 
+                          backgroundColor: '#f59e0b20',
+                          border: '1px solid #f59e0b',
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          color: '#f59e0b',
+                          fontSize: '13px',
+                          fontWeight: '600'
+                        }}>
+                          Not Started
+                        </div>
+                        <button
+                          onClick={() => handleAdminClockIn(shift.id)}
+                          style={{
+                            backgroundColor: '#10b98120',
+                            border: '1px solid #10b981',
+                            borderRadius: '6px',
+                            padding: '6px 12px',
+                            color: '#10b981',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            fontWeight: '600'
+                          }}
+                        >
+                          Clock In
+                        </button>
+                        <button
+                          onClick={() => handleEditClockTime(shift.id, 'in')}
+                          style={{
+                            backgroundColor: '#10b98120',
+                            border: '1px solid #10b981',
+                            borderRadius: '6px',
+                            padding: '6px 12px',
+                            color: '#10b981',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            fontWeight: '600'
+                          }}
+                        >
+                          Edit In
+                        </button>
+                        <button
+                          onClick={() => handleEditClockTime(shift.id, 'out')}
+                          style={{
+                            backgroundColor: '#ef444420',
+                            border: '1px solid #ef4444',
+                            borderRadius: '6px',
+                            padding: '6px 12px',
+                            color: '#ef4444',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            fontWeight: '600'
+                          }}
+                        >
+                          Edit Out
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
