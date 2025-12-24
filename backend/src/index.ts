@@ -789,6 +789,12 @@ app.post('/api/migrate-auto-accept', async (req: Request, res: Response) => {
   return migrateAutoAccept(req, res);
 });
 
+// Manual clock-out endpoint
+app.post('/api/manual-clockout', async (req: Request, res: Response) => {
+  const { manualClockOut } = await import('./manual-clockout.js');
+  return manualClockOut(req, res);
+});
+
 // ==================== ADMIN ROUTES ====================
 
 // Add staff status columns migration
