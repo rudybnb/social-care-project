@@ -68,10 +68,17 @@ const Attendance: React.FC = () => {
     ? todayShifts 
     : todayShifts.filter(s => s.siteId === selectedSite);
 
+  // Check if selected date is today or in the future
+  const today = new Date().toISOString().split('T')[0];
+  const isToday = selectedDate === today;
+  const isFuture = selectedDate > today;
+  const isPast = selectedDate < today;
+
   // Categorize shifts
   const currentlyClockedIn = filteredShifts.filter(s => s.clockedIn && !s.clockedOut);
   const completedShifts = filteredShifts.filter(s => s.clockedOut);
-  const notStarted = filteredShifts.filter(s => !s.clockedIn);
+  // Only show "Awaiting Clock In" for today or future dates
+  const notStarted = (isToday || isFuture) ? filteredShifts.filter(s => !s.clockedIn) : [];
 
   const formatTime = (timestamp?: string) => {
     if (!timestamp) return 'N/A';
