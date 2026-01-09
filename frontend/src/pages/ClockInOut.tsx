@@ -86,7 +86,7 @@ const ClockInOut: React.FC = () => {
 
           // Check if there's already an approved request for today (using local date)
           try {
-            const approvedRequest = await approvalAPI.checkApprovedRequest(staffMember.id, siteId, todayLocal);
+            const approvedRequest = await approvalAPI.checkApprovedRequest(staffMember.id, siteId!, todayLocal);
             if (approvedRequest) {
               // Refetch shifts
               const refreshedShifts = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${staffMember.id}/shifts`);
