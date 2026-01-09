@@ -21,7 +21,7 @@ const ClockInOut: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const siteId = searchParams.get('site');
-  
+
   const [phoneDigits, setPhoneDigits] = useState('');
   const [staffId, setStaffId] = useState('');
   const [staffName, setStaffName] = useState('');
@@ -35,92 +35,88 @@ const ClockInOut: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
 
   const fetchShifts = async () => {
-    if (!phoneDigits || phoneDigits.length !== 4 || !siteId) {
+    if (!phoneDigits || phoneDigits.length !== 4) {
       setMessage('Please enter exactly 4 digits');
       setMessageType('error');
       return;
     }
-    
+
     setLoading(true);
     setMessage('');
     setMessageType('');
-    
+
     try {
-      // First, fetch all staff to find matching phone number
-      const staffResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff`);
+      // Use new backend lookup endpoint
+      const staffResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/lookup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneDigits, siteId })
+      });
+
       if (!staffResponse.ok) {
-        setMessage('Error loading staff data');
+        if (staffResponse.status === 404) {
+          setMessage('Phone number not found. Please check the last 4 digits.');
+        } else {
+          setMessage('Error looking up staff details. Please try again.');
+        }
         setMessageType('error');
         setLoading(false);
         return;
       }
-      
-      const allStaff = await staffResponse.json();
-      const matchingStaff = allStaff.find((s: any) => 
-        s.phone && s.phone.slice(-4) === phoneDigits
-      );
-      
-      if (!matchingStaff) {
-        setMessage('Phone number not found. Please check the last 4 digits or contact your supervisor.');
-        setMessageType('error');
-        setLoading(false);
-        return;
-      }
-      
-      setStaffId(matchingStaff.id);
-      setStaffName(matchingStaff.name);
-      
+
+      const staffMember = await staffResponse.json();
+
+      setStaffId(staffMember.id);
+      setStaffName(staffMember.name);
+
       // Now fetch shifts for this staff member
-      const shiftsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${matchingStaff.id}/shifts`);
+      const shiftsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${staffMember.id}/shifts`);
       if (shiftsResponse.ok) {
         const data = await shiftsResponse.json();
-        // Filter for today's shifts at this site
-        const todayShifts = data.filter((s: Shift) => 
-          s.date === today && s.siteId === siteId
+        // Filter for today's shifts at this site using local date
+        const todayLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+
+        const todayShifts = data.filter((s: Shift) =>
+          s.date === todayLocal && s.siteId === siteId
         );
         setShifts(todayShifts);
-        
+
         if (todayShifts.length === 0) {
           setIsUnscheduled(true);
-          
-          // Check if there's already an approved request
+
+          // Check if there's already an approved request for today (using local date)
           try {
-            const approvedRequest = await approvalAPI.checkApprovedRequest(matchingStaff.id, siteId, today);
+            const approvedRequest = await approvalAPI.checkApprovedRequest(staffMember.id, siteId, todayLocal);
             if (approvedRequest) {
-              // Refetch shifts to get the newly created shift from approval
-              const refreshedShifts = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${matchingStaff.id}/shifts`);
+              // Refetch shifts
+              const refreshedShifts = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${staffMember.id}/shifts`);
               if (refreshedShifts.ok) {
                 const refreshedData = await refreshedShifts.json();
-                const refreshedTodayShifts = refreshedData.filter((s: Shift) => s.date === today && s.siteId === siteId);
-                
+                const refreshedTodayShifts = refreshedData.filter((s: Shift) => s.date === todayLocal && s.siteId === siteId);
+
                 if (refreshedTodayShifts.length > 0) {
-                  // Found the approved shift!
                   setShifts(refreshedTodayShifts);
                   setIsUnscheduled(false);
-                  setMessage(`Welcome ${matchingStaff.name}! Your unscheduled shift has been approved.`);
+                  setMessage(`Welcome ${staffMember.name}! Your unscheduled shift has been approved.`);
                   setMessageType('success');
                 } else {
-                  // Approval exists but shift not created yet (shouldn't happen)
-                  setMessage(`Hello ${matchingStaff.name}! Your unscheduled shift has been approved. You may clock in.`);
+                  setMessage(`Hello ${staffMember.name}! Your unscheduled shift has been approved. You may clock in.`);
                   setMessageType('success');
                   setApprovalRequested(true);
                 }
-              } else {
-                setMessage(`Hello ${matchingStaff.name}! Your unscheduled shift has been approved. You may clock in.`);
-                setMessageType('success');
-                setApprovalRequested(true);
               }
             } else {
-              setMessage(`Hello ${matchingStaff.name}! You are not scheduled to work today at this site. Please request approval from admin to clock in.`);
+              setMessage(`Hello ${staffMember.name}! You are not scheduled to work today at this site.`);
               setMessageType('error');
             }
           } catch (err) {
-            setMessage(`Hello ${matchingStaff.name}! You are not scheduled to work today at this site. Please request approval from admin to clock in.`);
+            console.error('Error checking approval:', err);
+            setMessage(`Hello ${staffMember.name}! You are not scheduled to work today at this site.`);
             setMessageType('error');
           }
         } else {
           setIsUnscheduled(false);
-          setMessage(`Welcome ${matchingStaff.name}!`);
+          setMessage(`Welcome ${staffMember.name}!`);
           setMessageType('success');
         }
       } else {
@@ -128,6 +124,7 @@ const ClockInOut: React.FC = () => {
         setMessageType('error');
       }
     } catch (error) {
+      console.error('Network error:', error);
       setMessage('Network error. Please try again.');
       setMessageType('error');
     } finally {
@@ -138,7 +135,7 @@ const ClockInOut: React.FC = () => {
   const handleClockAction = async (shift: Shift, action: 'in' | 'out') => {
     setLoading(true);
     setMessage('');
-    
+
     try {
       const endpoint = action === 'in' ? 'clock-in' : 'clock-out';
       const response = await fetch(
@@ -146,9 +143,9 @@ const ClockInOut: React.FC = () => {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             qrCode: `SITE_${siteId}`,
-            staffId: shift.staffId 
+            staffId: shift.staffId
           })
         }
       );
@@ -174,7 +171,7 @@ const ClockInOut: React.FC = () => {
 
   const handleRequestApproval = async () => {
     if (!staffId || !staffName || !siteId) return;
-    
+
     setLoading(true);
     try {
       // Get site name
@@ -182,7 +179,7 @@ const ClockInOut: React.FC = () => {
       const sites = await sitesResponse.json();
       const site = sites.find((s: any) => s.id === siteId);
       const siteName = site?.name || 'Unknown Site';
-      
+
       await approvalAPI.createRequest({
         staffId,
         staffName,
@@ -190,7 +187,7 @@ const ClockInOut: React.FC = () => {
         siteName,
         date: today
       });
-      
+
       setMessage('Approval request sent to admin. Please wait for approval before clocking in.');
       setMessageType('success');
       setApprovalRequested(true);
@@ -208,33 +205,33 @@ const ClockInOut: React.FC = () => {
   };
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
+    <div style={{
+      minHeight: '100vh',
       backgroundColor: '#0a0a0a',
       padding: '20px',
       fontFamily: 'system-ui, -apple-system, sans-serif'
     }}>
       <div style={{ maxWidth: '500px', margin: '0 auto' }}>
         {/* Header */}
-        <div style={{ 
-          textAlign: 'center', 
+        <div style={{
+          textAlign: 'center',
           marginBottom: '32px',
           paddingTop: '20px'
         }}>
-          <h1 style={{ 
-            color: 'white', 
-            fontSize: '28px', 
+          <h1 style={{
+            color: 'white',
+            fontSize: '28px',
             fontWeight: 'bold',
             marginBottom: '8px'
           }}>
             🕐 Clock In/Out
           </h1>
           <p style={{ color: '#9ca3af', fontSize: '14px' }}>
-            {new Date().toLocaleDateString('en-GB', { 
-              weekday: 'long', 
-              day: 'numeric', 
-              month: 'long', 
-              year: 'numeric' 
+            {new Date().toLocaleDateString('en-GB', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric'
             })}
           </p>
         </div>
@@ -263,9 +260,9 @@ const ClockInOut: React.FC = () => {
             padding: '24px',
             marginBottom: '24px'
           }}>
-            <label style={{ 
-              color: '#9ca3af', 
-              fontSize: '14px', 
+            <label style={{
+              color: '#9ca3af',
+              fontSize: '14px',
               display: 'block',
               marginBottom: '8px'
             }}>
@@ -323,9 +320,9 @@ const ClockInOut: React.FC = () => {
         {/* Shifts Display */}
         {shifts.length > 0 && (
           <div>
-            <div style={{ 
-              color: 'white', 
-              fontSize: '18px', 
+            <div style={{
+              color: 'white',
+              fontSize: '18px',
               fontWeight: 'bold',
               marginBottom: '16px'
             }}>
@@ -347,9 +344,9 @@ const ClockInOut: React.FC = () => {
                 }}>
                   {/* Shift Info */}
                   <div style={{ marginBottom: '16px' }}>
-                    <div style={{ 
-                      color: 'white', 
-                      fontSize: '18px', 
+                    <div style={{
+                      color: 'white',
+                      fontSize: '18px',
                       fontWeight: 'bold',
                       marginBottom: '4px'
                     }}>
@@ -478,9 +475,9 @@ const ClockInOut: React.FC = () => {
         {/* Unscheduled - Request Approval */}
         {isUnscheduled && staffId && shifts.length === 0 && (
           <div>
-            <div style={{ 
-              color: 'white', 
-              fontSize: '18px', 
+            <div style={{
+              color: 'white',
+              fontSize: '18px',
               fontWeight: 'bold',
               marginBottom: '16px'
             }}>
@@ -497,7 +494,7 @@ const ClockInOut: React.FC = () => {
               <div style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '16px' }}>
                 You are not scheduled to work today at this site. Click the button below to request admin approval for an unscheduled shift.
               </div>
-              
+
               <button
                 onClick={handleRequestApproval}
                 disabled={loading || approvalRequested}

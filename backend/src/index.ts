@@ -540,6 +540,45 @@ app.get('/api/staff/:staffId/shifts', async (req: Request, res: Response) => {
   }
 });
 
+// Lookup staff by phone (last 4 digits)
+app.post('/api/staff/lookup', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { phoneDigits, siteId } = req.body;
+
+    if (!phoneDigits || phoneDigits.length !== 4) {
+      return res.status(400).json({ error: 'Please provide exactly 4 digits' });
+    }
+
+    console.log(`[Lookup] Searching for staff with phone ending in ${phoneDigits} at site ${siteId || 'any'}`);
+
+    // Fetch all staff (since phone is not indexed/normalized well, we filter in memory - optimizing this is a future task)
+    // Ideally we should have a `phoneLast4` column or proper search.
+    const allStaff = await db.select().from(staff);
+    
+    // Find matching staff
+    const matchingStaff = allStaff.find(s => 
+      s.phone && s.phone.endsWith(phoneDigits)
+    );
+
+    if (!matchingStaff) {
+      console.log(`[Lookup] No staff found for ${phoneDigits}`);
+      return res.status(404).json({ error: 'No staff member found with these digits.' });
+    }
+
+    // Return the staff member
+    console.log(`[Lookup] Found staff: ${matchingStaff.name} (${matchingStaff.id})`);
+    
+    // Safety: don't return password or sensitive fields
+    const { password, ...safeStaff } = matchingStaff;
+    res.json(safeStaff);
+    
+  } catch (error) {
+    console.error('[Lookup] Error:', error);
+    res.status(500).json({ error: 'Failed to lookup staff' });
+  }
+});
+
 // Clock in to a shift
 app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) => {
   try {
@@ -547,55 +586,70 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
     const { shiftId } = req.params;
     const { qrCode, staffId } = req.body;
     
+    console.log(`[ClockIn] Attempting clock-in. Shift: ${shiftId}, Staff: ${staffId}, QR: ${qrCode}`);
+
     if (!shiftId || !qrCode || !staffId) {
       return res.status(400).json({ error: 'Shift ID, QR code, and staff ID required' });
     }
     
     // Get the shift
-    const shift = await db.select().from(shifts).where(eq(shifts.id, shiftId));
-    if (shift.length === 0) {
+    const shiftResult = await db.select().from(shifts).where(eq(shifts.id, shiftId));
+    if (shiftResult.length === 0) {
+      console.log(`[ClockIn] Shift ${shiftId} not found`);
       return res.status(404).json({ error: 'Shift not found' });
     }
+    const shift = shiftResult[0];
     
     // Verify staff is assigned to this shift
-    if (shift[0].staffId !== staffId) {
+    if (shift.staffId !== staffId) {
+      console.log(`[ClockIn] Staff mismatch. Expected ${shift.staffId}, got ${staffId}`);
       return res.status(403).json({ error: 'You are not assigned to this shift' });
     }
     
     // Verify site exists
-    const site = await db.select().from(sites).where(eq(sites.id, shift[0].siteId));
-    if (site.length === 0) {
+    const siteResult = await db.select().from(sites).where(eq(sites.id, shift.siteId));
+    if (siteResult.length === 0) {
+      console.log(`[ClockIn] Site ${shift.siteId} not found`);
       return res.status(404).json({ error: 'Site not found' });
     }
     
-    // Verify shift is accepted
-    if (shift[0].staffStatus !== 'accepted') {
-      return res.status(403).json({ 
-        error: 'You must accept this shift before clocking in',
-        status: shift[0].staffStatus
-      });
-    }
-    
-    // Simple QR code validation: SITE_{siteId}
-    const expectedQR = `SITE_${shift[0].siteId}`;
+    // QR Code Validation
+    // The user confirmed they still want this check.
+    const expectedQR = `SITE_${shift.siteId}`;
     if (qrCode !== expectedQR) {
-      return res.status(400).json({ error: 'Invalid QR code for this site' });
+      console.log(`[ClockIn] Invalid QR. Expected ${expectedQR}, got ${qrCode}`);
+      return res.status(400).json({ error: 'Invalid QR code. Please ensure you are scanning the correct site code.' });
+    }
+
+    // Status Check - FIX: If not accepted, auto-accept it.
+    let statusUpdate = {};
+    if (shift.staffStatus !== 'accepted') {
+      console.log(`[ClockIn] Shift status was ${shift.staffStatus}. Auto-accepting.`);
+      statusUpdate = { staffStatus: 'accepted' };
     }
     
+    // Check if already clocked in but not out (re-clocking in?)
+    if (shift.clockedIn && !shift.clockedOut) {
+       console.log(`[ClockIn] Already clocked in at ${shift.clockInTime}`);
+       return res.status(200).json({ message: 'Already clocked in', shift });
+    }
+
     // Update shift with clock-in time
     const updated = await db.update(shifts)
       .set({ 
         clockedIn: true, 
         clockInTime: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        ...statusUpdate
       })
       .where(eq(shifts.id, shiftId))
       .returning();
     
+    console.log(`[ClockIn] Success for shift ${shiftId}`);
     res.json({ message: 'Clocked in successfully', shift: updated[0] });
   } catch (error) {
-    console.error('Error clocking in:', error);
-    res.status(500).json({ error: 'Failed to clock in' });
+    console.error('[ClockIn] Critical Error:', error);
+    res.status(500).json({ error: 'Failed to clock in due to server error' });
   }
 });
 
