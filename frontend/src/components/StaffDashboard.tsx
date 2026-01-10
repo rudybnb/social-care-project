@@ -115,21 +115,49 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
         body: JSON.stringify({ qrCode: qrCodeData, staffId })
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
-        setToast({
-          show: true,
-          message: data.message,
-          color: 'success'
-        });
-        await fetchShifts(); // Refresh shifts
+        // Handle different response statuses
+        if (data.status === 'pending') {
+          // Approval request created or already pending
+          setToast({
+            show: true,
+            message: data.message || 'Your arrival has been recorded. Waiting for admin approval.',
+            color: 'warning'
+          });
+        } else if (data.status === 'approved' && data.shift) {
+          // Already approved, can proceed with clock-in
+          setToast({
+            show: true,
+            message: data.message || 'Approved! You may now clock in.',
+            color: 'success'
+          });
+          await fetchShifts(); // Refresh to show the new shift
+        } else {
+          // Regular clock-in/out success
+          setToast({
+            show: true,
+            message: data.message,
+            color: 'success'
+          });
+          await fetchShifts();
+        }
       } else {
-        const errorData = await response.json();
-        setToast({
-          show: true,
-          message: errorData.error || 'Failed to process clock-in/out',
-          color: 'danger'
-        });
+        // Handle specific error cases
+        if (data.staffStatus === 'pending') {
+          setToast({
+            show: true,
+            message: 'Please accept this shift first before clocking in.',
+            color: 'warning'
+          });
+        } else {
+          setToast({
+            show: true,
+            message: data.error || 'Failed to process clock-in/out',
+            color: 'danger'
+          });
+        }
       }
     } catch (error) {
       console.error('Clock-in/out error:', error);

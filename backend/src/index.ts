@@ -662,11 +662,17 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
       // Continue anyway, we don't want to block the new clock-in
     }
 
-    // Status Check - FIX: If not accepted, auto-accept it.
-    let statusUpdate = {};
+    // VALIDATION: Shift must be ACCEPTED before clock-in
     if (shift.staffStatus !== 'accepted') {
-      console.log(`[ClockIn] Shift status was ${shift.staffStatus}. Auto-accepting.`);
-      statusUpdate = { staffStatus: 'accepted' };
+      console.log(`[ClockIn] BLOCKED - Shift status is ${shift.staffStatus}, not accepted`);
+      const statusMessage = shift.staffStatus === 'pending'
+        ? 'You must accept this shift before you can clock in. Please accept the shift in your app first.'
+        : 'This shift has been declined. Please contact your manager.';
+      return res.status(403).json({
+        error: statusMessage,
+        staffStatus: shift.staffStatus,
+        shiftId: shiftId
+      });
     }
 
     // Check if already clocked in but not out (re-clocking in?)
@@ -680,8 +686,7 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
       .set({
         clockedIn: true,
         clockInTime: new Date(),
-        updatedAt: new Date(),
-        ...statusUpdate
+        updatedAt: new Date()
       })
       .where(eq(shifts.id, shiftId))
       .returning();
@@ -750,7 +755,7 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
   }
 });
 
-// Unscheduled/Ad-hoc clock-in (creates a new shift automatically)
+// Unscheduled/Ad-hoc clock-in (creates approval request, records scan time)
 app.post('/api/shifts/unscheduled-clock-in', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
@@ -780,67 +785,77 @@ app.post('/api/shifts/unscheduled-clock-in', async (req: Request, res: Response)
     }
     const staffMember = staffResult[0];
 
-    // Auto-Clock-Out Logic: If already clocked into another site/shift, close it first.
-    try {
-      const activeShifts = await db.select().from(shifts).where(
-        and(
-          eq(shifts.staffId, staffId),
-          eq(shifts.clockedIn, true),
-          eq(shifts.clockedOut, false)
-        )
-      );
-
-      for (const activeShift of activeShifts) {
-        console.log(`[UnscheduledClockIn] Auto-clocking out previous shift ${activeShift.id}`);
-        await db.update(shifts)
-          .set({
-            clockedOut: true,
-            clockOutTime: new Date(),
-            notes: (activeShift.notes || '') + ' [Auto-closed for site transition]',
-            updatedAt: new Date()
-          })
-          .where(eq(shifts.id, activeShift.id));
-      }
-    } catch (autoErr) {
-      console.error('[UnscheduledClockIn] Error during auto-clock-out:', autoErr);
-    }
-
-    // Create a new shift record for this unscheduled work
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
 
-    // Determine shift type based on hour (roughly)
-    const hour = now.getHours();
-    const type = (hour >= 20 || hour < 8) ? 'Night' : 'Day';
-    const startTime = `${String(hour).padStart(2, '0')}:00`;
-    // Set a default 8-hour duration but this will be overridden by actual clock-out
-    const endTime = `${String((hour + 8) % 24).padStart(2, '0')}:00`;
+    // Check if there's already a pending or approved request for today
+    const existingRequest = await db.select()
+      .from(approvalRequests)
+      .where(
+        and(
+          eq(approvalRequests.staffId, staffId),
+          eq(approvalRequests.siteId, siteId),
+          eq(approvalRequests.date, dateStr)
+        )
+      );
 
-    const newShiftData = {
-      id: `UNSCHED_${Date.now()}`,
+    if (existingRequest.length > 0) {
+      const existing = existingRequest[0];
+      if (existing.status === 'approved') {
+        // Already approved - check if shift exists
+        const approvedShift = await db.select().from(shifts).where(
+          and(
+            eq(shifts.staffId, staffId),
+            eq(shifts.siteId, siteId),
+            eq(shifts.date, dateStr)
+          )
+        );
+        if (approvedShift.length > 0) {
+          return res.json({
+            message: 'Your request was already approved. You may clock in to your shift.',
+            status: 'approved',
+            shift: approvedShift[0]
+          });
+        }
+      } else if (existing.status === 'pending') {
+        return res.json({
+          message: 'Your request is pending admin approval. Your scan time has been recorded.',
+          status: 'pending',
+          requestId: existing.id,
+          scanTime: existing.requestTime
+        });
+      } else if (existing.status === 'rejected') {
+        return res.status(403).json({
+          error: 'Your request for today was rejected. Please contact your manager.',
+          status: 'rejected'
+        });
+      }
+    }
+
+    // Create a new approval request (records the scan time)
+    console.log(`[UnscheduledClockIn] Creating approval request for ${staffMember.name} at ${site.name}`);
+
+    const newRequest = await db.insert(approvalRequests).values({
       staffId: staffId,
       staffName: staffMember.name,
       siteId: site.id,
       siteName: site.name,
-      siteColor: site.color || '#9333ea',
       date: dateStr,
-      type: type,
-      startTime: startTime,
-      endTime: endTime,
-      duration: 8, // Placeholder
-      clockedIn: true,
-      clockInTime: now,
-      staffStatus: 'accepted',
-      notes: 'Unscheduled shift started via QR scan',
+      requestTime: now,
+      status: 'pending',
+      notes: `Scan time recorded: ${now.toISOString()}`,
       createdAt: now,
       updatedAt: now
-    };
+    }).returning();
 
-    const newShift = await db.insert(shifts).values(newShiftData).returning();
+    console.log(`[UnscheduledClockIn] Approval request created: ${newRequest[0].id}`);
 
     res.json({
-      message: 'Unscheduled clock-in successful',
-      shift: newShift[0]
+      message: 'Your arrival has been recorded and is pending admin approval.',
+      status: 'pending',
+      requestId: newRequest[0].id,
+      scanTime: now.toISOString(),
+      siteName: site.name
     });
   } catch (error) {
     console.error('Error in unscheduled clock-in:', error);
@@ -1363,13 +1378,19 @@ app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
 
     // Create a shift for the approved unscheduled request
     const approvalData = request[0];
-    const shiftId = `SHIFT_UNSCHEDULED_${Date.now()} `;
+    const shiftId = `SHIFT_UNSCHEDULED_${Date.now()}`;
 
     // Get site color
     const site = await db.select().from(sites).where(eq(sites.id, approvalData.siteId));
     const siteColor = site.length > 0 ? site[0].color : '#3b82f6';
 
-    // Create shift with default times (can be edited later)
+    // Use the original scan/request time as clock-in time
+    const scanTime = new Date(approvalData.requestTime);
+    const hour = scanTime.getHours();
+    const shiftType = (hour >= 20 || hour < 8) ? 'Night' : 'Day';
+    const startTime = `${String(hour).padStart(2, '0')}:${String(scanTime.getMinutes()).padStart(2, '0')}`;
+
+    // Create shift with worker already clocked in at their original scan time
     await db.insert(shifts).values({
       id: shiftId,
       staffId: approvalData.staffId,
@@ -1378,15 +1399,16 @@ app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
       siteName: approvalData.siteName,
       siteColor,
       date: approvalData.date,
-      type: 'Day',
-      startTime: '09:00',
-      endTime: '17:00',
+      type: shiftType,
+      startTime: startTime,
+      endTime: '17:00', // Default end, will be updated on clock-out
       duration: 8,
       isBank: false,
-      clockedIn: false,
+      clockedIn: true,
+      clockInTime: scanTime, // Use original scan time!
       clockedOut: false,
       staffStatus: 'accepted',
-      notes: `Approved unscheduled shift by ${approvedBy} `
+      notes: `Approved unscheduled shift by ${approvedBy}. Clocked in at scan time: ${scanTime.toISOString()}`
     });
 
     res.json({ ...updated[0], shiftCreated: true, shiftId });
@@ -1421,6 +1443,74 @@ app.post('/api/approvals/:id/reject', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error rejecting request:', error);
     res.status(500).json({ error: 'Failed to reject request' });
+  }
+});
+
+// Migration: Convert existing UNSCHED_ shifts to approval records
+app.post('/api/admin/migrate-unsched-shifts', async (_req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+
+    console.log('[Migration] Starting UNSCHED_ shifts migration...');
+
+    // Find all UNSCHED_ shifts
+    const unschedShifts = await db.select().from(shifts).where(
+      sql`${shifts.id} LIKE 'UNSCHED_%'`
+    );
+
+    console.log(`[Migration] Found ${unschedShifts.length} UNSCHED_ shifts to migrate`);
+
+    let migrated = 0;
+    let skipped = 0;
+
+    for (const shift of unschedShifts) {
+      // Check if approval record already exists for this shift
+      const existing = await db.select().from(approvalRequests).where(
+        and(
+          eq(approvalRequests.staffId, shift.staffId),
+          eq(approvalRequests.siteId, shift.siteId),
+          eq(approvalRequests.date, shift.date)
+        )
+      );
+
+      if (existing.length > 0) {
+        console.log(`[Migration] Skipping ${shift.id} - approval record already exists`);
+        skipped++;
+        continue;
+      }
+
+      // Create approval record with status=approved (since shift exists)
+      await db.insert(approvalRequests).values({
+        staffId: shift.staffId,
+        staffName: shift.staffName,
+        siteId: shift.siteId,
+        siteName: shift.siteName,
+        date: shift.date,
+        requestTime: shift.clockInTime || shift.createdAt || new Date(),
+        status: 'approved',
+        approvedBy: 'System Migration',
+        approvedAt: shift.createdAt || new Date(),
+        notes: `Migrated from UNSCHED_ shift ${shift.id}`,
+        createdAt: shift.createdAt || new Date(),
+        updatedAt: new Date()
+      });
+
+      migrated++;
+      console.log(`[Migration] Migrated ${shift.id} for ${shift.staffName}`);
+    }
+
+    console.log(`[Migration] Complete. Migrated: ${migrated}, Skipped: ${skipped}`);
+
+    res.json({
+      success: true,
+      message: `Migration complete. ${migrated} shifts migrated, ${skipped} skipped (already had records).`,
+      migrated,
+      skipped,
+      total: unschedShifts.length
+    });
+  } catch (error) {
+    console.error('[Migration] Error:', error);
+    res.status(500).json({ error: 'Migration failed' });
   }
 });
 

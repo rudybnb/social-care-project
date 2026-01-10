@@ -1,41 +1,22 @@
 import React, { useState, useEffect } from 'react';
-
-interface UnscheduledShift {
-    id: string;
-    staffId: string;
-    staffName: string;
-    siteId: string;
-    siteName: string;
-    siteColor: string;
-    date: string;
-    type: string;
-    startTime: string;
-    endTime: string;
-    clockedIn: boolean;
-    clockInTime: string | null;
-    clockedOut: boolean;
-    clockOutTime: string | null;
-    notes: string;
-}
+import { approvalAPI } from '../services/approvalAPI';
+import { ApprovalRequest } from '../types/approvalTypes';
 
 const UnscheduledPunches: React.FC = () => {
-    const [shifts, setShifts] = useState<UnscheduledShift[]>([]);
+    const [requests, setRequests] = useState<ApprovalRequest[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const loadData = async () => {
         setLoading(true);
         try {
-            // Fetch all shifts and filter for UNSCHED_ prefixed IDs
-            const response = await fetch('https://social-care-backend.onrender.com/api/shifts');
-            if (!response.ok) throw new Error('Failed to fetch shifts');
-            const allShifts = await response.json();
-            const unscheduledShifts = allShifts.filter((s: any) => s.id && s.id.startsWith('UNSCHED_'));
-            setShifts(unscheduledShifts);
+            // Fetch pending approval requests
+            const pendingRequests = await approvalAPI.getPendingRequests();
+            setRequests(pendingRequests);
             setError(null);
         } catch (error) {
-            console.error('Failed to load unscheduled shifts:', error);
-            setError('Failed to load shifts. Please try again.');
+            console.error('Failed to load approval requests:', error);
+            setError('Failed to load requests. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -48,24 +29,36 @@ const UnscheduledPunches: React.FC = () => {
         return () => window.removeEventListener('dataChanged', handleDataChange);
     }, []);
 
-    const handleDelete = async (shift: UnscheduledShift) => {
-        if (window.confirm(`Delete unscheduled shift for ${shift.staffName} at ${shift.siteName}?`)) {
+    const handleApprove = async (request: ApprovalRequest) => {
+        if (window.confirm(`Approve unscheduled shift for ${request.staffName} at ${request.siteName}?\n\nTheir scan time (${formatTime(request.requestTime)}) will be recorded as clock-in time.`)) {
             try {
-                const response = await fetch(`https://social-care-backend.onrender.com/api/shifts/${shift.id}`, {
-                    method: 'DELETE'
-                });
-                if (!response.ok) throw new Error('Failed to delete shift');
-                alert('Shift deleted successfully.');
+                await approvalAPI.approveRequest(request.id, 'Admin');
+                alert('Request approved! Shift created with recorded clock-in time.');
                 loadData();
+                // Trigger refresh for badge count
+                window.dispatchEvent(new Event('dataChanged'));
             } catch (error) {
-                console.error('Failed to delete shift:', error);
-                alert('Failed to delete shift');
+                console.error('Failed to approve request:', error);
+                alert('Failed to approve request');
             }
         }
     };
 
-    const formatTime = (isoString: string | null) => {
-        if (!isoString) return '--:--';
+    const handleReject = async (request: ApprovalRequest) => {
+        const reason = window.prompt(`Reject request from ${request.staffName}? Enter reason (optional):`);
+        if (reason !== null) {
+            try {
+                await approvalAPI.rejectRequest(request.id, 'Admin', reason);
+                loadData();
+                window.dispatchEvent(new Event('dataChanged'));
+            } catch (error) {
+                console.error('Failed to reject request:', error);
+                alert('Failed to reject request');
+            }
+        }
+    };
+
+    const formatTime = (isoString: string) => {
         return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     };
 
@@ -79,10 +72,10 @@ const UnscheduledPunches: React.FC = () => {
         <div style={{ padding: '24px', color: 'white' }}>
             <div style={{ marginBottom: '32px' }}>
                 <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '28px' }}>⚠️</span> Unscheduled Punches
+                    <span style={{ fontSize: '28px' }}>⚠️</span> Unscheduled Shift Requests
                 </h2>
                 <p style={{ color: '#9ca3af', fontSize: '15px' }}>
-                    These are shifts created automatically when staff clocked in without a scheduled shift.
+                    Staff arrivals pending your approval. Approve to create shift with their recorded scan time.
                 </p>
             </div>
 
@@ -138,8 +131,8 @@ const UnscheduledPunches: React.FC = () => {
             </div>
 
             {loading ? (
-                <div style={{ color: '#9ca3af', textAlign: 'center', padding: '40px' }}>Loading shifts...</div>
-            ) : shifts.length === 0 ? (
+                <div style={{ color: '#9ca3af', textAlign: 'center', padding: '40px' }}>Loading requests...</div>
+            ) : requests.length === 0 ? (
                 <div style={{
                     backgroundColor: '#1f2937',
                     borderRadius: '12px',
@@ -149,31 +142,29 @@ const UnscheduledPunches: React.FC = () => {
                 }}>
                     <div style={{ fontSize: '48px', marginBottom: '16px' }}>✅</div>
                     <h3 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>All Clear!</h3>
-                    <p style={{ color: '#9ca3af' }}>No unscheduled shifts found.</p>
+                    <p style={{ color: '#9ca3af' }}>No pending approval requests.</p>
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '20px' }}>
-                    {shifts.map(shift => (
-                        <div key={shift.id} style={{
+                    {requests.map(request => (
+                        <div key={request.id} style={{
                             backgroundColor: '#111827',
                             borderRadius: '12px',
                             padding: '20px',
-                            border: `2px solid ${shift.siteColor || '#374151'}`,
+                            border: '1px solid #f59e0b',
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '16px',
-                            transition: 'transform 0.2s',
-                            cursor: 'default'
+                            gap: '16px'
                         }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
-                                    <div style={{ color: shift.siteColor || '#9333ea', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                        {shift.siteName}
+                                    <div style={{ color: '#f59e0b', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                        {request.siteName}
                                     </div>
-                                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '18px' }}>{shift.staffName}</div>
+                                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '18px' }}>{request.staffName}</div>
                                 </div>
                                 <div style={{ backgroundColor: '#1f2937', padding: '4px 10px', borderRadius: '6px', color: '#9ca3af', fontSize: '12px', fontWeight: '600' }}>
-                                    {formatDate(shift.date)}
+                                    {formatDate(request.date)}
                                 </div>
                             </div>
 
@@ -186,34 +177,36 @@ const UnscheduledPunches: React.FC = () => {
                                 alignItems: 'center'
                             }}>
                                 <div style={{ textAlign: 'center' }}>
-                                    <div style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase' }}>Clock In</div>
-                                    <div style={{ color: '#22c55e', fontWeight: '600' }}>{formatTime(shift.clockInTime)}</div>
+                                    <div style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase' }}>Scanned At</div>
+                                    <div style={{ color: '#22c55e', fontWeight: '600', fontSize: '18px' }}>{formatTime(request.requestTime)}</div>
                                 </div>
                                 <div style={{ color: '#374151', fontSize: '20px' }}>→</div>
                                 <div style={{ textAlign: 'center' }}>
-                                    <div style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase' }}>Clock Out</div>
-                                    <div style={{ color: shift.clockedOut ? '#22c55e' : '#f59e0b', fontWeight: '600' }}>
-                                        {shift.clockedOut ? formatTime(shift.clockOutTime) : 'Active'}
-                                    </div>
-                                </div>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase' }}>Type</div>
-                                    <div style={{ color: shift.type === 'Night' ? '#8b5cf6' : '#f59e0b', fontWeight: '600' }}>{shift.type}</div>
+                                    <div style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase' }}>Status</div>
+                                    <div style={{ color: '#f59e0b', fontWeight: '600' }}>Pending Approval</div>
                                 </div>
                             </div>
 
-                            {shift.notes && (
-                                <div style={{ fontSize: '13px', color: '#9ca3af', fontStyle: 'italic' }}>
-                                    📝 {shift.notes}
-                                </div>
-                            )}
-
                             <div style={{ display: 'flex', gap: '12px', marginTop: 'auto' }}>
                                 <button
-                                    onClick={() => handleDelete(shift)}
+                                    onClick={() => handleApprove(request)}
                                     style={{
                                         flex: 1,
                                         padding: '10px',
+                                        backgroundColor: '#22c55e',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    ✓ Approve & Clock In
+                                </button>
+                                <button
+                                    onClick={() => handleReject(request)}
+                                    style={{
+                                        padding: '10px 20px',
                                         backgroundColor: '#ef4444',
                                         color: 'white',
                                         border: 'none',
@@ -222,7 +215,7 @@ const UnscheduledPunches: React.FC = () => {
                                         cursor: 'pointer'
                                     }}
                                 >
-                                    🗑️ Delete Shift
+                                    ✗ Reject
                                 </button>
                             </div>
                         </div>
