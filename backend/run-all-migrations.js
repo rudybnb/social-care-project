@@ -94,6 +94,18 @@ async function runAllMigrations() {
       console.log(`⚠️  Migration 5 skipped: ${error.message}\n`);
     }
 
+    // Migration 6: Add phone to staff table
+    console.log('📝 Migration 6: Adding phone to staff table...');
+    try {
+      await pool.query(`
+        ALTER TABLE staff 
+        ADD COLUMN IF NOT EXISTS phone TEXT;
+      `);
+      console.log('✅ Migration 6 complete\n');
+    } catch (error) {
+      console.log(`⚠️  Migration 6 skipped: ${error.message}\n`);
+    }
+
     // Verify tables exist
     console.log('🔍 Verifying database schema...\n');
 
