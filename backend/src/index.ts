@@ -1604,6 +1604,55 @@ app.post('/api/admin/recalculate-durations', async (_req: Request, res: Response
   }
 });
 
+// Admin: Fix a single shift's duration
+app.post('/api/admin/fix-shift-duration/:shiftId', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const shiftId = req.params.shiftId as string;
+
+    console.log(`[FixShift] Fixing duration for ${shiftId}`);
+
+    // Get the shift
+    const shiftResult = await db.select().from(shifts).where(eq(shifts.id, shiftId));
+    if (shiftResult.length === 0) {
+      return res.status(404).json({ error: 'Shift not found' });
+    }
+    const shift = shiftResult[0];
+
+    if (!shift.clockInTime || !shift.clockOutTime) {
+      return res.status(400).json({ error: 'Shift missing clock times', clockInTime: shift.clockInTime, clockOutTime: shift.clockOutTime });
+    }
+
+    const clockIn = new Date(shift.clockInTime);
+    const clockOut = new Date(shift.clockOutTime);
+    const diffMs = clockOut.getTime() - clockIn.getTime();
+    const actualDuration = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
+
+    console.log(`[FixShift] Calculated duration: ${actualDuration}h (was ${shift.duration}h)`);
+    console.log(`[FixShift] Clock in: ${clockIn.toISOString()}, Clock out: ${clockOut.toISOString()}`);
+
+    // Update with raw SQL for maximum compatibility
+    const result = await db.execute(
+      sql`UPDATE shifts SET duration = ${actualDuration}, updated_at = NOW() WHERE id = ${shiftId} RETURNING id, duration`
+    );
+
+    console.log(`[FixShift] Update result:`, result);
+
+    res.json({
+      success: true,
+      shiftId,
+      oldDuration: shift.duration,
+      newDuration: actualDuration,
+      clockInTime: shift.clockInTime,
+      clockOutTime: shift.clockOutTime,
+      result
+    });
+  } catch (error: any) {
+    console.error('[FixShift] Error:', error);
+    res.status(500).json({ error: 'Fix failed', details: error.message, stack: error.stack });
+  }
+});
+
 app.listen(PORT, async () => {
   console.log(`API server listening on http://localhost:${PORT}`);
   await runStartupMigration();
