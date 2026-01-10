@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import WorkerLeave from '../components/WorkerLeave';
 
 const WorkerDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { logout, user } = useAuth();
-  const [clockedIn, setClockedIn] = useState(false);
   const [currentView, setCurrentView] = useState<'dashboard' | 'leave'>('dashboard');
   const [shifts, setShifts] = useState<any[]>([]);
   const [loadingShifts, setLoadingShifts] = useState(true);
@@ -18,8 +19,6 @@ const WorkerDashboard: React.FC = () => {
         const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${user.id}/shifts`);
         if (response.ok) {
           const data = await response.json();
-          // Sort shifts by date (newest first for history, but maybe future first for dashboard?)
-          // Usually dashboard shows upcoming shifts.
           setShifts(data);
         }
       } catch (error) {
@@ -32,17 +31,26 @@ const WorkerDashboard: React.FC = () => {
     fetchShifts();
   }, [user]);
 
+  // Find today's shift to get siteId
+  const todayDate = new Date().toLocaleDateString('en-CA');
+  const todaysShift = shifts.find(s => s.date === todayDate);
+  const clockedIn = todaysShift?.clockedIn || false;
+
   const handleClockIn = () => {
-    console.log('Clock In clicked');
-    setClockedIn(true);
-    alert('Clocked In Successfully!\nTime: ' + new Date().toLocaleTimeString());
+    console.log('Navigating to Clock In', todaysShift?.siteId);
+    if (todaysShift?.siteId) {
+      navigate(`/clock-in?site=${todaysShift.siteId}`);
+    } else {
+      navigate('/clock-in');
+    }
   };
 
   const handleClockOut = () => {
-    console.log('Clock Out clicked');
-    if (window.confirm('Are you sure you want to clock out?')) {
-      setClockedIn(false);
-      alert('Clocked Out Successfully!\nTime: ' + new Date().toLocaleTimeString());
+    console.log('Navigating to Clock Out', todaysShift?.siteId);
+    if (todaysShift?.siteId) {
+      navigate(`/clock-in?site=${todaysShift.siteId}`);
+    } else {
+      navigate('/clock-in');
     }
   };
 
