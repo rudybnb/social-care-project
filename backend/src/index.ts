@@ -1538,58 +1538,69 @@ app.post('/api/admin/recalculate-durations', async (_req: Request, res: Response
 
     console.log('[RecalcDurations] Starting duration recalculation...');
 
-    // Get all shifts with clock-in and clock-out times
-    const allShifts = await db.select().from(shifts).where(
-      and(
-        eq(shifts.clockedIn, true),
-        eq(shifts.clockedOut, true)
-      )
-    );
+    // Get all shifts (simpler query first to avoid boolean issues)
+    const allShifts = await db.select().from(shifts);
+    console.log(`[RecalcDurations] Found ${allShifts.length} total shifts`);
 
-    console.log(`[RecalcDurations] Found ${allShifts.length} completed shifts`);
+    // Filter to completed shifts
+    const completedShifts = allShifts.filter(s =>
+      s.clockedIn === true && s.clockedOut === true && s.clockInTime && s.clockOutTime
+    );
+    console.log(`[RecalcDurations] ${completedShifts.length} are completed with clock times`);
 
     let fixed = 0;
     let skipped = 0;
+    const errors: string[] = [];
 
-    for (const shift of allShifts) {
-      if (!shift.clockInTime || !shift.clockOutTime) {
-        skipped++;
-        continue;
-      }
+    for (const shift of completedShifts) {
+      try {
+        const clockIn = new Date(shift.clockInTime!);
+        const clockOut = new Date(shift.clockOutTime!);
 
-      const clockIn = new Date(shift.clockInTime);
-      const clockOut = new Date(shift.clockOutTime);
-      const diffMs = clockOut.getTime() - clockIn.getTime();
-      const actualDuration = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
+        // Validate dates
+        if (isNaN(clockIn.getTime()) || isNaN(clockOut.getTime())) {
+          console.log(`[RecalcDurations] Invalid date for ${shift.id}`);
+          skipped++;
+          continue;
+        }
 
-      // Only update if duration is different
-      if (Math.abs(actualDuration - (shift.duration || 0)) > 0.1) {
-        await db.update(shifts)
-          .set({
-            duration: actualDuration,
-            updatedAt: new Date()
-          })
-          .where(eq(shifts.id, shift.id));
+        const diffMs = clockOut.getTime() - clockIn.getTime();
+        const actualDuration = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
 
-        console.log(`[RecalcDurations] Fixed ${shift.id}: ${shift.duration}h → ${actualDuration}h`);
-        fixed++;
-      } else {
-        skipped++;
+        // Only update if duration is different by more than 0.1 hours
+        const currentDuration = shift.duration ?? 0;
+        if (Math.abs(actualDuration - currentDuration) > 0.1) {
+          await db.update(shifts)
+            .set({
+              duration: actualDuration,
+              updatedAt: new Date()
+            })
+            .where(eq(shifts.id, shift.id));
+
+          console.log(`[RecalcDurations] Fixed ${shift.id}: ${currentDuration}h → ${actualDuration}h`);
+          fixed++;
+        } else {
+          skipped++;
+        }
+      } catch (shiftError: any) {
+        console.error(`[RecalcDurations] Error processing ${shift.id}:`, shiftError);
+        errors.push(`${shift.id}: ${shiftError.message}`);
       }
     }
 
-    console.log(`[RecalcDurations] Complete. Fixed: ${fixed}, Skipped: ${skipped}`);
+    console.log(`[RecalcDurations] Complete. Fixed: ${fixed}, Skipped: ${skipped}, Errors: ${errors.length}`);
 
     res.json({
       success: true,
       message: `Duration recalculation complete. ${fixed} shifts fixed, ${skipped} already correct.`,
       fixed,
       skipped,
-      total: allShifts.length
+      total: completedShifts.length,
+      errors: errors.length > 0 ? errors : undefined
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[RecalcDurations] Error:', error);
-    res.status(500).json({ error: 'Recalculation failed' });
+    res.status(500).json({ error: 'Recalculation failed', details: error.message });
   }
 });
 
