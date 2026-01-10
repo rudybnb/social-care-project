@@ -78,10 +78,10 @@ const Rota: React.FC = () => {
       }
     };
     loadShifts();
-    
+
     // Set up interval to refresh every 5 seconds when on Rota page
     const refreshInterval = setInterval(loadShifts, 5000);
-    
+
     return () => {
       isMounted = false;
       clearInterval(refreshInterval);
@@ -109,7 +109,7 @@ const Rota: React.FC = () => {
   const [showDuplicateApproval, setShowDuplicateApproval] = useState(false);
   const [pendingDuplicateShift, setPendingDuplicateShift] = useState<any>(null);
   const [selectedWeek, setSelectedWeek] = useState(0);
-  
+
   // Non-24-hour approval states
   const [showNon24HrApproval, setShowNon24HrApproval] = useState(false);
   const [pendingNon24HrShifts, setPendingNon24HrShifts] = useState<any>(null);
@@ -175,7 +175,7 @@ const Rota: React.FC = () => {
     const currentDay = today.getDay();
     const monday = new Date(today);
     monday.setDate(today.getDate() - currentDay + 1 + (weekOffset * 7));
-    
+
     return Array.from({ length: 7 }, (_, i) => {
       const date = new Date(monday);
       date.setDate(monday.getDate() + i);
@@ -206,15 +206,15 @@ const Rota: React.FC = () => {
 
     // R1: Maximum 4 workers per site per day (flexible shift patterns)
     // Count total workers assigned to this site on this date (excluding declined shifts)
-    const workersOnSiteToday = shifts.filter(s => 
-      s.date === newShift.date && 
-      s.siteId === newShift.siteId && 
+    const workersOnSiteToday = shifts.filter(s =>
+      s.date === newShift.date &&
+      s.siteId === newShift.siteId &&
       s.staffStatus !== 'declined' &&
       s.staffId !== newShift.staffId // Don't count the new worker yet
     );
-    
+
     const totalWorkers = workersOnSiteToday.length + 1; // +1 for the new worker
-    
+
     // Hard limit: Maximum 4 workers per site per day
     if (totalWorkers > 4) {
       errors.push(`MAXIMUM WORKERS EXCEEDED: This site already has 4 workers assigned on ${newShift.date}. Cannot assign more than 4 workers per site per day.`);
@@ -233,8 +233,8 @@ const Rota: React.FC = () => {
     }
 
     // NEW RULE: Same worker cannot work same time at different sites
-    const sameTimeShift = shifts.find(s => 
-      s.date === newShift.date && 
+    const sameTimeShift = shifts.find(s =>
+      s.date === newShift.date &&
       s.staffId === newShift.staffId &&
       s.type === newShift.type &&
       s.siteId !== newShift.siteId
@@ -245,8 +245,8 @@ const Rota: React.FC = () => {
 
     // R2: Site exclusivity per day (only if not 24-hour shift)
     if (!newShift.is24Hour) {
-      const sameDayShift = shifts.find(s => 
-        s.date === newShift.date && 
+      const sameDayShift = shifts.find(s =>
+        s.date === newShift.date &&
         s.staffId === newShift.staffId &&
         s.siteId !== newShift.siteId
       );
@@ -263,11 +263,11 @@ const Rota: React.FC = () => {
     // R5: Rest period (12 hours minimum)
     const staffShifts = shifts.filter(s => s.staffId === newShift.staffId);
     const newShiftStart = new Date(`${newShift.date}T${newShift.startTime}`);
-    
+
     for (const existingShift of staffShifts) {
       const existingEnd = new Date(`${existingShift.date}T${existingShift.endTime}`);
       const hoursDiff = Math.abs((newShiftStart.getTime() - existingEnd.getTime()) / (1000 * 60 * 60));
-      
+
       if (hoursDiff < 12 && hoursDiff > 0) {
         errors.push(`REST PERIOD: Only ${hoursDiff.toFixed(1)} hours rest since last shift. Minimum 12 hours required.`);
       }
@@ -279,24 +279,24 @@ const Rota: React.FC = () => {
   // Filter staff by search term (name or initials)
   const filterStaff = (searchTerm: string) => {
     if (!searchTerm) return staff.filter(s => s.status === 'Active');
-    
+
     const search = searchTerm.toLowerCase().trim();
     return staff.filter(s => {
       if (s.status !== 'Active') return false;
-      
+
       const name = s.name.toLowerCase();
       // Match full name
       if (name.includes(search)) return true;
-      
+
       // Match initials (e.g., "MB" for "Melissa Blake")
       const nameParts = s.name.split(' ');
       const initials = nameParts.map((part: string) => part[0]).join('').toLowerCase();
       if (initials.includes(search)) return true;
-      
+
       return false;
     });
   };
-  
+
   // Handle worker count change
   const handleWorkerCountChange = (count: number) => {
     const newWorkers = [];
@@ -316,7 +316,7 @@ const Rota: React.FC = () => {
     }
     setShiftForm({ ...shiftForm, workerCount: count, workers: newWorkers });
   };
-  
+
   // Update worker field
   const updateWorker = (index: number, field: string, value: string) => {
     const newWorkers = [...shiftForm.workers];
@@ -351,14 +351,14 @@ const Rota: React.FC = () => {
       alert('Please select a site and date.');
       return;
     }
-    
+
     // Validate all workers have staff selected
     const emptyWorkers = shiftForm.workers.filter(w => !w.staffId);
     if (emptyWorkers.length > 0) {
       alert(`Please select staff for all ${shiftForm.workerCount} worker(s).`);
       return;
     }
-    
+
     // Check for duplicate staff
     const staffIds = shiftForm.workers.map((w: any) => w.staffId);
     const duplicates = staffIds.filter((id, index) => staffIds.indexOf(id) !== index);
@@ -366,7 +366,7 @@ const Rota: React.FC = () => {
       alert('ERROR: Cannot assign the same worker multiple times.');
       return;
     }
-    
+
     const selectedSite = sites.find(s => String(s.id) === String(shiftForm.siteId));
     if (!selectedSite) {
       alert('Invalid site selection');
@@ -379,26 +379,26 @@ const Rota: React.FC = () => {
     today.setHours(0, 0, 0, 0);
     const shiftDateOnly = new Date(shiftDate);
     shiftDateOnly.setHours(0, 0, 0, 0);
-    
+
     // Removed: Day/Night shift type validation (now using flexible hours)
 
     // Validate each worker and create shifts
     const shiftsToCreate: Shift[] = [];
     const assignedWorkers: string[] = [];
-    
+
     for (let i = 0; i < shiftForm.workers.length; i++) {
       const worker = shiftForm.workers[i];
-      
+
       // Get staff member
-      const staffMember = worker.staffId === 'BANK' 
+      const staffMember = worker.staffId === 'BANK'
         ? { id: 'BANK', name: 'BANK (Placeholder)', status: 'Active' }
         : staff.find(s => String(s.id) === String(worker.staffId));
-      
+
       if (!staffMember) {
         alert(`Invalid staff selection for Worker ${i + 1}`);
         return;
       }
-      
+
       // Validate agency worker
       const isAgency = staffMember.id !== 'BANK' && 'agencyName' in staffMember;
       if (isAgency) {
@@ -407,43 +407,43 @@ const Rota: React.FC = () => {
           alert(`❌ CANNOT ASSIGN ${staffMember.name}\\n\\nThis agency worker does not have an hourly rate configured.\\n\\nPlease set their hourly rate in the Directory before assigning shifts.`);
           return;
         }
-        
+
         const rateNum = parseFloat(hourlyRate);
         if (isNaN(rateNum) || rateNum <= 0) {
           alert(`❌ CANNOT ASSIGN ${staffMember.name}\\n\\nThis agency worker has an invalid hourly rate: "${hourlyRate}"\\n\\nPlease update their hourly rate in the Directory.`);
           return;
         }
-        
+
         // Check contract dates
         if ((staffMember as any).startDate) {
           const startDate = new Date((staffMember as any).startDate);
           const endDate = (staffMember as any).endDate ? new Date((staffMember as any).endDate) : null;
-          
+
           if (shiftDate < startDate) {
             alert(`❌ CANNOT ASSIGN ${staffMember.name}\\n\\nThis agency worker's contract starts on ${startDate.toLocaleDateString('en-GB')}.\\n\\nShift date (${shiftDate.toLocaleDateString('en-GB')}) is before their start date.`);
             return;
           }
-          
+
           if (endDate && shiftDate > endDate) {
             alert(`❌ CANNOT ASSIGN ${staffMember.name}\\n\\nThis agency worker's contract ended on ${endDate.toLocaleDateString('en-GB')}.\\n\\nShift date (${shiftDate.toLocaleDateString('en-GB')}) is after their end date.`);
             return;
           }
         }
       }
-      
+
       // Calculate duration from hours and minutes
       const durationHours = worker.hours + (worker.minutes / 60);
-      
+
       // Calculate end time from start time + duration
       const [startHour, startMin] = worker.startTime.split(':').map(Number);
       const totalMinutes = startHour * 60 + startMin + worker.hours * 60 + worker.minutes;
       const endHour = Math.floor(totalMinutes / 60) % 24;
       const endMin = totalMinutes % 60;
       const endTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
-      
+
       // Determine if it's a day or night shift based on start time
       const shiftType = startHour >= 8 && startHour < 20 ? 'Day' : 'Night';
-      
+
       // Create shift object
       const shift: Shift = {
         id: `SHIFT_${shiftType.toUpperCase()}_${Date.now()}_${i}`,
@@ -462,33 +462,33 @@ const Rota: React.FC = () => {
         notes: shiftForm.notes,
         staffStatus: 'pending'
       };
-      
+
       shiftsToCreate.push(shift);
       assignedWorkers.push(`${staffMember.name} (${durationHours.toFixed(1)}h)`);
     }
-    
+
     // Validate all shifts (check for conflicts, multiple workers, etc.)
     let needsApproval = false;
     let approvalShift: Shift | null = null;
     const allValidationErrors: string[] = [];
-    
+
     // First pass: Check ALL shifts for validation errors
     for (const shift of shiftsToCreate) {
       const validation = validateShift(shift);
       if (!validation.valid) {
         // Separate approval-required errors from blocking errors
-        const approvalErrors = validation.errors.filter(e => 
+        const approvalErrors = validation.errors.filter(e =>
           e.includes('MULTIPLE WORKERS') || e.includes('DUPLICATE SHIFT')
         );
-        const blockingErrors = validation.errors.filter(e => 
+        const blockingErrors = validation.errors.filter(e =>
           !e.includes('MULTIPLE WORKERS') && !e.includes('DUPLICATE SHIFT')
         );
-        
+
         // If there are blocking errors (conflicts, rest period, etc.), stop immediately
         if (blockingErrors.length > 0) {
           allValidationErrors.push(`${shift.staffName}:\n${blockingErrors.join('\n')}`);
         }
-        
+
         // If only approval errors, mark for approval
         if (approvalErrors.length > 0 && blockingErrors.length === 0) {
           needsApproval = true;
@@ -496,45 +496,45 @@ const Rota: React.FC = () => {
         }
       }
     }
-    
+
     // If there are any blocking errors, show them all and stop
     if (allValidationErrors.length > 0) {
       alert(`CANNOT ASSIGN SHIFT:\\n\\n${allValidationErrors.join('\\n\\n')}`);
       return;
     }
-    
+
     // If approval needed, show dialog for first conflicting shift
     if (needsApproval && approvalShift) {
-      setPendingDuplicateShift({ 
-        shift: approvalShift, 
-        type: approvalShift.type, 
+      setPendingDuplicateShift({
+        shift: approvalShift,
+        type: approvalShift.type,
         existing: null,
         allShifts: shiftsToCreate // Store all shifts to create after approval
       });
       setShowDuplicateApproval(true);
       return;
     }
-    
+
     // All validations passed, create all shifts
     for (const shift of shiftsToCreate) {
       // Check if replacing declined shift
-      const declinedShift = shifts.find(s => 
-        s.date === shift.date && 
-        s.siteId === shift.siteId && 
-        s.type === shift.type && 
+      const declinedShift = shifts.find(s =>
+        s.date === shift.date &&
+        s.siteId === shift.siteId &&
+        s.type === shift.type &&
         s.staffStatus === 'declined'
       );
       if (declinedShift) {
         await removeShift(declinedShift.id);
       }
-      
+
       await addShift(shift);
     }
-    
+
     // Refresh shifts from shared data
     setShifts(getShifts());
     console.log('Shifts created and refreshed');
-    
+
     setShowAssignShift(false);
     setShiftForm({
       siteId: '',
@@ -550,7 +550,7 @@ const Rota: React.FC = () => {
       ],
       notes: ''
     });
-    
+
     alert(`✅ SHIFT(S) ASSIGNED!\\n\\n${assignedWorkers.join('\\n')}\\n\\nSite: ${selectedSite.name}\\nDate: ${shiftForm.date}`);
   };
 
@@ -568,7 +568,7 @@ const Rota: React.FC = () => {
 
     // Validate with approval
     const validation = validateShift(approvedShift);
-    
+
     if (!validation.valid) {
       alert(`CANNOT APPROVE 24-HOUR SHIFT:\n\n${validation.errors.join('\n\n')}`);
       return;
@@ -576,10 +576,10 @@ const Rota: React.FC = () => {
 
     // Save approved shift to backend database
     await addShift(approvedShift);
-    
+
     // Refresh shifts from shared data store
     setShifts(getShifts());
-    
+
     setShow24HrApproval(false);
     setShowAssignShift(false);
     setPending24HrShift(null);
@@ -616,7 +616,7 @@ const Rota: React.FC = () => {
 
     // Get all shifts to create (from pendingDuplicateShift.allShifts if available)
     const shiftsToCreate = pendingDuplicateShift.allShifts || [pendingDuplicateShift.shift];
-    
+
     // Add approval to all shifts
     const approvedShifts = shiftsToCreate.map((shift: Shift) => ({
       ...shift,
@@ -636,22 +636,22 @@ const Rota: React.FC = () => {
     // Save all approved shifts to backend database
     for (const shift of approvedShifts) {
       // Check if replacing declined shift
-      const declinedShift = shifts.find(s => 
-        s.date === shift.date && 
-        s.siteId === shift.siteId && 
-        s.type === shift.type && 
+      const declinedShift = shifts.find(s =>
+        s.date === shift.date &&
+        s.siteId === shift.siteId &&
+        s.type === shift.type &&
         s.staffStatus === 'declined'
       );
       if (declinedShift) {
         await removeShift(declinedShift.id);
       }
-      
+
       await addShift(shift);
     }
-    
+
     // Refresh shifts from shared data store
     setShifts(getShifts());
-    
+
     setShowDuplicateApproval(false);
     setShowAssignShift(false);
     setPendingDuplicateShift(null);
@@ -670,7 +670,7 @@ const Rota: React.FC = () => {
       ],
       notes: ''
     });
-    
+
     const workerNames = approvedShifts.map((s: Shift) => `${s.type}: ${s.staffName}`).join('\n');
     alert(`✅ SHIFTS APPROVED AND ASSIGNED!\n\n${workerNames}\n\nApproved by: ${approvalForm.approvedBy}\nReason: ${approvalForm.reason}`);
   };
@@ -680,9 +680,9 @@ const Rota: React.FC = () => {
 
     // Check if removing this shift leaves the 24-hour cycle incomplete
     const oppositeShiftType = shiftToDelete.type === 'Day' ? 'Night' : 'Day';
-    const oppositeShift = shifts.find(s => 
-      s.date === shiftToDelete.date && 
-      s.siteId === shiftToDelete.siteId && 
+    const oppositeShift = shifts.find(s =>
+      s.date === shiftToDelete.date &&
+      s.siteId === shiftToDelete.siteId &&
       s.type === oppositeShiftType
     );
 
@@ -693,7 +693,7 @@ const Rota: React.FC = () => {
         `Option 2: Approve ${oppositeShift.staffName} for 24-hour shift`,
         `Option 3: Cancel removal (keep current assignment)`
       ];
-      
+
       const choice = window.prompt(
         `⚠️ COVERAGE REQUIRED\n\n` +
         `Removing this shift will break the 24-hour cycle at ${shiftToDelete.siteName} on ${shiftToDelete.date}.\n\n` +
@@ -759,7 +759,7 @@ const Rota: React.FC = () => {
           `Date: ${shiftToDelete.date}\n\n` +
           `Please provide a reason for deleting this 24h shift:`
         );
-        
+
         if (reason && reason.trim()) {
           // Delete both shifts from database
           (async () => {
@@ -767,11 +767,11 @@ const Rota: React.FC = () => {
               const response = await fetch(`https://social-care-backend.onrender.com/api/shifts/clear/${shiftToDelete.siteId}/${shiftToDelete.date}`, {
                 method: 'DELETE'
               });
-              
+
               if (!response.ok) {
                 throw new Error('Failed to delete shifts');
               }
-              
+
               // Remove shifts from database and local state
               await removeShift(shiftToDelete.id);
               await removeShift(oppositeShift.id);
@@ -822,12 +822,12 @@ const Rota: React.FC = () => {
     const dayShift = getShiftForSlot(date, siteId, 'Day');
     const nightShift = getShiftForSlot(date, siteId, 'Night');
     const shiftCount = (dayShift ? 1 : 0) + (nightShift ? 1 : 0);
-    
+
     if (shiftCount === 0) {
       alert('No shifts to clear for this day.');
       return;
     }
-    
+
     const confirmed = window.confirm(
       `⚠️ CLEAR ALL SHIFTS\n\n` +
       `This will remove ${shiftCount} shift(s) at ${siteName} on ${new Date(date).toLocaleDateString('en-GB')}:\n\n` +
@@ -835,25 +835,25 @@ const Rota: React.FC = () => {
       `${nightShift ? '• Night Shift (' + nightShift.staffName + ')\n' : ''}` +
       `\nAre you sure you want to continue?`
     );
-    
+
     if (!confirmed) return;
-    
+
     try {
       const response = await fetch(`https://social-care-backend.onrender.com/api/shifts/clear/${siteId}/${date}`, {
         method: 'DELETE'
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to clear shifts');
       }
-      
+
       const result = await response.json();
-      
+
       // Remove shifts from database and local state
       if (dayShift) await removeShift(dayShift.id);
       if (nightShift) await removeShift(nightShift.id);
       setShifts(getShifts());
-      
+
       alert(`✅ ${result.message}`);
     } catch (error) {
       console.error('Error clearing day:', error);
@@ -862,39 +862,27 @@ const Rota: React.FC = () => {
   };
 
   const getShiftForSlot = (date: string, siteId: string, type: 'Day' | 'Night') => {
-    console.log('🔍 getShiftForSlot called:', { date, siteId, type });
-    console.log('📋 All shifts:', shifts);
     const matchingShifts = shifts.filter(s => {
       const dateMatch = s.date === date;
       const siteMatch = String(s.siteId) === String(siteId);
       const typeMatch = s.type === type;
-      console.log(`  Checking shift ${s.id}:`, { 
-        shiftDate: s.date, 
-        dateMatch, 
-        shiftSiteId: s.siteId, 
-        siteMatch, 
-        shiftType: s.type, 
-        typeMatch,
-        allMatch: dateMatch && siteMatch && typeMatch
-      });
       return dateMatch && siteMatch && typeMatch;
     });
-    console.log('✅ Matching shifts found:', matchingShifts);
     return matchingShifts[0];
   };
 
   const getStaffRotationBalance = (staffId: string | number) => {
     const staffShifts = shifts.filter(s => s.staffId === staffId);
     const siteCount: { [key: string]: number } = {};
-    
+
     sites.forEach(site => {
       siteCount[site.id] = staffShifts.filter(s => s.siteId === site.id).length;
     });
-    
+
     const total = staffShifts.length;
     const counts = Object.values(siteCount);
     const balanced = counts.length > 0 ? (Math.max(...counts) - Math.min(...counts) <= 1) : true;
-    
+
     return { siteCount, total, balanced };
   };
 
@@ -1153,16 +1141,16 @@ const Rota: React.FC = () => {
                   {site.address}, {site.location}, {site.postcode}
                 </p>
               </div>
-              
+
               {/* Shift Status Summary */}
               {(() => {
                 const siteShifts = shifts.filter(s => s.siteId === site.id && !s.isBank);
                 const pendingCount = siteShifts.filter(s => s.staffStatus === 'pending').length;
                 const acceptedCount = siteShifts.filter(s => s.staffStatus === 'accepted').length;
                 const declinedCount = siteShifts.filter(s => s.staffStatus === 'declined').length;
-                
+
                 if (pendingCount === 0 && acceptedCount === 0 && declinedCount === 0) return null;
-                
+
                 return (
                   <div style={{
                     display: 'flex',
@@ -1212,7 +1200,7 @@ const Rota: React.FC = () => {
                   </div>
                 );
               })()}
-              
+
               <div style={{
                 backgroundColor: '#2a2a2a',
                 borderRadius: '12px',
@@ -1238,11 +1226,11 @@ const Rota: React.FC = () => {
                           border: isTodayDate ? '2px solid #9333ea' : 'none',
                           borderBottom: '1px solid #3a3a3a'
                         }}>
-                          <div style={{ 
-                            color: isTodayDate ? '#9333ea' : 'white', 
-                            fontSize: '13px', 
-                            fontWeight: '600', 
-                            marginBottom: '2px' 
+                          <div style={{
+                            color: isTodayDate ? '#9333ea' : 'white',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            marginBottom: '2px'
                           }}>
                             {dayNames[index]}
                           </div>
@@ -1250,11 +1238,11 @@ const Rota: React.FC = () => {
                             {new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                           </div>
                           {isTodayDate && (
-                            <div style={{ 
-                              color: '#9333ea', 
-                              fontSize: '10px', 
-                              fontWeight: '600', 
-                              marginTop: '4px' 
+                            <div style={{
+                              color: '#9333ea',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              marginTop: '4px'
                             }}>
                               TODAY
                             </div>
@@ -1327,11 +1315,11 @@ const Rota: React.FC = () => {
                                   border: shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
                                   marginBottom: '6px'
                                 }}>
-                                  <div style={{ 
-                                    color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'), 
-                                    fontSize: '12px', 
-                                    fontWeight: '600', 
-                                    marginBottom: '2px' 
+                                  <div style={{
+                                    color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'),
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    marginBottom: '2px'
                                   }}>
                                     {shift.isBank ? '🏦 ' : ''}{shift.staffName}
                                     {shift.isBank && (() => {
@@ -1522,11 +1510,11 @@ const Rota: React.FC = () => {
                                   border: shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
                                   marginBottom: '6px'
                                 }}>
-                                  <div style={{ 
-                                    color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'), 
-                                    fontSize: '12px', 
-                                    fontWeight: '600', 
-                                    marginBottom: '2px' 
+                                  <div style={{
+                                    color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'),
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    marginBottom: '2px'
                                   }}>
                                     {shift.isBank ? '🏦 ' : ''}{shift.staffName}
                                     {shift.isBank && (() => {
@@ -1760,7 +1748,7 @@ const Rota: React.FC = () => {
       {/* Assign Shift Modal */}
       <Modal isOpen={showAssignShift} onClose={() => setShowAssignShift(false)} title="Assign Workers to Site">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
+
           {/* Site Selection */}
           <div>
             <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
@@ -2295,7 +2283,7 @@ const Rota: React.FC = () => {
                 Shift Details
               </div>
               <div style={{ color: '#9ca3af', fontSize: '13px', lineHeight: '1.8' }}>
-                <div>Existing Worker: {pendingDuplicateShift.existing.staffName}</div>
+                <div>Existing Worker: {pendingDuplicateShift.existing?.staffName || 'None (New Shift)'}</div>
                 <div>New Worker: {pendingDuplicateShift.shift.staffName}</div>
                 <div>Site: {pendingDuplicateShift.shift.siteName}</div>
                 <div>Date: {pendingDuplicateShift.shift.date}</div>

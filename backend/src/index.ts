@@ -334,6 +334,19 @@ app.get('/api/shifts/:id', async (req: Request, res: Response) => {
   }
 });
 
+// Get shifts for specific staff member
+app.get('/api/staff/:id/shifts', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { id } = req.params;
+    const staffShifts = await db.select().from(shifts).where(eq(shifts.staffId, id));
+    res.json(staffShifts);
+  } catch (error) {
+    console.error('Error fetching staff shifts:', error);
+    res.status(500).json({ error: 'Failed to fetch staff shifts' });
+  }
+});
+
 // Create new shift
 app.post('/api/shifts', async (req: Request, res: Response) => {
   try {
@@ -1025,6 +1038,7 @@ const runStartupMigration = async () => {
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
     `);
+    // Migration 4 complete (Leave tables)
     console.log('✅ Migration 4 complete');
 
     // Migration 5: Add rejection_reason column if it doesn't exist
@@ -1053,21 +1067,21 @@ const runStartupMigration = async () => {
 
     console.log('📝 Migration 7: Creating approval_requests table...');
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS approval_requests (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        staff_id TEXT NOT NULL,
-        staff_name TEXT NOT NULL,
-        site_id TEXT NOT NULL,
-        site_name TEXT NOT NULL,
-        date TEXT NOT NULL,
-        request_time TIMESTAMP NOT NULL DEFAULT NOW(),
-        status TEXT NOT NULL DEFAULT 'pending',
-        approved_by TEXT,
-        approved_at TIMESTAMP,
-        notes TEXT,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-      );
+      CREATE TABLE IF NOT EXISTS approval_requests(
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      staff_id TEXT NOT NULL,
+      staff_name TEXT NOT NULL,
+      site_id TEXT NOT NULL,
+      site_name TEXT NOT NULL,
+      date TEXT NOT NULL,
+      request_time TIMESTAMP NOT NULL DEFAULT NOW(),
+      status TEXT NOT NULL DEFAULT 'pending',
+      approved_by TEXT,
+      approved_at TIMESTAMP,
+      notes TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
     `);
     console.log('✅ Approval_requests table created');
 
@@ -1221,7 +1235,7 @@ app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
 
     // Create a shift for the approved unscheduled request
     const approvalData = request[0];
-    const shiftId = `SHIFT_UNSCHEDULED_${Date.now()}`;
+    const shiftId = `SHIFT_UNSCHEDULED_${Date.now()} `;
 
     // Get site color
     const site = await db.select().from(sites).where(eq(sites.id, approvalData.siteId));
@@ -1244,7 +1258,7 @@ app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
       clockedIn: false,
       clockedOut: false,
       staffStatus: 'accepted',
-      notes: `Approved unscheduled shift by ${approvedBy}`
+      notes: `Approved unscheduled shift by ${approvedBy} `
     });
 
     res.json({ ...updated[0], shiftCreated: true, shiftId });

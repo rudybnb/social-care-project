@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import WorkerLeave from '../components/WorkerLeave';
 
@@ -6,6 +6,31 @@ const WorkerDashboard: React.FC = () => {
   const { logout, user } = useAuth();
   const [clockedIn, setClockedIn] = useState(false);
   const [currentView, setCurrentView] = useState<'dashboard' | 'leave'>('dashboard');
+  const [shifts, setShifts] = useState<any[]>([]);
+  const [loadingShifts, setLoadingShifts] = useState(true);
+
+  // Fetch shifts for the logged-in staff member
+  useEffect(() => {
+    const fetchShifts = async () => {
+      if (!user || !user.id) return;
+      try {
+        setLoadingShifts(true);
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${user.id}/shifts`);
+        if (response.ok) {
+          const data = await response.json();
+          // Sort shifts by date (newest first for history, but maybe future first for dashboard?)
+          // Usually dashboard shows upcoming shifts.
+          setShifts(data);
+        }
+      } catch (error) {
+        console.error('Error fetching shifts:', error);
+      } finally {
+        setLoadingShifts(false);
+      }
+    };
+
+    fetchShifts();
+  }, [user]);
 
   const handleClockIn = () => {
     console.log('Clock In clicked');
@@ -106,28 +131,36 @@ const WorkerDashboard: React.FC = () => {
           marginBottom: '15px',
           color: '#333'
         }}>
-          Today's Shift
+          {loadingShifts ? 'Loading Shifts...' : "Today's Shift"}
         </h2>
-        
-        <div style={{
-          backgroundColor: '#f0f9ff',
-          padding: '15px',
-          borderRadius: '8px',
-          marginBottom: '20px'
-        }}>
-          <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
-            <strong>Time:</strong> 08:00 - 16:00
+
+        {!loadingShifts && shifts.filter(s => s.date === new Date().toLocaleDateString('en-CA')).length > 0 ? (
+          shifts.filter(s => s.date === new Date().toLocaleDateString('en-CA')).map((shift, idx) => (
+            <div key={idx} style={{
+              backgroundColor: '#f0f9ff',
+              padding: '15px',
+              borderRadius: '8px',
+              marginBottom: '20px'
+            }}>
+              <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
+                <strong>Site:</strong> {shift.siteName}
+              </div>
+              <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
+                <strong>Time:</strong> {shift.startTime} - {shift.endTime}
+              </div>
+              <div style={{ fontSize: '14px', color: '#666' }}>
+                <strong>Status:</strong> {shift.clockedIn ?
+                  <span style={{ color: '#10b981', fontWeight: 'bold' }}>✓ Clocked In</span> :
+                  <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Not Scheduled/Not Clocked In</span>
+                }
+              </div>
+            </div>
+          ))
+        ) : !loadingShifts ? (
+          <div style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
+            No shift scheduled for today.
           </div>
-          <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
-            <strong>Room:</strong> A-103
-          </div>
-          <div style={{ fontSize: '14px', color: '#666' }}>
-            <strong>Status:</strong> {clockedIn ? 
-              <span style={{ color: '#10b981', fontWeight: 'bold' }}>✓ Clocked In</span> : 
-              <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Not Clocked In</span>
-            }
-          </div>
-        </div>
+        ) : null}
 
         {/* Clock In/Out Buttons */}
         <div style={{
