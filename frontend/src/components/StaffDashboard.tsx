@@ -109,18 +109,26 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
   };
 
   const handleQRScan = async (qrCodeData: string) => {
-    if (!selectedShift) return;
+    if (!qrCodeData) return;
+
+    // Detect if this is a site transition (scanning a different site than scheduled)
+    const scannedSiteId = qrCodeData.startsWith('SITE_') ? qrCodeData.replace('SITE_', '') : null;
+    const isTransition = selectedShift && scannedSiteId && selectedShift.siteId !== scannedSiteId;
 
     try {
-      const endpoint = selectedShift.clockedIn ? 'clock-out' : 'clock-in';
-      const response = await fetch(
-        `https://social-care-backend.onrender.com/api/shifts/${selectedShift.id}/${endpoint}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ qrCode: qrCodeData, staffId })
-        }
-      );
+      let endpoint = selectedShift?.clockedIn ? 'clock-out' : 'clock-in';
+      let url = `https://social-care-backend.onrender.com/api/shifts/${selectedShift?.id}/${endpoint}`;
+
+      // If it's a transition or we don't have a pre-selected shift, use unscheduled endpoint
+      if (isTransition || !selectedShift) {
+        url = `https://social-care-backend.onrender.com/api/shifts/unscheduled-clock-in`;
+      }
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qrCode: qrCodeData, staffId })
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -245,7 +253,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             <button
               onClick={() => openScanner(todayShifts[0])}
               style={{
-                background: 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '12px',
@@ -257,7 +265,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 15px rgba(147, 51, 234, 0.5)',
+                boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
                 marginBottom: '16px',
                 width: '100%'
               }}

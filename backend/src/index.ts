@@ -634,6 +634,33 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
       return res.status(400).json({ error: 'Invalid QR code. Please ensure you are scanning the correct site code.' });
     }
 
+    // Auto-Clock-Out Logic: If already clocked into another site/shift, close it first.
+    try {
+      const activeShifts = await db.select().from(shifts).where(
+        and(
+          eq(shifts.staffId, staffId),
+          eq(shifts.clockedIn, true),
+          eq(shifts.clockedOut, false),
+          sql`${shifts.id} != ${shiftId}`
+        )
+      );
+
+      for (const activeShift of activeShifts) {
+        console.log(`[ClockIn] Auto-clocking out previous shift ${activeShift.id} at ${activeShift.siteName}`);
+        await db.update(shifts)
+          .set({
+            clockedOut: true,
+            clockOutTime: new Date(),
+            notes: (activeShift.notes || '') + ' [Auto-closed for site transition]',
+            updatedAt: new Date()
+          })
+          .where(eq(shifts.id, activeShift.id));
+      }
+    } catch (autoErr) {
+      console.error('[ClockIn] Error during auto-clock-out:', autoErr);
+      // Continue anyway, we don't want to block the new clock-in
+    }
+
     // Status Check - FIX: If not accepted, auto-accept it.
     let statusUpdate = {};
     if (shift.staffStatus !== 'accepted') {
@@ -719,6 +746,104 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
   } catch (error) {
     console.error('Error clocking out:', error);
     res.status(500).json({ error: 'Failed to clock out' });
+  }
+});
+
+// Unscheduled/Ad-hoc clock-in (creates a new shift automatically)
+app.post('/api/shifts/unscheduled-clock-in', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { qrCode, staffId } = req.body;
+
+    if (!qrCode || !staffId) {
+      return res.status(400).json({ error: 'QR code and staff ID required' });
+    }
+
+    // Extract siteId from QR (expects SITE_{siteId})
+    const siteId = qrCode.startsWith('SITE_') ? qrCode.replace('SITE_', '') : null;
+    if (!siteId) {
+      return res.status(400).json({ error: 'Invalid site QR code' });
+    }
+
+    // Verify site exists
+    const siteResult = await db.select().from(sites).where(eq(sites.id, siteId));
+    if (siteResult.length === 0) {
+      return res.status(404).json({ error: 'Site not found' });
+    }
+    const site = siteResult[0];
+
+    // Get staff details
+    const staffResult = await db.select().from(staff).where(eq(staff.id, staffId));
+    if (staffResult.length === 0) {
+      return res.status(404).json({ error: 'Staff member not found' });
+    }
+    const staffMember = staffResult[0];
+
+    // Auto-Clock-Out Logic: If already clocked into another site/shift, close it first.
+    try {
+      const activeShifts = await db.select().from(shifts).where(
+        and(
+          eq(shifts.staffId, staffId),
+          eq(shifts.clockedIn, true),
+          eq(shifts.clockedOut, false)
+        )
+      );
+
+      for (const activeShift of activeShifts) {
+        console.log(`[UnscheduledClockIn] Auto-clocking out previous shift ${activeShift.id}`);
+        await db.update(shifts)
+          .set({
+            clockedOut: true,
+            clockOutTime: new Date(),
+            notes: (activeShift.notes || '') + ' [Auto-closed for site transition]',
+            updatedAt: new Date()
+          })
+          .where(eq(shifts.id, activeShift.id));
+      }
+    } catch (autoErr) {
+      console.error('[UnscheduledClockIn] Error during auto-clock-out:', autoErr);
+    }
+
+    // Create a new shift record for this unscheduled work
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+
+    // Determine shift type based on hour (roughly)
+    const hour = now.getHours();
+    const type = (hour >= 20 || hour < 8) ? 'Night' : 'Day';
+    const startTime = `${String(hour).padStart(2, '0')}:00`;
+    // Set a default 8-hour duration but this will be overridden by actual clock-out
+    const endTime = `${String((hour + 8) % 24).padStart(2, '0')}:00`;
+
+    const newShiftData = {
+      id: `UNSCHED_${Date.now()}`,
+      staffId: staffId,
+      staffName: staffMember.name,
+      siteId: site.id,
+      siteName: site.name,
+      siteColor: site.color || '#9333ea',
+      date: dateStr,
+      type: type,
+      startTime: startTime,
+      endTime: endTime,
+      duration: 8, // Placeholder
+      clockedIn: true,
+      clockInTime: now,
+      staffStatus: 'accepted',
+      notes: 'Unscheduled shift started via QR scan',
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const newShift = await db.insert(shifts).values(newShiftData).returning();
+
+    res.json({
+      message: 'Unscheduled clock-in successful',
+      shift: newShift[0]
+    });
+  } catch (error) {
+    console.error('Error in unscheduled clock-in:', error);
+    res.status(500).json({ error: 'Failed to process unscheduled clock-in' });
   }
 });
 

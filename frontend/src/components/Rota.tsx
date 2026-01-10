@@ -169,6 +169,15 @@ const Rota: React.FC = () => {
     endTime: ''
   });
 
+  // Shift split states
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [selectedShiftForSplit, setSelectedShiftForSplit] = useState<Shift | null>(null);
+  const [splitForm, setSplitForm] = useState({
+    splitTime: '14:00',
+    newStaffId: '',
+    notes: ''
+  });
+
   // Get current week dates
   const getWeekDates = (weekOffset: number = 0) => {
     const today = new Date();
@@ -552,6 +561,64 @@ const Rota: React.FC = () => {
     });
 
     alert(`✅ SHIFT(S) ASSIGNED!\\n\\n${assignedWorkers.join('\\n')}\\n\\nSite: ${selectedSite.name}\\nDate: ${shiftForm.date}`);
+  };
+
+  const handleSplitShift = (shift: Shift) => {
+    setSelectedShiftForSplit(shift);
+    setSplitForm({
+      splitTime: '14:00', // Default middle of a day shift
+      newStaffId: '',
+      notes: ''
+    });
+    setShowSplitModal(true);
+  };
+
+  const executeSplit = async () => {
+    if (!selectedShiftForSplit || !splitForm.newStaffId || !splitForm.splitTime) {
+      alert('Please select a new staff member and split time');
+      return;
+    }
+
+    const { splitTime, newStaffId, notes } = splitForm;
+    const originalShift = selectedShiftForSplit;
+
+    // Create the two new shifts
+    const part1: Shift = {
+      ...originalShift,
+      id: `SPLIT_${originalShift.id}_1_${Date.now()}`,
+      endTime: splitTime,
+      notes: `${originalShift.notes || ''} [Split Part 1]`.trim()
+    };
+
+    const newStaff = staff.find(s => String(s.id) === String(newStaffId));
+    const part2: Shift = {
+      ...originalShift,
+      id: `SPLIT_${originalShift.id}_2_${Date.now()}`,
+      staffId: newStaffId,
+      staffName: newStaff?.name || 'Unknown',
+      startTime: splitTime,
+      notes: `${notes} [Split Part 2]`.trim(),
+      staffStatus: 'pending' // Second part usually needs acceptance
+    };
+
+    try {
+      // 1. Remove original
+      await removeShift(originalShift.id);
+
+      // 2. Add part 1
+      await addShift(part1);
+
+      // 3. Add part 2
+      await addShift(part2);
+
+      // Refresh
+      setShifts(getShifts());
+      setShowSplitModal(false);
+      alert('Shift split successfully between ' + originalShift.staffName + ' and ' + part2.staffName);
+    } catch (error) {
+      console.error('Failed to split shift:', error);
+      alert('Error splitting shift');
+    }
   };
 
   const handleApprove24Hr = async () => {
@@ -1461,6 +1528,27 @@ const Rota: React.FC = () => {
                                     Extend
                                   </button>
                                   <button
+                                    onClick={() => handleSplitShift(shift)}
+                                    onTouchEnd={(e) => {
+                                      e.preventDefault();
+                                      handleSplitShift(shift);
+                                    }}
+                                    style={{
+                                      flex: 1,
+                                      padding: '4px',
+                                      backgroundColor: '#8b5cf6',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      fontSize: '10px',
+                                      fontWeight: '600',
+                                      cursor: 'pointer',
+                                      touchAction: 'manipulation'
+                                    }}
+                                  >
+                                    Split
+                                  </button>
+                                  <button
                                     onClick={() => confirmDeleteShift(shift)}
                                     onTouchEnd={(e) => {
                                       e.preventDefault();
@@ -1654,6 +1742,27 @@ const Rota: React.FC = () => {
                                     }}
                                   >
                                     Extend
+                                  </button>
+                                  <button
+                                    onClick={() => handleSplitShift(shift)}
+                                    onTouchEnd={(e) => {
+                                      e.preventDefault();
+                                      handleSplitShift(shift);
+                                    }}
+                                    style={{
+                                      flex: 1,
+                                      padding: '4px',
+                                      backgroundColor: '#8b5cf6',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      fontSize: '10px',
+                                      fontWeight: '600',
+                                      cursor: 'pointer',
+                                      touchAction: 'manipulation'
+                                    }}
+                                  >
+                                    Split
                                   </button>
                                   <button
                                     onClick={() => confirmDeleteShift(shift)}
@@ -2755,6 +2864,197 @@ const Rota: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* Split Shift Modal */}
+      <Modal isOpen={showSplitModal} onClose={() => setShowSplitModal(false)} title="Split Shift">
+        {selectedShiftForSplit && (
+          <div>
+            <h2 style={{ color: 'white', fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' }}>
+              ✂️ Split Shift
+            </h2>
+
+            <div style={{
+              backgroundColor: '#1f2937',
+              borderRadius: '8px',
+              padding: '16px',
+              marginBottom: '20px',
+              border: '1px solid #3a3a3a'
+            }}>
+              <div style={{ color: '#9ca3af', fontSize: '13px', lineHeight: '1.8' }}>
+                <div><strong style={{ color: 'white' }}>Current Staff:</strong> {selectedShiftForSplit.staffName}</div>
+                <div><strong style={{ color: 'white' }}>Site:</strong> {selectedShiftForSplit.siteName}</div>
+                <div><strong style={{ color: 'white' }}>Full Time:</strong> {selectedShiftForSplit.startTime} - {selectedShiftForSplit.endTime}</div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                Split Time * (When the new staff member takes over)
+              </label>
+              <input
+                type="time"
+                value={splitForm.splitTime}
+                onChange={(e) => setSplitForm({ ...splitForm, splitTime: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: '#1f2937',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                New Staff Member *
+              </label>
+              <select
+                value={splitForm.newStaffId}
+                onChange={(e) => setSplitForm({ ...splitForm, newStaffId: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: '#1f2937',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="">Select Staff...</option>
+                {staff
+                  .filter(s => s.status === 'Active' && s.id !== selectedShiftForSplit.staffId)
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                Split Notes (Optional)
+              </label>
+              <textarea
+                value={splitForm.notes}
+                onChange={(e) => setSplitForm({ ...splitForm, notes: e.target.value })}
+                placeholder="Reason for split..."
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: '#1f2937',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '14px',
+                  minHeight: '80px',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowSplitModal(false)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: '#4b5563',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeSplit}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: '#8b5cf6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Split Shift
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Unscheduled Punches Section */}
+      <div style={{
+        marginTop: '40px',
+        padding: '20px',
+        backgroundColor: '#111827',
+        borderRadius: '12px',
+        border: '1px solid #374151'
+      }}>
+        <h3 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>⚠️</span> Unscheduled Punches
+        </h3>
+        <p style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '20px' }}>
+          The following punches were recorded via QR scan without a pre-scheduled shift slot. Review and approve them for payroll.
+        </p>
+
+        {shifts.filter(s => s.id.startsWith('UNSCHED_')).length === 0 ? (
+          <div style={{ color: '#6b7280', textAlign: 'center', padding: '20px', backgroundColor: '#1f2937', borderRadius: '8px', fontStyle: 'italic' }}>
+            No unscheduled punches to review.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {shifts.filter(s => s.id.startsWith('UNSCHED_')).map(punch => (
+              <div key={punch.id} style={{
+                backgroundColor: '#1f2937',
+                padding: '16px',
+                borderRadius: '8px',
+                border: '1px solid #3a3a3a',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <div>
+                  <div style={{ color: 'white', fontWeight: '600', fontSize: '15px' }}>{punch.staffName}</div>
+                  <div style={{ color: '#9ca3af', fontSize: '13px' }}>
+                    {punch.siteName} • {punch.date} • {punch.startTime} - {punch.endTime}
+                  </div>
+                  {punch.notes && (
+                    <div style={{ color: '#f59e0b', fontSize: '12px', marginTop: '4px' }}>
+                      Note: {punch.notes}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => handleSplitShift(punch)}
+                    style={{ padding: '6px 12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => confirmDeleteShift(punch)}
+                    style={{ padding: '6px 12px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
