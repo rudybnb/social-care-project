@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { getSites, getStaff, subscribeToSitesChange, Site as SharedSite, StaffMember, getShifts, setShifts as setSharedShifts, subscribeToDataChange, addShift, updateShift, removeShift, getAllWorkers } from '../data/sharedData';
 import { shiftsAPI } from '../services/api';
-import { calculateDuration } from '../utils/calculateDuration';
+import { calculateDuration, calculateEndTime } from '../utils/calculateDuration';
 
 interface Shift {
   id: string;
@@ -128,9 +128,10 @@ const Rota: React.FC = () => {
     workers: [
       {
         staffId: '',
-        hours: 0,
+        hours: 12,
         minutes: 0,
-        startTime: '07:00'
+        startTime: '07:00',
+        endTime: '19:00'
       }
     ],
     notes: ''
@@ -274,7 +275,8 @@ const Rota: React.FC = () => {
     const newShiftStart = new Date(`${newShift.date}T${newShift.startTime}`);
 
     for (const existingShift of staffShifts) {
-      const existingEnd = new Date(`${existingShift.date}T${existingShift.endTime}`);
+      const existingEndTime = existingShift.endTime || calculateEndTime(existingShift.startTime, existingShift.duration);
+      const existingEnd = new Date(`${existingShift.date}T${existingEndTime}`);
       const hoursDiff = Math.abs((newShiftStart.getTime() - existingEnd.getTime()) / (1000 * 60 * 60));
 
       if (hoursDiff < 12 && hoursDiff > 0) {
@@ -317,9 +319,10 @@ const Rota: React.FC = () => {
         // Add new empty worker with hours/minutes
         newWorkers.push({
           staffId: '',
-          hours: 0,
+          hours: 12,
           minutes: 0,
-          startTime: '07:00'
+          startTime: '07:00',
+          endTime: '19:00'
         });
       }
     }
@@ -329,11 +332,29 @@ const Rota: React.FC = () => {
   // Update worker field
   const updateWorker = (index: number, field: string, value: string) => {
     const newWorkers = [...shiftForm.workers];
+    const worker = { ...newWorkers[index] };
+
     if (field === 'hours' || field === 'minutes') {
-      newWorkers[index] = { ...newWorkers[index], [field]: parseInt(value) || 0 };
+      worker[field] = parseInt(value) || 0;
+      // Update endTime based on startTime + duration
+      const [startHour, startMin] = worker.startTime.split(':').map(Number);
+      const totalMinutes = startHour * 60 + startMin + worker.hours * 60 + worker.minutes;
+      const endHour = Math.floor(totalMinutes / 60) % 24;
+      const endMin = totalMinutes % 60;
+      worker.endTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
+    } else if (field === 'startTime' || field === 'endTime') {
+      worker[field] = value;
+      // Update duration based on startTime and endTime
+      if (worker.startTime && worker.endTime) {
+        const durationHours = calculateDuration(worker.startTime, worker.endTime);
+        worker.hours = Math.floor(durationHours);
+        worker.minutes = Math.round((durationHours - worker.hours) * 60);
+      }
     } else {
-      newWorkers[index] = { ...newWorkers[index], [field]: value };
+      (worker as any)[field] = value;
     }
+
+    newWorkers[index] = worker;
     setShiftForm({ ...shiftForm, workers: newWorkers });
   };
 
@@ -440,17 +461,12 @@ const Rota: React.FC = () => {
         }
       }
 
-      // Calculate duration from hours and minutes
+      // Use duration from workers state
       const durationHours = worker.hours + (worker.minutes / 60);
-
-      // Calculate end time from start time + duration
-      const [startHour, startMin] = worker.startTime.split(':').map(Number);
-      const totalMinutes = startHour * 60 + startMin + worker.hours * 60 + worker.minutes;
-      const endHour = Math.floor(totalMinutes / 60) % 24;
-      const endMin = totalMinutes % 60;
-      const endTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
+      const endTime = worker.endTime;
 
       // Determine if it's a day or night shift based on start time
+      const [startHour] = worker.startTime.split(':').map(Number);
       const shiftType = startHour >= 7 && startHour < 19 ? 'Day' : 'Night';
 
       // Create shift object
@@ -552,9 +568,10 @@ const Rota: React.FC = () => {
       workers: [
         {
           staffId: '',
-          hours: 0,
+          hours: 12,
           minutes: 0,
-          startTime: '07:00'
+          startTime: '07:00',
+          endTime: '19:00'
         }
       ],
       notes: ''
@@ -586,10 +603,14 @@ const Rota: React.FC = () => {
     const [p1StartHour] = originalShift.startTime.split(':').map(Number);
     const p1ShiftType = p1StartHour >= 7 && p1StartHour < 19 ? 'Day' : 'Night';
 
+    // Ensure original has endTime for duration calculation of part 2
+    const originalEndTime = originalShift.endTime || calculateEndTime(originalShift.startTime, originalShift.duration);
+
     const part1: Shift = {
       ...originalShift,
       id: `SPLIT_${originalShift.id}_1_${Date.now()}`,
       endTime: splitTime,
+      duration: calculateDuration(originalShift.startTime, splitTime),
       type: p1ShiftType,
       notes: `${originalShift.notes || ''} [Split Part 1]`.trim()
     };
@@ -604,6 +625,8 @@ const Rota: React.FC = () => {
       staffId: newStaffId,
       staffName: newStaff?.name || 'Unknown',
       startTime: splitTime,
+      endTime: originalEndTime,
+      duration: calculateDuration(splitTime, originalEndTime),
       type: p2ShiftType,
       notes: `${notes} [Split Part 2]`.trim(),
       staffStatus: 'pending' // Second part usually needs acceptance
@@ -666,9 +689,10 @@ const Rota: React.FC = () => {
       workers: [
         {
           staffId: '',
-          hours: 0,
+          hours: 12,
           minutes: 0,
-          startTime: '07:00'
+          startTime: '07:00',
+          endTime: '19:00'
         }
       ],
       notes: ''
@@ -738,9 +762,10 @@ const Rota: React.FC = () => {
       workers: [
         {
           staffId: '',
-          hours: 0,
+          hours: 12,
           minutes: 0,
-          startTime: '07:00'
+          startTime: '07:00',
+          endTime: '19:00'
         }
       ],
       notes: ''
@@ -794,9 +819,10 @@ const Rota: React.FC = () => {
           workers: [
             {
               staffId: shiftToDelete.type === 'Day' ? '' : oppositeShift.staffId,
-              hours: 0,
+              hours: 12,
               minutes: 0,
-              startTime: shiftToDelete.type === 'Day' ? '20:00' : '08:00'
+              startTime: shiftToDelete.type === 'Day' ? '19:00' : '07:00',
+              endTime: shiftToDelete.type === 'Day' ? '07:00' : '19:00'
             }
           ],
           notes: `Replacement for removed shift`
@@ -2059,25 +2085,45 @@ const Rota: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Start Time */}
-                <div>
-                  <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                    Start Time *
-                  </label>
-                  <input
-                    type="time"
-                    value={worker.startTime}
-                    onChange={(e) => updateWorker(index, 'startTime', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      backgroundColor: '#0a0a0a',
-                      color: 'white',
-                      border: '1px solid #3a3a3a',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                      Start Time *
+                    </label>
+                    <input
+                      type="time"
+                      value={worker.startTime}
+                      onChange={(e) => updateWorker(index, 'startTime', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        backgroundColor: '#0a0a0a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                      End Time *
+                    </label>
+                    <input
+                      type="time"
+                      value={worker.endTime}
+                      onChange={(e) => updateWorker(index, 'endTime', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        backgroundColor: '#0a0a0a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -2545,7 +2591,7 @@ const Rota: React.FC = () => {
                 <div><strong>Staff:</strong> {shiftToDelete.staffName}</div>
                 <div><strong>Site:</strong> {shiftToDelete.siteName}</div>
                 <div><strong>Date:</strong> {shiftToDelete.date}</div>
-                <div><strong>Shift:</strong> {shiftToDelete.type} ({shiftToDelete.startTime}-{shiftToDelete.endTime})</div>
+                <div><strong>Shift:</strong> {shiftToDelete.type} ({shiftToDelete.startTime}-{shiftToDelete.endTime || calculateEndTime(shiftToDelete.startTime, shiftToDelete.duration)})</div>
               </div>
             </div>
 
@@ -2616,7 +2662,7 @@ const Rota: React.FC = () => {
                 <div><strong style={{ color: 'white' }}>Staff:</strong> {selectedShiftForExtension.staffName}</div>
                 <div><strong style={{ color: 'white' }}>Site:</strong> {selectedShiftForExtension.siteName}</div>
                 <div><strong style={{ color: 'white' }}>Date:</strong> {selectedShiftForExtension.date}</div>
-                <div><strong style={{ color: 'white' }}>Shift:</strong> {selectedShiftForExtension.type} ({selectedShiftForExtension.startTime}-{selectedShiftForExtension.endTime})</div>
+                <div><strong style={{ color: 'white' }}>Shift:</strong> {selectedShiftForExtension.type} ({selectedShiftForExtension.startTime}-{selectedShiftForExtension.endTime || calculateEndTime(selectedShiftForExtension.startTime, selectedShiftForExtension.duration)})</div>
                 <div><strong style={{ color: 'white' }}>Current Duration:</strong> {selectedShiftForExtension.duration} hours</div>
               </div>
             </div>
@@ -2910,7 +2956,7 @@ const Rota: React.FC = () => {
               <div style={{ color: '#9ca3af', fontSize: '13px', lineHeight: '1.8' }}>
                 <div><strong style={{ color: 'white' }}>Current Staff:</strong> {selectedShiftForSplit.staffName}</div>
                 <div><strong style={{ color: 'white' }}>Site:</strong> {selectedShiftForSplit.siteName}</div>
-                <div><strong style={{ color: 'white' }}>Full Time:</strong> {selectedShiftForSplit.startTime} - {selectedShiftForSplit.endTime}</div>
+                <div><strong style={{ color: 'white' }}>Full Time:</strong> {selectedShiftForSplit.startTime} - {selectedShiftForSplit.endTime || calculateEndTime(selectedShiftForSplit.startTime, selectedShiftForSplit.duration)}</div>
               </div>
             </div>
 
