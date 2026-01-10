@@ -33,9 +33,10 @@ const AdminDashboard: React.FC = () => {
 
     const fetchUnscheduledCount = async () => {
       try {
+        // Use /api/shifts and filter for UNSCHED_ prefixed IDs
         const response = await fetch('https://social-care-backend.onrender.com/api/shifts');
         const shifts = await response.json();
-        const unscheduled = shifts.filter((s: any) => s.id && s.id.startsWith('UNSCHED_'));
+        const unscheduled = Array.isArray(shifts) ? shifts.filter((s: any) => s.id && s.id.startsWith('UNSCHED_')) : [];
         setPendingUnscheduledCount(unscheduled.length);
       } catch (error) {
         console.error('Failed to fetch unscheduled count:', error);
