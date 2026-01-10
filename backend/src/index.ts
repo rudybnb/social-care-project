@@ -424,7 +424,8 @@ app.delete('/api/shifts/:id', async (req: Request, res: Response) => {
 app.delete('/api/shifts/clear/:siteId/:date', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { siteId, date } = req.params;
+    const siteId = req.params.siteId as string;
+    const date = req.params.date as string;
     if (!siteId || !date) {
       return res.status(400).json({ error: 'Site ID and date are required' });
     }
