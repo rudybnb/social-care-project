@@ -1531,6 +1531,68 @@ app.post('/api/admin/migrate-unsched-shifts', async (_req: Request, res: Respons
   }
 });
 
+// Admin: Recalculate durations for completed shifts
+app.post('/api/admin/recalculate-durations', async (_req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+
+    console.log('[RecalcDurations] Starting duration recalculation...');
+
+    // Get all shifts with clock-in and clock-out times
+    const allShifts = await db.select().from(shifts).where(
+      and(
+        eq(shifts.clockedIn, true),
+        eq(shifts.clockedOut, true)
+      )
+    );
+
+    console.log(`[RecalcDurations] Found ${allShifts.length} completed shifts`);
+
+    let fixed = 0;
+    let skipped = 0;
+
+    for (const shift of allShifts) {
+      if (!shift.clockInTime || !shift.clockOutTime) {
+        skipped++;
+        continue;
+      }
+
+      const clockIn = new Date(shift.clockInTime);
+      const clockOut = new Date(shift.clockOutTime);
+      const diffMs = clockOut.getTime() - clockIn.getTime();
+      const actualDuration = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
+
+      // Only update if duration is different
+      if (Math.abs(actualDuration - (shift.duration || 0)) > 0.1) {
+        await db.update(shifts)
+          .set({
+            duration: actualDuration,
+            updatedAt: new Date()
+          })
+          .where(eq(shifts.id, shift.id));
+
+        console.log(`[RecalcDurations] Fixed ${shift.id}: ${shift.duration}h → ${actualDuration}h`);
+        fixed++;
+      } else {
+        skipped++;
+      }
+    }
+
+    console.log(`[RecalcDurations] Complete. Fixed: ${fixed}, Skipped: ${skipped}`);
+
+    res.json({
+      success: true,
+      message: `Duration recalculation complete. ${fixed} shifts fixed, ${skipped} already correct.`,
+      fixed,
+      skipped,
+      total: allShifts.length
+    });
+  } catch (error) {
+    console.error('[RecalcDurations] Error:', error);
+    res.status(500).json({ error: 'Recalculation failed' });
+  }
+});
+
 app.listen(PORT, async () => {
   console.log(`API server listening on http://localhost:${PORT}`);
   await runStartupMigration();
