@@ -128,6 +128,8 @@ export interface Shift {
   clockInTime?: string;
   clockedOut?: boolean;
   clockOutTime?: string;
+  duplicateShiftApprovedBy?: string;
+  declineReason?: string;
 }
 
 export const shiftsAPI = {

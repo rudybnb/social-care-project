@@ -1,34 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
-import { getSites, getStaff, subscribeToSitesChange, Site as SharedSite, StaffMember, getShifts, setShifts as setSharedShifts, subscribeToDataChange, addShift, updateShift, removeShift, getAllWorkers } from '../data/sharedData';
+import { getSites, getStaff, subscribeToSitesChange, Site as SharedSite, StaffMember, getShifts, setShifts as setSharedShifts, subscribeToDataChange, addShift, updateShift, removeShift, getAllWorkers, Shift } from '../data/sharedData';
 import { shiftsAPI } from '../services/api';
 import { calculateDuration, calculateEndTime } from '../utils/calculateDuration';
 
-interface Shift {
-  id: string;
-  staffId: string;
-  staffName: string;
-  siteId: string;
-  siteName: string;
-  siteColor: string;
-  date: string;
-  type: 'Day' | 'Night';
-  startTime: string;
-  endTime: string;
-  duration: number;
-  is24Hour: boolean;
-  isBank?: boolean; // True if this is a BANK placeholder shift
-  approved24HrBy?: string;
-  duplicateShiftApprovedBy?: string; // For multiple workers on same shift
-  notes?: string;
-  extended?: boolean;
-  extensionHours?: number;
-  extensionReason?: string;
-  extensionApprovedBy?: string;
-  extensionApprovalRequired?: boolean;
-  staffStatus?: 'pending' | 'accepted' | 'declined';
-  declineReason?: string;
-}
 
 const Rota: React.FC = () => {
   const [sites, setSites] = useState<SharedSite[]>(getSites());
