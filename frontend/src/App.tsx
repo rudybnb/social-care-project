@@ -32,6 +32,7 @@ function AppRoutes() {
       <Route path="/" element={<Login />} />
       <Route path="/staff" element={<StaffApp />} />
       <Route path="/clock" element={<ClockInOut />} />
+      <Route path="/clock-in" element={<ClockInOut />} />
       <Route path="/qr-clock" element={<ClockInOut />} />
       <Route path="/site-qr/:siteId" element={<DynamicSiteQR />} />
       <Route

@@ -89,20 +89,20 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
   // Check if response is locked
   const isLocked = shift.responseLocked || false;
   const wasAutoAccepted = shift.autoAccepted || false;
-  
+
   // Calculate time until deadline
   const getTimeUntilDeadline = () => {
     if (!shift.weekDeadline) return null;
     const deadline = new Date(shift.weekDeadline);
     const now = new Date();
     const diff = deadline.getTime() - now.getTime();
-    
+
     if (diff < 0) return 'Deadline passed';
-    
+
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     if (days > 0) return `${days}d ${hours}h remaining`;
     if (hours > 0) return `${hours}h ${minutes}m remaining`;
     return `${minutes}m remaining`;
@@ -323,8 +323,8 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                   value={reason}
                   onIonChange={e => setReason(e.detail.value || '')}
                   rows={3}
-                  style={{ 
-                    '--background': '#2a2a2a', 
+                  style={{
+                    '--background': '#2a2a2a',
                     '--color': 'white',
                     '--padding-start': '12px',
                     '--padding-end': '12px',
@@ -352,8 +352,8 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                       value={reason}
                       onIonChange={e => setReason(e.detail.value || '')}
                       rows={2}
-                      style={{ 
-                        '--background': '#2a2a2a', 
+                      style={{
+                        '--background': '#2a2a2a',
                         '--color': 'white',
                         '--padding-start': '12px',
                         '--padding-end': '12px',
@@ -378,18 +378,18 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                       value={reason}
                       onIonChange={e => setReason(e.detail.value || '')}
                       rows={3}
-                      style={{ 
-                        '--background': '#2a2a2a', 
+                      style={{
+                        '--background': '#2a2a2a',
                         '--color': 'white',
                         '--padding-start': '12px',
                         '--padding-end': '12px',
                         borderRadius: '8px'
                       }}
                     />
-                    <IonButton 
-                      expand="block" 
-                      color="danger" 
-                      onClick={handleCantMakeIt} 
+                    <IonButton
+                      expand="block"
+                      color="danger"
+                      onClick={handleCantMakeIt}
                       disabled={!reason.trim()}
                       style={{ marginTop: '8px' }}
                     >
@@ -400,19 +400,24 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
               </>
             )}
 
-            {/* Clock In (only for today's accepted shifts) */}
-            {isToday && !shift.clockedIn && shift.status === 'accepted' && (
-              <IonButton expand="block" color="primary" onClick={() => { onClockIn(shift); onClose(); }}>
+            {/* Clock In (only for today's shifts that aren't clocked in yet) */}
+            {isToday && !shift.clockedIn && (
+              <IonButton
+                expand="block"
+                color="primary"
+                onClick={() => { onClockIn(shift); onClose(); }}
+                style={{ '--background': '#9333ea', '--background-activated': '#7c3aed', marginTop: '8px' }}
+              >
                 <IonIcon slot="start" icon={qrCode} />
-                Clock In with QR
+                {shift.status === 'accepted' ? 'Clock In with QR' : 'Accept & Clock In'}
               </IonButton>
             )}
 
             {/* Message to Admin */}
-            <IonButton 
-              expand="block" 
-              fill="outline" 
-              color="medium" 
+            <IonButton
+              expand="block"
+              fill="outline"
+              color="medium"
               onClick={() => setShowMessageBox(!showMessageBox)}
               style={{ marginTop: '12px' }}
             >
@@ -427,8 +432,8 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                   value={message}
                   onIonChange={e => setMessage(e.detail.value || '')}
                   rows={4}
-                  style={{ 
-                    '--background': '#2a2a2a', 
+                  style={{
+                    '--background': '#2a2a2a',
                     '--color': 'white',
                     '--padding-start': '12px',
                     '--padding-end': '12px',
@@ -436,9 +441,9 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                     marginBottom: '8px'
                   }}
                 />
-                <IonButton 
-                  expand="block" 
-                  color="primary" 
+                <IonButton
+                  expand="block"
+                  color="primary"
                   onClick={handleSendMessage}
                   disabled={!message.trim()}
                 >

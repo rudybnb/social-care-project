@@ -241,6 +241,30 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
 
         {/* Action Buttons */}
         <div style={{ padding: '0 16px 16px' }}>
+          {todayShifts.length > 0 && !activeShift && (
+            <button
+              onClick={() => openScanner(todayShifts[0])}
+              style={{
+                background: 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '20px',
+                fontSize: '18px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 15px rgba(147, 51, 234, 0.5)',
+                marginBottom: '16px',
+                width: '100%'
+              }}
+            >
+              🚀 CLOCK IN NOW
+            </button>
+          )}
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr',
