@@ -122,6 +122,12 @@ export interface Shift {
   extensionReason?: string;
   extensionApprovedBy?: string;
   extensionApprovalRequired?: boolean;
+  isBank?: boolean;
+  staffStatus?: 'pending' | 'accepted' | 'declined';
+  clockedIn?: boolean;
+  clockInTime?: string;
+  clockedOut?: boolean;
+  clockOutTime?: string;
 }
 
 export const shiftsAPI = {
