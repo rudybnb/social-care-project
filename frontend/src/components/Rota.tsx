@@ -130,7 +130,7 @@ const Rota: React.FC = () => {
         staffId: '',
         hours: 0,
         minutes: 0,
-        startTime: '08:00'
+        startTime: '07:00'
       }
     ],
     notes: ''
@@ -319,7 +319,7 @@ const Rota: React.FC = () => {
           staffId: '',
           hours: 0,
           minutes: 0,
-          startTime: '08:00'
+          startTime: '07:00'
         });
       }
     }
@@ -451,7 +451,7 @@ const Rota: React.FC = () => {
       const endTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
 
       // Determine if it's a day or night shift based on start time
-      const shiftType = startHour >= 8 && startHour < 20 ? 'Day' : 'Night';
+      const shiftType = startHour >= 7 && startHour < 19 ? 'Day' : 'Night';
 
       // Create shift object
       const shift: Shift = {
@@ -554,7 +554,7 @@ const Rota: React.FC = () => {
           staffId: '',
           hours: 0,
           minutes: 0,
-          startTime: '08:00'
+          startTime: '07:00'
         }
       ],
       notes: ''
@@ -583,20 +583,28 @@ const Rota: React.FC = () => {
     const originalShift = selectedShiftForSplit;
 
     // Create the two new shifts
+    const [p1StartHour] = originalShift.startTime.split(':').map(Number);
+    const p1ShiftType = p1StartHour >= 7 && p1StartHour < 19 ? 'Day' : 'Night';
+
     const part1: Shift = {
       ...originalShift,
       id: `SPLIT_${originalShift.id}_1_${Date.now()}`,
       endTime: splitTime,
+      type: p1ShiftType,
       notes: `${originalShift.notes || ''} [Split Part 1]`.trim()
     };
 
     const newStaff = staff.find(s => String(s.id) === String(newStaffId));
+    const [p2StartHour] = splitTime.split(':').map(Number);
+    const p2ShiftType = p2StartHour >= 7 && p2StartHour < 19 ? 'Day' : 'Night';
+
     const part2: Shift = {
       ...originalShift,
       id: `SPLIT_${originalShift.id}_2_${Date.now()}`,
       staffId: newStaffId,
       staffName: newStaff?.name || 'Unknown',
       startTime: splitTime,
+      type: p2ShiftType,
       notes: `${notes} [Split Part 2]`.trim(),
       staffStatus: 'pending' // Second part usually needs acceptance
     };
@@ -660,7 +668,7 @@ const Rota: React.FC = () => {
           staffId: '',
           hours: 0,
           minutes: 0,
-          startTime: '08:00'
+          startTime: '07:00'
         }
       ],
       notes: ''
@@ -732,7 +740,7 @@ const Rota: React.FC = () => {
           staffId: '',
           hours: 0,
           minutes: 0,
-          startTime: '08:00'
+          startTime: '07:00'
         }
       ],
       notes: ''
@@ -803,8 +811,8 @@ const Rota: React.FC = () => {
           ...oppositeShift,
           is24Hour: true,
           duration: 24,
-          startTime: '08:00',
-          endTime: '08:00',
+          startTime: '07:00',
+          endTime: '07:00',
           notes: `Converted to 24hr after ${shiftToDelete.type} shift removal`
         };
         setPending24HrShift(updated24HrShift);
@@ -1040,11 +1048,16 @@ const Rota: React.FC = () => {
       // Calculate new duration
       const duration = calculateDuration(editShiftForm.startTime, editShiftForm.endTime);
 
+      // Determine new shift type
+      const [startHour] = editShiftForm.startTime.split(':').map(Number);
+      const shiftType = startHour >= 7 && startHour < 19 ? 'Day' : 'Night';
+
       // Update the shift
       await updateShift(editingShift.id, {
         date: editShiftForm.date,
         startTime: editShiftForm.startTime,
         endTime: editShiftForm.endTime,
+        type: shiftType as 'Day' | 'Night',
         duration
       });
 
