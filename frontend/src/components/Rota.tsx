@@ -1524,8 +1524,14 @@ const Rota: React.FC = () => {
                                     )}
                                   </div>
                                   <div style={{ color: '#9ca3af', fontSize: '10px' }}>
-                                    {shift.startTime}-{shift.endTime}
+                                    {shift.startTime}-{shift.endTime || calculateEndTime(shift.startTime, shift.duration)}
                                   </div>
+                                  {shift.clockedIn && (
+                                    <div style={{ fontSize: '10px', marginTop: '2px', display: 'flex', gap: '4px' }}>
+                                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>In: {shift.clockInTime}</span>
+                                      {shift.clockedOut && <span style={{ color: '#10b981', fontWeight: 'bold' }}>Out: {shift.clockOutTime}</span>}
+                                    </div>
+                                  )}
                                   {shift.is24Hour && (
                                     <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
                                       24HR APPROVED
@@ -1740,8 +1746,14 @@ const Rota: React.FC = () => {
                                     )}
                                   </div>
                                   <div style={{ color: '#9ca3af', fontSize: '10px' }}>
-                                    {shift.startTime}-{shift.endTime}
+                                    {shift.startTime}-{shift.endTime || calculateEndTime(shift.startTime, shift.duration)}
                                   </div>
+                                  {shift.clockedIn && (
+                                    <div style={{ fontSize: '10px', marginTop: '2px', display: 'flex', gap: '4px' }}>
+                                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>In: {shift.clockInTime}</span>
+                                      {shift.clockedOut && <span style={{ color: '#10b981', fontWeight: 'bold' }}>Out: {shift.clockOutTime}</span>}
+                                    </div>
+                                  )}
                                   {shift.is24Hour && (
                                     <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
                                       24HR APPROVED
@@ -3067,67 +3079,6 @@ const Rota: React.FC = () => {
         )}
       </Modal>
 
-      {/* Unscheduled Punches Section */}
-      <div style={{
-        marginTop: '40px',
-        padding: '20px',
-        backgroundColor: '#111827',
-        borderRadius: '12px',
-        border: '1px solid #374151'
-      }}>
-        <h3 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>⚠️</span> Unscheduled Punches
-        </h3>
-        <p style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '20px' }}>
-          The following punches were recorded via QR scan without a pre-scheduled shift slot. Review and approve them for payroll.
-        </p>
-
-        {shifts.filter(s => s.id.startsWith('UNSCHED_')).length === 0 ? (
-          <div style={{ color: '#6b7280', textAlign: 'center', padding: '20px', backgroundColor: '#1f2937', borderRadius: '8px', fontStyle: 'italic' }}>
-            No unscheduled punches to review.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {shifts.filter(s => s.id.startsWith('UNSCHED_')).map(punch => (
-              <div key={punch.id} style={{
-                backgroundColor: '#1f2937',
-                padding: '16px',
-                borderRadius: '8px',
-                border: '1px solid #3a3a3a',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div>
-                  <div style={{ color: 'white', fontWeight: '600', fontSize: '15px' }}>{punch.staffName}</div>
-                  <div style={{ color: '#9ca3af', fontSize: '13px' }}>
-                    {punch.siteName} • {punch.date} • {punch.startTime} - {punch.endTime}
-                  </div>
-                  {punch.notes && (
-                    <div style={{ color: '#f59e0b', fontSize: '12px', marginTop: '4px' }}>
-                      Note: {punch.notes}
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => handleSplitShift(punch)}
-                    style={{ padding: '6px 12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => confirmDeleteShift(punch)}
-                    style={{ padding: '6px 12px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
-                  >
-                    Reject
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 };

@@ -8,12 +8,14 @@ import Payroll from '../components/Payroll';
 import AnnualLeave from '../components/AnnualLeave';
 import Attendance from '../components/Attendance';
 import ApprovalRequests from '../components/ApprovalRequests';
+import UnscheduledPunches from '../components/UnscheduledPunches';
 
 const AdminDashboard: React.FC = () => {
   const { logout, user } = useAuth();
   const [currentPage, setCurrentPage] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+  const [pendingUnscheduledCount, setPendingUnscheduledCount] = useState(0);
 
   // Fetch pending leave count
   useEffect(() => {
@@ -28,8 +30,24 @@ const AdminDashboard: React.FC = () => {
       }
     };
     fetchPendingCount();
+
+    const fetchUnscheduledCount = async () => {
+      try {
+        const response = await fetch('https://social-care-backend.onrender.com/api/shifts');
+        const shifts = await response.json();
+        const unscheduled = shifts.filter((s: any) => s.id && s.id.startsWith('UNSCHED_'));
+        setPendingUnscheduledCount(unscheduled.length);
+      } catch (error) {
+        console.error('Failed to fetch unscheduled count:', error);
+      }
+    };
+    fetchUnscheduledCount();
+
     // Refresh every 30 seconds
-    const interval = setInterval(fetchPendingCount, 30000);
+    const interval = setInterval(() => {
+      fetchPendingCount();
+      fetchUnscheduledCount();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -47,6 +65,7 @@ const AdminDashboard: React.FC = () => {
   const menuItems = [
     { id: 'overview', label: 'Overview' },
     { id: 'rota', label: 'Rota' },
+    { id: 'unscheduled', label: 'Unscheduled' },
     { id: 'attendance', label: 'Attendance' },
     { id: 'approvals', label: 'Approvals' },
     { id: 'room-scans', label: 'Room Scans' },
@@ -80,6 +99,8 @@ const AdminDashboard: React.FC = () => {
         return <Attendance />;
       case 'approvals':
         return <ApprovalRequests />;
+      case 'unscheduled':
+        return <UnscheduledPunches />;
       default:
         return <div style={{ padding: '20px', color: 'white' }}>
           <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '12px' }}>
@@ -198,6 +219,20 @@ const AdminDashboard: React.FC = () => {
                     textAlign: 'center'
                   }}>
                     {pendingLeaveCount}
+                  </span>
+                )}
+                {item.id === 'unscheduled' && pendingUnscheduledCount > 0 && (
+                  <span style={{
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    minWidth: '20px',
+                    textAlign: 'center'
+                  }}>
+                    {pendingUnscheduledCount}
                   </span>
                 )}
               </span>
