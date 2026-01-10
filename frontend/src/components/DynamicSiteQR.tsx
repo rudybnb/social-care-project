@@ -1,44 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import QRCode from 'qrcode';
-import * as OTPAuth from 'otpauth';
 
 const DynamicSiteQR: React.FC = () => {
   const { siteId } = useParams<{ siteId: string }>();
-  const [siteName, setSiteName] = useState('Loading...');
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const urlSiteName = searchParams.get('name');
+
+  const [siteName, setSiteName] = useState(urlSiteName || 'Loading...');
   const [currentCode, setCurrentCode] = useState('');
-  const [timeLeft, setTimeLeft] = useState(60);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Generate TOTP secret for this site (deterministic based on siteId)
-  const getSecret = (siteId: string) => {
-    // In production, this should be stored securely in the database
-    // For now, we'll generate a deterministic secret based on siteId
-    return `ECCLESIA${siteId.toUpperCase().replace(/[^A-Z0-9]/g, '')}SECRET`;
-  };
-
-  // Generate current TOTP code
+  // Generate static QR code for backend compatibility
   const generateCode = () => {
-    const secret = getSecret(siteId || '');
-    const totp = new OTPAuth.TOTP({
-      issuer: 'Ecclesia Care',
-      label: siteName,
-      algorithm: 'SHA1',
-      digits: 6,
-      period: 60, // 60 second validity
-      secret: OTPAuth.Secret.fromBase32(secret)
-    });
-    
-    const token = totp.generate();
-    const qrData = `SITE_CHECKIN:${siteId}:${token}`;
-    return qrData;
+    // Backend expects 'SITE_{siteId}'
+    // See backend/src/index.ts around line 618
+    return `SITE_${siteId}`;
   };
 
   // Update QR code
   const updateQRCode = () => {
     const code = generateCode();
     setCurrentCode(code);
-    
+
     if (canvasRef.current) {
       QRCode.toCanvas(canvasRef.current, code, {
         width: 400,
@@ -55,41 +40,37 @@ const DynamicSiteQR: React.FC = () => {
   useEffect(() => {
     const fetchSiteName = async () => {
       try {
+        // Try to find in shared data first (which might be cached)
+        const { getSites } = await import('../data/sharedData');
+        const sites = getSites();
+        const localSite = sites.find((s: any) => s.id === siteId);
+
+        if (localSite) {
+          setSiteName(localSite.name);
+          return;
+        }
+
+        // Fallback to direct API call
         const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api/sites`);
-        const sites = await response.json();
-        const site = sites.find((s: any) => s.id === siteId);
+        const apiSites = await response.json();
+        const site = apiSites.find((s: any) => s.id === siteId);
         if (site) {
           setSiteName(site.name);
+        } else {
+          setSiteName('Site Not Found');
         }
       } catch (error) {
         console.error('Error fetching site:', error);
+        setSiteName('Error Loading Site');
       }
     };
     fetchSiteName();
   }, [siteId]);
 
-  // Update QR code every 60 seconds
+  // Update QR code once on mount
   useEffect(() => {
     updateQRCode();
-    const interval = setInterval(() => {
-      updateQRCode();
-      setTimeLeft(60);
-    }, 60000);
-
-    return () => clearInterval(interval);
   }, [siteId, siteName]);
-
-  // Countdown timer
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) return 60;
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
 
   return (
     <div style={{
@@ -134,33 +115,6 @@ const DynamicSiteQR: React.FC = () => {
         marginBottom: '30px'
       }}>
         <canvas ref={canvasRef} />
-      </div>
-
-      {/* Timer */}
-      <div style={{
-        backgroundColor: '#2a2a2a',
-        padding: '20px 40px',
-        borderRadius: '16px',
-        border: '2px solid #3a3a3a',
-        marginBottom: '30px'
-      }}>
-        <div style={{
-          color: '#9ca3af',
-          fontSize: '16px',
-          marginBottom: '8px',
-          textAlign: 'center'
-        }}>
-          Code refreshes in
-        </div>
-        <div style={{
-          color: timeLeft <= 10 ? '#ef4444' : '#10b981',
-          fontSize: '48px',
-          fontWeight: 'bold',
-          textAlign: 'center',
-          fontFamily: 'monospace'
-        }}>
-          {timeLeft}s
-        </div>
       </div>
 
       {/* Instructions */}
@@ -208,7 +162,7 @@ const DynamicSiteQR: React.FC = () => {
           Social Care Management System
         </p>
         <p style={{ margin: '8px 0', fontSize: '12px' }}>
-          🔒 Secure Dynamic QR Code • Refreshes every 60 seconds
+          🔒 Secure Site QR Code
         </p>
       </div>
     </div>

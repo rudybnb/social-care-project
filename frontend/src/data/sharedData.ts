@@ -128,12 +128,27 @@ let agencies: Agency[] = [];
 let agencyWorkers: AgencyWorker[] = [];
 let dataLoaded = false;
 
+// Helper to save sites to local storage
+const saveSitesToStorage = () => {
+  localStorage.setItem('sites', JSON.stringify(sites));
+};
+
 // ==================== INITIALIZATION ====================
 
 // Load data from backend on first access
 const initializeData = async () => {
   if (dataLoaded) return;
-  
+
+  // Try loading from local storage first (fastest)
+  const savedSites = localStorage.getItem('sites');
+  if (savedSites) {
+    try {
+      sites = JSON.parse(savedSites);
+    } catch (e) {
+      console.warn('Failed to parse sites from local storage');
+    }
+  }
+
   try {
     console.log('Loading data from backend API...');
     const [backendSites, backendStaff, backendShifts] = await Promise.all([
@@ -142,7 +157,13 @@ const initializeData = async () => {
       shiftsAPI.getAll().catch(() => [])
     ]);
 
-    if (backendSites.length > 0) sites = backendSites;
+    // Merge backend sites with local sites (prefer backend if conflict, but keep local additions)
+    // For simplicity in this fix, if backend returns data, use it. If not, stick with local.
+    if (backendSites.length > 0) {
+      sites = backendSites;
+      saveSitesToStorage(); // Update local storage with fresh backend data
+    }
+
     if (backendStaff.length > 0) staff = backendStaff;
     if (backendShifts.length > 0) shifts = backendShifts;
 
@@ -160,27 +181,64 @@ const initializeData = async () => {
 
 export const getSites = (): Site[] => {
   if (!dataLoaded) {
+    // If we have data in local storage, load it synchronously for immediate render
+    const savedSites = localStorage.getItem('sites');
+    if (savedSites && !dataLoaded) {
+      try {
+        sites = JSON.parse(savedSites);
+      } catch (e) { }
+    }
     initializeData();
   }
   return [...sites];
 };
 
 export const addSite = async (site: Site): Promise<void> => {
-  // TODO: Enable backend API when deployed
-  sites.push(site);
-  notifyDataChanged();
+  try {
+    console.log('Adding site:', site);
+    const createdSite = await sitesAPI.create(site);
+    sites.push(createdSite);
+    saveSitesToStorage();
+    notifyDataChanged();
+  } catch (error) {
+    console.error('Failed to create site:', error);
+    // Fallback: save to local cache
+    sites.push(site);
+    saveSitesToStorage();
+    notifyDataChanged();
+  }
 };
 
 export const updateSite = async (id: string, updates: Partial<Site>): Promise<void> => {
-  // TODO: Enable backend API when deployed
-  sites = sites.map(site => site.id === id ? { ...site, ...updates } : site);
-  notifyDataChanged();
+  try {
+    console.log('Updating site:', id, updates);
+    const updatedSite = await sitesAPI.update(id, updates);
+    sites = sites.map(site => site.id === id ? updatedSite : site);
+    saveSitesToStorage();
+    notifyDataChanged();
+  } catch (error) {
+    console.error('Failed to update site:', error);
+    // Fallback: update local cache
+    sites = sites.map(site => site.id === id ? { ...site, ...updates } : site);
+    saveSitesToStorage();
+    notifyDataChanged();
+  }
 };
 
 export const deleteSite = async (id: string): Promise<void> => {
-  // TODO: Enable backend API when deployed
-  sites = sites.filter(site => site.id !== id);
-  notifyDataChanged();
+  try {
+    console.log('Deleting site:', id);
+    await sitesAPI.delete(id);
+    sites = sites.filter(site => site.id !== id);
+    saveSitesToStorage();
+    notifyDataChanged();
+  } catch (error) {
+    console.error('Failed to delete site:', error);
+    // Fallback: delete from local cache
+    sites = sites.filter(site => site.id !== id);
+    saveSitesToStorage();
+    notifyDataChanged();
+  }
 };
 
 // ==================== STAFF MANAGEMENT ====================
@@ -200,15 +258,15 @@ export const addStaff = async (staffMember: Partial<StaffMember>): Promise<void>
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(staffMember)
     });
-    
+
     console.log('Response status:', response.status, response.statusText);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
       console.error('Backend error:', errorData);
       throw new Error(errorData.error || errorData.details || 'Failed to add staff member');
     }
-    
+
     const newStaff = await response.json();
     console.log('Staff added successfully:', newStaff);
     staff.push(newStaff);
@@ -228,16 +286,16 @@ export const updateStaff = async (id: string | number, updates: Partial<StaffMem
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
       console.error('Backend error:', errorData);
       throw new Error(errorData.error || 'Failed to update staff member');
     }
-    
+
     const updatedStaff = await response.json();
     console.log('Staff updated successfully:', updatedStaff);
-    
+
     // Update local cache
     staff = staff.map(s => String(s.id) === String(id) ? { ...s, ...updatedStaff } : s);
     notifyDataChanged();
@@ -255,13 +313,13 @@ export const deleteStaff = async (id: string | number): Promise<void> => {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' }
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
       console.error('Backend error:', errorData);
       throw new Error(errorData.error || 'Failed to delete staff member');
     }
-    
+
     console.log('Staff deleted successfully from backend');
     staff = staff.filter(s => String(s.id) !== String(id));
     notifyDataChanged();

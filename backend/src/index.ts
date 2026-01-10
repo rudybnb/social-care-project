@@ -36,14 +36,14 @@ app.get('/api/health', async (_req: Request, res: Response) => {
     if (db && pool) {
       await pool.query('SELECT 1');
     }
-    res.json({ 
-      status: 'ok', 
+    res.json({
+      status: 'ok',
       timestamp: new Date().toISOString(),
       database: db ? 'connected' : 'not configured'
     });
   } catch (error) {
-    res.status(500).json({ 
-      status: 'error', 
+    res.status(500).json({
+      status: 'error',
       timestamp: new Date().toISOString(),
       error: 'Database connection failed'
     });
@@ -85,7 +85,7 @@ app.get('/api/staff/:id', async (req: Request, res: Response) => {
 app.post('/api/staff/bulk-create', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    
+
     const staffMembers = [
       { name: 'Lauren Alecia', username: 'lauren', password: 'Lauren123', startDate: '2024-02-17' },
       { name: 'Melissa Blake', username: 'melissa', password: 'Melissa123', startDate: '2024-04-12' },
@@ -95,9 +95,9 @@ app.post('/api/staff/bulk-create', async (req: Request, res: Response) => {
       { name: 'Singita Zoe', username: 'singita', password: 'Singita123', startDate: '2024-04-23' },
       { name: 'Prudence Diedericks', username: 'prudence', password: 'Prudence123', startDate: '2023-02-12' }
     ];
-    
+
     const results = [];
-    
+
     for (const member of staffMembers) {
       try {
         // Just try to insert - if username exists, it will fail and we skip
@@ -123,7 +123,7 @@ app.post('/api/staff/bulk-create', async (req: Request, res: Response) => {
         }
       }
     }
-    
+
     res.json({ success: true, results });
   } catch (error: any) {
     console.error('Error bulk creating staff:', error);
@@ -135,15 +135,15 @@ app.post('/api/staff/bulk-create', async (req: Request, res: Response) => {
 app.post('/api/staff', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    
+
     console.log('Received staff data:', JSON.stringify(req.body, null, 2));
-    
+
     // Auto-generate username if not provided (to avoid NULL constraint issues)
     const autoUsername = req.body.username || `staff_${Date.now()}`;
-    
+
     // Auto-generate password if not provided
     const passwordToHash = req.body.password || `temp_${Math.random().toString(36).substring(7)}`;
-    
+
     const staffData: any = {
       name: req.body.name,
       email: req.body.email || null,
@@ -162,7 +162,7 @@ app.post('/api/staff', async (req: Request, res: Response) => {
       weeklyHours: req.body.weeklyHours || 0,
       startDate: req.body.startDate || new Date().toISOString().split('T')[0]
     };
-    
+
     console.log('Inserting staff into database...');
     const newStaff = await db.insert(staff).values(staffData).returning();
     console.log('Staff created successfully:', newStaff[0].id);
@@ -172,9 +172,9 @@ app.post('/api/staff', async (req: Request, res: Response) => {
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
     console.error('Full error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to create staff member',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -185,13 +185,13 @@ app.put('/api/staff/:id', async (req: Request, res: Response) => {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: 'ID is required' });
-    
+
     // Hash password if it's being updated and is not already hashed
     const updateData = { ...req.body, updatedAt: new Date() };
     if (updateData.password && !updateData.password.startsWith('$2b$')) {
       updateData.password = await bcrypt.hash(updateData.password, 10);
     }
-    
+
     const updated = await db.update(staff)
       .set(updateData)
       .where(eq(staff.id, id))
@@ -338,18 +338,18 @@ app.get('/api/shifts/:id', async (req: Request, res: Response) => {
 app.post('/api/shifts', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    
+
     // Calculate week deadline for the shift
     const { getWeekDeadline } = await import('./jobs/autoAcceptShifts.js');
     const shiftDate = new Date(req.body.date);
     const weekDeadline = getWeekDeadline(shiftDate);
-    
+
     // Add week deadline to shift data
     const shiftData = {
       ...req.body,
       weekDeadline: weekDeadline
     };
-    
+
     const newShift = await db.insert(shifts).values(shiftData).returning();
     res.status(201).json(newShift[0]);
   } catch (error) {
@@ -364,18 +364,18 @@ app.put('/api/shifts/:id', async (req: Request, res: Response) => {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: 'ID is required' });
-    
+
     // Check if trying to change staff_status on a locked shift
     if (req.body.staff_status || req.body.staffStatus) {
       const existingShift = await db.select().from(shifts).where(eq(shifts.id, id));
       if (existingShift.length > 0 && existingShift[0].responseLocked) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: 'This shift is locked. Contact admin to change your response.',
           locked: true
         });
       }
     }
-    
+
     const updated = await db.update(shifts)
       .set({ ...req.body, updatedAt: new Date() })
       .where(eq(shifts.id, id))
@@ -415,14 +415,14 @@ app.delete('/api/shifts/clear/:siteId/:date', async (req: Request, res: Response
     if (!siteId || !date) {
       return res.status(400).json({ error: 'Site ID and date are required' });
     }
-    
+
     const deleted = await db.delete(shifts)
       .where(and(eq(shifts.siteId, siteId), eq(shifts.date, date)))
       .returning();
-    
-    res.json({ 
+
+    res.json({
       message: `Cleared ${deleted.length} shift(s) for date ${date}`,
-      count: deleted.length 
+      count: deleted.length
     });
   } catch (error) {
     console.error('Error clearing shifts:', error);
@@ -437,35 +437,35 @@ app.post('/api/auth/staff/login', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { username, password } = req.body;
-    
+
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
     }
-    
+
     // Find staff by username
     const staffMember = await db.select().from(staff).where(eq(staff.username, username));
-    
+
     if (staffMember.length === 0) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
+
     const user = staffMember[0];
-    
+
     // Check if user has login credentials set
     if (!user.username || !user.password) {
       return res.status(401).json({ error: 'Login not configured for this staff member' });
     }
-    
+
     // Check password using bcrypt
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
+
     // Return user data (excluding password)
     const { password: _, ...userWithoutPassword } = user;
-    res.json({ 
-      user: userWithoutPassword, 
+    res.json({
+      user: userWithoutPassword,
       token: `staff-${user.id}` // Simple token for demo
     });
   } catch (error) {
@@ -479,24 +479,24 @@ app.post('/api/auth/staff/qr-login', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { staffId } = req.body;
-    
+
     if (!staffId) {
       return res.status(400).json({ error: 'Staff ID required' });
     }
-    
+
     // Find staff by ID
     const staffMember = await db.select().from(staff).where(eq(staff.id, staffId));
-    
+
     if (staffMember.length === 0) {
       return res.status(401).json({ error: 'Invalid QR code' });
     }
-    
+
     const user = staffMember[0];
-    
+
     // Return user data (excluding password)
     const { password: _, ...userWithoutPassword } = user;
-    res.json({ 
-      user: userWithoutPassword, 
+    res.json({
+      user: userWithoutPassword,
       token: `staff-${user.id}` // Simple token for demo
     });
   } catch (error) {
@@ -526,11 +526,11 @@ app.get('/api/staff/:staffId/shifts', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { staffId } = req.params;
-    
+
     if (!staffId) {
       return res.status(400).json({ error: 'Staff ID required' });
     }
-    
+
     // Get all shifts for this staff member
     const staffShifts = await db.select().from(shifts).where(eq(shifts.staffId, staffId));
     res.json(staffShifts);
@@ -555,9 +555,9 @@ app.post('/api/staff/lookup', async (req: Request, res: Response) => {
     // Fetch all staff (since phone is not indexed/normalized well, we filter in memory - optimizing this is a future task)
     // Ideally we should have a `phoneLast4` column or proper search.
     const allStaff = await db.select().from(staff);
-    
+
     // Find matching staff
-    const matchingStaff = allStaff.find(s => 
+    const matchingStaff = allStaff.find(s =>
       s.phone && s.phone.endsWith(phoneDigits)
     );
 
@@ -568,11 +568,11 @@ app.post('/api/staff/lookup', async (req: Request, res: Response) => {
 
     // Return the staff member
     console.log(`[Lookup] Found staff: ${matchingStaff.name} (${matchingStaff.id})`);
-    
+
     // Safety: don't return password or sensitive fields
     const { password, ...safeStaff } = matchingStaff;
     res.json(safeStaff);
-    
+
   } catch (error) {
     console.error('[Lookup] Error:', error);
     res.status(500).json({ error: 'Failed to lookup staff' });
@@ -585,13 +585,13 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { shiftId } = req.params;
     const { qrCode, staffId } = req.body;
-    
+
     console.log(`[ClockIn] Attempting clock-in. Shift: ${shiftId}, Staff: ${staffId}, QR: ${qrCode}`);
 
     if (!shiftId || !qrCode || !staffId) {
       return res.status(400).json({ error: 'Shift ID, QR code, and staff ID required' });
     }
-    
+
     // Get the shift
     const shiftResult = await db.select().from(shifts).where(eq(shifts.id, shiftId));
     if (shiftResult.length === 0) {
@@ -599,20 +599,20 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Shift not found' });
     }
     const shift = shiftResult[0];
-    
+
     // Verify staff is assigned to this shift
     if (shift.staffId !== staffId) {
       console.log(`[ClockIn] Staff mismatch. Expected ${shift.staffId}, got ${staffId}`);
       return res.status(403).json({ error: 'You are not assigned to this shift' });
     }
-    
+
     // Verify site exists
     const siteResult = await db.select().from(sites).where(eq(sites.id, shift.siteId));
     if (siteResult.length === 0) {
       console.log(`[ClockIn] Site ${shift.siteId} not found`);
       return res.status(404).json({ error: 'Site not found' });
     }
-    
+
     // QR Code Validation
     // The user confirmed they still want this check.
     const expectedQR = `SITE_${shift.siteId}`;
@@ -627,24 +627,24 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
       console.log(`[ClockIn] Shift status was ${shift.staffStatus}. Auto-accepting.`);
       statusUpdate = { staffStatus: 'accepted' };
     }
-    
+
     // Check if already clocked in but not out (re-clocking in?)
     if (shift.clockedIn && !shift.clockedOut) {
-       console.log(`[ClockIn] Already clocked in at ${shift.clockInTime}`);
-       return res.status(200).json({ message: 'Already clocked in', shift });
+      console.log(`[ClockIn] Already clocked in at ${shift.clockInTime}`);
+      return res.status(200).json({ message: 'Already clocked in', shift });
     }
 
     // Update shift with clock-in time
     const updated = await db.update(shifts)
-      .set({ 
-        clockedIn: true, 
+      .set({
+        clockedIn: true,
         clockInTime: new Date(),
         updatedAt: new Date(),
         ...statusUpdate
       })
       .where(eq(shifts.id, shiftId))
       .returning();
-    
+
     console.log(`[ClockIn] Success for shift ${shiftId}`);
     res.json({ message: 'Clocked in successfully', shift: updated[0] });
   } catch (error) {
@@ -659,49 +659,49 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { shiftId } = req.params;
     const { qrCode, staffId } = req.body;
-    
+
     if (!shiftId || !qrCode || !staffId) {
       return res.status(400).json({ error: 'Shift ID, QR code, and staff ID required' });
     }
-    
+
     // Get the shift
     const shift = await db.select().from(shifts).where(eq(shifts.id, shiftId));
     if (shift.length === 0) {
       return res.status(404).json({ error: 'Shift not found' });
     }
-    
+
     // Verify staff is assigned to this shift
     if (shift[0].staffId !== staffId) {
       return res.status(403).json({ error: 'You are not assigned to this shift' });
     }
-    
+
     // Verify they clocked in first
     if (!shift[0].clockedIn) {
       return res.status(400).json({ error: 'You must clock in before clocking out' });
     }
-    
+
     // Verify site exists
     const site = await db.select().from(sites).where(eq(sites.id, shift[0].siteId));
     if (site.length === 0) {
       return res.status(404).json({ error: 'Site not found' });
     }
-    
+
     // Simple QR code validation: SITE_{siteId}
     const expectedQR = `SITE_${shift[0].siteId}`;
     if (qrCode !== expectedQR) {
       return res.status(400).json({ error: 'Invalid QR code for this site' });
     }
-    
+
     // Update shift with clock-out time
     const updated = await db.update(shifts)
-      .set({ 
-        clockedOut: true, 
+      .set({
+        clockedOut: true,
         clockOutTime: new Date(),
         updatedAt: new Date()
       })
       .where(eq(shifts.id, shiftId))
       .returning();
-    
+
     res.json({ message: 'Clocked out successfully', shift: updated[0] });
   } catch (error) {
     console.error('Error clocking out:', error);
@@ -715,39 +715,39 @@ app.patch('/api/shifts/:id/status', async (req: Request, res: Response) => {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { id } = req.params;
     const { staffStatus, declineReason } = req.body;
-    
+
     if (!id) return res.status(400).json({ error: 'ID is required' });
     if (!staffStatus || !['accepted', 'declined', 'pending'].includes(staffStatus)) {
       return res.status(400).json({ error: 'Valid staffStatus is required (accepted, declined, or pending)' });
     }
-    
-    const updateData: any = { 
-      staffStatus, 
-      updatedAt: new Date() 
+
+    const updateData: any = {
+      staffStatus,
+      updatedAt: new Date()
     };
-    
+
     if (staffStatus === 'declined' && declineReason) {
       updateData.declineReason = declineReason;
     }
-    
+
     const updated = await db.update(shifts)
       .set(updateData)
       .where(eq(shifts.id, id))
       .returning();
-      
+
     if (updated.length === 0) {
       return res.status(404).json({ error: 'Shift not found' });
     }
-    
+
     // Trigger declined shift alert if status is declined
     if (staffStatus === 'declined') {
       const { triggerDeclinedShiftAlert } = await import('./services/automationAgents.js');
       const shift = updated[0];
-      
+
       // Get staff name
       const staffMember = await db.select().from(staff).where(eq(staff.id, shift.staffId)).limit(1);
       const staffName = staffMember.length > 0 ? staffMember[0].name : 'Unknown';
-      
+
       // Trigger alert (non-blocking)
       triggerDeclinedShiftAlert({
         staffName,
@@ -759,7 +759,7 @@ app.patch('/api/shifts/:id/status', async (req: Request, res: Response) => {
         declineReason: shift.declineReason
       }).catch(err => console.error('Failed to send declined shift alert:', err));
     }
-    
+
     res.json(updated[0]);
   } catch (error) {
     console.error('Error updating shift status:', error);
@@ -772,28 +772,28 @@ app.post('/api/sites/:siteId/generate-qr', async (req: Request, res: Response) =
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { siteId } = req.params;
-    
+
     if (!siteId) {
       return res.status(400).json({ error: 'Site ID required' });
     }
-    
+
     // Generate a unique QR code (in production, use a proper QR code library)
     const qrCode = `QR-${siteId}-${Date.now()}`;
-    
+
     // Update site with QR code
     const updated = await db.update(sites)
-      .set({ 
-        qrCode, 
+      .set({
+        qrCode,
         qrGenerated: true,
         updatedAt: new Date()
       })
       .where(eq(sites.id, siteId))
       .returning();
-    
+
     if (updated.length === 0) {
       return res.status(404).json({ error: 'Site not found' });
     }
-    
+
     res.json({ message: 'QR code generated successfully', site: updated[0] });
   } catch (error) {
     console.error('Error generating QR code:', error);
@@ -855,34 +855,34 @@ app.post('/api/manual-clockout', async (req: Request, res: Response) => {
 app.post('/api/admin/migrate-staff-status', async (_req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    
+
     console.log('Running migration to add staff status columns...');
-    
+
     // Add staff status columns
     await db.execute(sql`
       ALTER TABLE shifts 
       ADD COLUMN IF NOT EXISTS staff_status TEXT DEFAULT 'pending',
       ADD COLUMN IF NOT EXISTS decline_reason TEXT
     `);
-    
+
     // Update existing shifts to 'accepted' status
     await db.execute(sql`
       UPDATE shifts 
       SET staff_status = 'accepted' 
       WHERE staff_status IS NULL OR staff_status = 'pending'
     `);
-    
+
     console.log('Staff status migration completed successfully');
-    
-    res.json({ 
-      success: true, 
-      message: 'Staff status columns added successfully' 
+
+    res.json({
+      success: true,
+      message: 'Staff status columns added successfully'
     });
   } catch (error: any) {
     console.error('Error adding staff status columns:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to add staff status columns',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -891,9 +891,9 @@ app.post('/api/admin/migrate-staff-status', async (_req: Request, res: Response)
 app.post('/api/admin/migrate-login', async (_req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    
+
     console.log('Running migration to add missing columns...');
-    
+
     // Add all missing columns if they don't exist
     await db.execute(sql`
       ALTER TABLE staff 
@@ -901,18 +901,18 @@ app.post('/api/admin/migrate-login', async (_req: Request, res: Response) => {
       ADD COLUMN IF NOT EXISTS username TEXT,
       ADD COLUMN IF NOT EXISTS password TEXT
     `);
-    
+
     console.log('Migration completed successfully');
-    
-    res.json({ 
-      success: true, 
-      message: 'All missing columns added successfully' 
+
+    res.json({
+      success: true,
+      message: 'All missing columns added successfully'
     });
   } catch (error: any) {
     console.error('Error adding columns:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to add columns',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -921,16 +921,16 @@ app.post('/api/admin/migrate-login', async (_req: Request, res: Response) => {
 app.delete('/api/admin/reset-all', async (_req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    
+
     // Delete all shifts
     await db.delete(shifts);
-    
+
     // Delete all staff
     await db.delete(staff);
-    
-    res.json({ 
-      success: true, 
-      message: 'All shifts and staff deleted successfully' 
+
+    res.json({
+      success: true,
+      message: 'All shifts and staff deleted successfully'
     });
   } catch (error) {
     console.error('Error resetting data:', error);
@@ -953,10 +953,10 @@ const runStartupMigration = async () => {
     console.warn('⚠️  Database not configured, skipping migration');
     return;
   }
-  
+
   try {
     console.log('🔄 Running comprehensive database migration...');
-    
+
     // Migration 1: Add staff_status and decline_reason to shifts table
     console.log('📝 Migration 1: Ensuring shifts table has staff_status columns...');
     await pool.query(`
@@ -965,7 +965,7 @@ const runStartupMigration = async () => {
       ADD COLUMN IF NOT EXISTS decline_reason TEXT;
     `);
     console.log('✅ Migration 1 complete');
-    
+
     // Migration 2: Ensure staff table has all required columns
     console.log('📝 Migration 2: Ensuring staff table has all required columns...');
     await pool.query(`
@@ -977,7 +977,7 @@ const runStartupMigration = async () => {
       ADD COLUMN IF NOT EXISTS weekly_hours INTEGER DEFAULT 0;
     `);
     console.log('✅ Migration 2 complete');
-    
+
     // Migration 3: Add timestamps if missing
     console.log('📝 Migration 3: Ensuring timestamp columns exist...');
     await pool.query(`
@@ -986,7 +986,7 @@ const runStartupMigration = async () => {
       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
     `);
     console.log('✅ Migration 3 complete');
-    
+
     // Migration 4: Create annual leave tables
     console.log('📝 Migration 4: Creating annual leave tables...');
     await pool.query(`
@@ -1026,7 +1026,7 @@ const runStartupMigration = async () => {
       );
     `);
     console.log('✅ Migration 4 complete');
-    
+
     // Migration 5: Add rejection_reason column if it doesn't exist
     console.log('📝 Migration 5: Adding rejection_reason column to leave_requests...');
     await pool.query(`
@@ -1034,7 +1034,7 @@ const runStartupMigration = async () => {
       ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
     `);
     console.log('✅ Migration 5 complete');
-    
+
     // Migration 6: Add leave_type column to leave_requests
     console.log('📝 Migration 6: Adding leave_type column to leave_requests...');
     await pool.query(`
@@ -1042,7 +1042,7 @@ const runStartupMigration = async () => {
       ADD COLUMN IF NOT EXISTS leave_type TEXT NOT NULL DEFAULT 'annual';
     `);
     console.log('✅ Migration 6 complete');
-    
+
     // Migration 7: Add phone column to staff and create approval_requests table
     console.log('📝 Migration 7: Adding phone column to staff...');
     await pool.query(`
@@ -1050,7 +1050,7 @@ const runStartupMigration = async () => {
       ADD COLUMN IF NOT EXISTS phone TEXT;
     `);
     console.log('✅ Phone column added');
-    
+
     console.log('📝 Migration 7: Creating approval_requests table...');
     await pool.query(`
       CREATE TABLE IF NOT EXISTS approval_requests (
@@ -1070,7 +1070,7 @@ const runStartupMigration = async () => {
       );
     `);
     console.log('✅ Approval_requests table created');
-    
+
     console.log('📝 Migration 7: Creating indexes on approval_requests...');
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_approval_requests_staff_site_date 
@@ -1081,7 +1081,7 @@ const runStartupMigration = async () => {
       ON approval_requests(status);
     `);
     console.log('✅ Migration 7 complete');
-    
+
     console.log('✅ All migrations completed successfully!');
   } catch (error: any) {
     console.error('❌ Migration failed:', error.message);
@@ -1096,11 +1096,11 @@ app.post('/api/approvals', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { staffId, staffName, siteId, siteName, date } = req.body;
-    
+
     if (!staffId || !staffName || !siteId || !siteName || !date) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-    
+
     // Check if request already exists for this staff/site/date
     const existing = await db.select()
       .from(approvalRequests)
@@ -1111,11 +1111,11 @@ app.post('/api/approvals', async (req: Request, res: Response) => {
           eq(approvalRequests.date, date)
         )
       );
-    
+
     if (existing.length > 0 && existing[0].status === 'pending') {
       return res.status(400).json({ error: 'Approval request already exists' });
     }
-    
+
     const newRequest = await db.insert(approvalRequests)
       .values({
         staffId,
@@ -1126,7 +1126,7 @@ app.post('/api/approvals', async (req: Request, res: Response) => {
         status: 'pending'
       })
       .returning();
-    
+
     res.json(newRequest[0]);
   } catch (error) {
     console.error('Error creating approval request:', error);
@@ -1139,7 +1139,7 @@ app.get('/api/approvals', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { status } = req.query;
-    
+
     let requests;
     if (status) {
       requests = await db.select()
@@ -1151,7 +1151,7 @@ app.get('/api/approvals', async (req: Request, res: Response) => {
         .from(approvalRequests)
         .orderBy(sql`${approvalRequests.requestTime} DESC`);
     }
-    
+
     res.json(requests);
   } catch (error) {
     console.error('Error fetching approval requests:', error);
@@ -1164,11 +1164,11 @@ app.get('/api/approvals/check', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { staffId, siteId, date } = req.query;
-    
+
     if (!staffId || !siteId || !date) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
-    
+
     const request = await db.select()
       .from(approvalRequests)
       .where(
@@ -1179,7 +1179,7 @@ app.get('/api/approvals/check', async (req: Request, res: Response) => {
           eq(approvalRequests.status, 'approved')
         )
       );
-    
+
     if (request.length > 0) {
       res.json({ approved: true, request: request[0] });
     } else {
@@ -1197,17 +1197,17 @@ app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { id } = req.params;
     const { approvedBy } = req.body;
-    
+
     if (!approvedBy) {
       return res.status(400).json({ error: 'approvedBy is required' });
     }
-    
+
     // Get the approval request first
     const request = await db.select().from(approvalRequests).where(eq(approvalRequests.id, id));
     if (request.length === 0) {
       return res.status(404).json({ error: 'Request not found' });
     }
-    
+
     // Update approval status
     const updated = await db.update(approvalRequests)
       .set({
@@ -1218,15 +1218,15 @@ app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
       })
       .where(eq(approvalRequests.id, id))
       .returning();
-    
+
     // Create a shift for the approved unscheduled request
     const approvalData = request[0];
     const shiftId = `SHIFT_UNSCHEDULED_${Date.now()}`;
-    
+
     // Get site color
     const site = await db.select().from(sites).where(eq(sites.id, approvalData.siteId));
     const siteColor = site.length > 0 ? site[0].color : '#3b82f6';
-    
+
     // Create shift with default times (can be edited later)
     await db.insert(shifts).values({
       id: shiftId,
@@ -1246,7 +1246,7 @@ app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
       staffStatus: 'accepted',
       notes: `Approved unscheduled shift by ${approvedBy}`
     });
-    
+
     res.json({ ...updated[0], shiftCreated: true, shiftId });
   } catch (error) {
     console.error('Error approving request:', error);
@@ -1260,7 +1260,7 @@ app.post('/api/approvals/:id/reject', async (req: Request, res: Response) => {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const { id } = req.params;
     const { rejectedBy, notes } = req.body;
-    
+
     const updated = await db.update(approvalRequests)
       .set({
         status: 'rejected',
@@ -1270,11 +1270,11 @@ app.post('/api/approvals/:id/reject', async (req: Request, res: Response) => {
       })
       .where(eq(approvalRequests.id, id))
       .returning();
-    
+
     if (updated.length === 0) {
       return res.status(404).json({ error: 'Request not found' });
     }
-    
+
     res.json(updated[0]);
   } catch (error) {
     console.error('Error rejecting request:', error);
@@ -1285,7 +1285,7 @@ app.post('/api/approvals/:id/reject', async (req: Request, res: Response) => {
 app.listen(PORT, async () => {
   console.log(`API server listening on http://localhost:${PORT}`);
   await runStartupMigration();
-  
+
   // Initialize automation agents (with error handling to prevent server crash)
   try {
     const { initializeAgents } = await import('./services/automationAgents.js');
@@ -1299,25 +1299,25 @@ app.listen(PORT, async () => {
   // Initialize auto-accept job scheduler
   try {
     const { autoAcceptPendingShifts, lockExpiredShifts, setWeekDeadlines } = await import('./jobs/autoAcceptShifts.js');
-    
+
     // Set deadlines for existing shifts on startup
     await setWeekDeadlines();
-    
+
     // Run auto-accept and lock jobs immediately on startup
     await autoAcceptPendingShifts();
     await lockExpiredShifts();
-    
+
     // Schedule jobs to run every minute
     setInterval(async () => {
       await autoAcceptPendingShifts();
       await lockExpiredShifts();
     }, 60000); // Run every 60 seconds
-    
+
     console.log('✅ Auto-accept job scheduler initialized');
   } catch (error: any) {
     console.error('⚠️  Failed to initialize auto-accept scheduler:', error.message);
   }
-  
+
   // Initialize auto clock-out job for past shifts
   try {
     const { startAutoClockOutJob } = await import('./jobs/autoClockOutPastShifts.js');
@@ -1325,6 +1325,14 @@ app.listen(PORT, async () => {
     console.log('✅ Auto clock-out job scheduler initialized');
   } catch (error: any) {
     console.error('⚠️  Failed to initialize auto clock-out scheduler:', error.message);
+  }
+
+  // Initialize Automation Agents (Email & Telegram Reminders)
+  try {
+    const { initializeAgents } = await import('./services/automationAgents.js');
+    await initializeAgents();
+  } catch (error: any) {
+    console.error('⚠️  Failed to initialize automation agents:', error.message);
   }
 });
 

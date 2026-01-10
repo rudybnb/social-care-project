@@ -10,7 +10,16 @@ import DynamicSiteQR from './components/DynamicSiteQR';
 import { useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ role, children }: { role?: 'admin' | 'worker'; children: React.ReactElement }) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#111' }}>
+        <div style={{ color: '#9333ea' }}>Loading...</div>
+      </div>
+    );
+  }
+
   console.log('ProtectedRoute check:', { user, requiredRole: role });
   if (!user) return <Navigate to="/" replace />;
   if (role && user.role !== role) return <Navigate to={user.role === 'admin' ? '/admin' : '/worker'} replace />;

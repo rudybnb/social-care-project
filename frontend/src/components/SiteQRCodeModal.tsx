@@ -1,15 +1,27 @@
-import React, { useState } from 'react';
-
-interface SiteQRCodeModalProps {
-  siteId: string;
-  siteName: string;
-  onClose: () => void;
-}
+import QRCode from 'qrcode';
 
 const SiteQRCodeModal: React.FC<SiteQRCodeModalProps> = ({ siteId, siteName, onClose }) => {
   const [copied, setCopied] = useState(false);
-  
-  const qrDisplayUrl = `${window.location.origin}/#/site-qr/${siteId}`;
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
+  const qrDisplayUrl = `${window.location.origin}/#/site-qr/${siteId}?name=${encodeURIComponent(siteName)}`;
+
+  React.useEffect(() => {
+    if (canvasRef.current) {
+      // Backend expects 'SITE_{siteId}'
+      const code = `SITE_${siteId}`;
+      QRCode.toCanvas(canvasRef.current, code, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      }, (error) => {
+        if (error) console.error('Error generating QR:', error);
+      });
+    }
+  }, [siteId]);
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(qrDisplayUrl);
@@ -19,6 +31,31 @@ const SiteQRCodeModal: React.FC<SiteQRCodeModalProps> = ({ siteId, siteName, onC
 
   const handleOpenInNewTab = () => {
     window.open(qrDisplayUrl, '_blank');
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Print QR Code - ${siteName}</title>
+            <style>
+              body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; }
+              h1 { margin-bottom: 20px; }
+              img { max-width: 100%; height: auto; }
+            </style>
+          </head>
+          <body>
+            <h1>${siteName}</h1>
+            <img src="${canvasRef.current?.toDataURL()}" />
+            <p>Scan to Clock In/Out</p>
+            <script>window.print();</script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
   };
 
   return (
@@ -45,7 +82,9 @@ const SiteQRCodeModal: React.FC<SiteQRCodeModalProps> = ({ siteId, siteName, onC
           padding: '32px',
           maxWidth: '550px',
           width: '90%',
-          textAlign: 'center'
+          textAlign: 'center',
+          maxHeight: '90vh',
+          overflowY: 'auto'
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -53,26 +92,22 @@ const SiteQRCodeModal: React.FC<SiteQRCodeModalProps> = ({ siteId, siteName, onC
         <div style={{ marginBottom: '24px' }}>
           <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔒</div>
           <h2 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>
-            Dynamic Site QR Code
+            Site QR Code
           </h2>
           <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>
             {siteName}
           </p>
         </div>
 
-        {/* Security Badge */}
-        <div
-          style={{
-            backgroundColor: '#10b981',
-            color: 'white',
-            padding: '12px 20px',
-            borderRadius: '8px',
-            marginBottom: '24px',
-            fontSize: '14px',
-            fontWeight: '600'
-          }}
-        >
-          ✓ Secure • QR Code refreshes every 60 seconds
+        {/* QR Code Canvas */}
+        <div style={{
+          backgroundColor: 'white',
+          padding: '20px',
+          borderRadius: '12px',
+          marginBottom: '24px',
+          display: 'inline-block'
+        }}>
+          <canvas ref={canvasRef} />
         </div>
 
         {/* URL Display */}
@@ -86,7 +121,7 @@ const SiteQRCodeModal: React.FC<SiteQRCodeModalProps> = ({ siteId, siteName, onC
           }}
         >
           <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px', textAlign: 'left' }}>
-            Display URL:
+            Direct Link:
           </div>
           <div
             style={{
@@ -105,12 +140,12 @@ const SiteQRCodeModal: React.FC<SiteQRCodeModalProps> = ({ siteId, siteName, onC
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '24px' }}>
           <button
             onClick={handleCopyUrl}
             style={{
-              padding: '12px 24px',
-              fontSize: '14px',
+              padding: '12px',
+              fontSize: '13px',
               fontWeight: '600',
               color: 'white',
               backgroundColor: copied ? '#10b981' : '#3b82f6',
@@ -120,13 +155,28 @@ const SiteQRCodeModal: React.FC<SiteQRCodeModalProps> = ({ siteId, siteName, onC
               transition: 'background-color 0.2s'
             }}
           >
-            {copied ? '✓ Copied!' : '📋 Copy URL'}
+            {copied ? '✓ Copied' : '📋 Copy Link'}
+          </button>
+          <button
+            onClick={handlePrint}
+            style={{
+              padding: '12px',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: 'white',
+              backgroundColor: '#f59e0b',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
+          >
+            🖨️ Print QR
           </button>
           <button
             onClick={handleOpenInNewTab}
             style={{
-              padding: '12px 24px',
-              fontSize: '14px',
+              padding: '12px',
+              fontSize: '13px',
               fontWeight: '600',
               color: 'white',
               backgroundColor: '#8b5cf6',
@@ -135,7 +185,7 @@ const SiteQRCodeModal: React.FC<SiteQRCodeModalProps> = ({ siteId, siteName, onC
               cursor: 'pointer'
             }}
           >
-            🖥️ Open Display
+            🖥️ Open Tab
           </button>
         </div>
 
@@ -151,18 +201,17 @@ const SiteQRCodeModal: React.FC<SiteQRCodeModalProps> = ({ siteId, siteName, onC
           }}
         >
           <div style={{ color: 'white', fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>
-            📱 Setup Instructions:
+            📱 How to use:
           </div>
           <ol style={{ color: '#9ca3af', fontSize: '14px', lineHeight: '1.8', margin: 0, paddingLeft: '20px' }}>
-            <li><strong>Get a tablet or old phone</strong> for the site entrance</li>
-            <li><strong>Open the URL above</strong> in the browser</li>
-            <li><strong>Keep the screen on</strong> (adjust device settings)</li>
-            <li><strong>Mount it at the entrance</strong> where staff can easily scan</li>
-            <li><strong>Keep it plugged in</strong> to power</li>
+            <li><strong>Print this QR code</strong></li>
+            <li><strong>Stick it at the entrance</strong> of the site</li>
+            <li><strong>Staff scan it</strong> using their phone camera to clock in/out</li>
+            <li>The code <strong>does not change</strong>, so you only need to print it once.</li>
           </ol>
         </div>
 
-        {/* Security Info */}
+        {/* Simple Note */}
         <div
           style={{
             backgroundColor: '#2a2a2a',
@@ -174,11 +223,10 @@ const SiteQRCodeModal: React.FC<SiteQRCodeModalProps> = ({ siteId, siteName, onC
           }}
         >
           <div style={{ color: '#10b981', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
-            🔒 Why Dynamic QR Codes?
+            ✅ Static QR Code
           </div>
           <p style={{ color: '#9ca3af', fontSize: '13px', margin: 0, lineHeight: '1.6' }}>
-            The QR code changes every 60 seconds, preventing staff from taking photos and clocking in from home. 
-            They must be physically present at the site to scan the live QR code.
+            This QR code is unique to this site and permanent. You do not need to generate a new one every day.
           </p>
         </div>
 

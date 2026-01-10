@@ -11,7 +11,7 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-const pool = new Pool({ 
+const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: DATABASE_URL.includes('render.com') ? {
     rejectUnauthorized: false
@@ -20,7 +20,7 @@ const pool = new Pool({
 
 async function runAllMigrations() {
   console.log('🔄 Starting comprehensive database migration...\n');
-  
+
   try {
     // Migration 1: Add staff_status and decline_reason to shifts table
     console.log('📝 Migration 1: Adding staff_status and decline_reason columns...');
@@ -34,7 +34,7 @@ async function runAllMigrations() {
     } catch (error) {
       console.log(`⚠️  Migration 1 skipped (columns might already exist): ${error.message}\n`);
     }
-    
+
     // Migration 2: Ensure all required columns exist in staff table
     console.log('📝 Migration 2: Ensuring staff table has all required columns...');
     try {
@@ -54,7 +54,7 @@ async function runAllMigrations() {
     } catch (error) {
       console.log(`⚠️  Migration 2 skipped: ${error.message}\n`);
     }
-    
+
     // Migration 3: Ensure shifts table has all required columns
     console.log('📝 Migration 3: Ensuring shifts table has all required columns...');
     try {
@@ -67,7 +67,7 @@ async function runAllMigrations() {
     } catch (error) {
       console.log(`⚠️  Migration 3 skipped: ${error.message}\n`);
     }
-    
+
     // Migration 4: Create indexes for better performance
     console.log('📝 Migration 4: Creating indexes...');
     try {
@@ -81,22 +81,34 @@ async function runAllMigrations() {
     } catch (error) {
       console.log(`⚠️  Migration 4 skipped: ${error.message}\n`);
     }
-    
+
+    // Migration 5: Add telegram_chat_id to staff table
+    console.log('📝 Migration 5: Adding telegram_chat_id to staff table...');
+    try {
+      await pool.query(`
+        ALTER TABLE staff 
+        ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;
+      `);
+      console.log('✅ Migration 5 complete\n');
+    } catch (error) {
+      console.log(`⚠️  Migration 5 skipped: ${error.message}\n`);
+    }
+
     // Verify tables exist
     console.log('🔍 Verifying database schema...\n');
-    
+
     const tablesResult = await pool.query(`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public'
       ORDER BY table_name;
     `);
-    
+
     console.log('📋 Existing tables:');
     tablesResult.rows.forEach(row => {
       console.log(`   - ${row.table_name}`);
     });
-    
+
     // Check staff table columns
     console.log('\n🔍 Checking staff table columns...');
     const staffColumnsResult = await pool.query(`
@@ -105,12 +117,12 @@ async function runAllMigrations() {
       WHERE table_name = 'staff'
       ORDER BY ordinal_position;
     `);
-    
+
     console.log('📋 Staff table columns:');
     staffColumnsResult.rows.forEach(row => {
       console.log(`   - ${row.column_name} (${row.data_type})`);
     });
-    
+
     // Check shifts table columns
     console.log('\n🔍 Checking shifts table columns...');
     const shiftsColumnsResult = await pool.query(`
@@ -119,15 +131,15 @@ async function runAllMigrations() {
       WHERE table_name = 'shifts'
       ORDER BY ordinal_position;
     `);
-    
+
     console.log('📋 Shifts table columns:');
     shiftsColumnsResult.rows.forEach(row => {
       console.log(`   - ${row.column_name} (${row.data_type})`);
     });
-    
+
     console.log('\n✅ All migrations complete!');
     console.log('✅ Database is ready for production use\n');
-    
+
   } catch (error) {
     console.error('❌ Migration failed:', error.message);
     throw error;

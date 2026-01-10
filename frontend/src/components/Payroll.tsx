@@ -82,13 +82,27 @@ const Payroll: React.FC = () => {
   const currentMonth = getMonthDates(selectedMonth);
   const currentPeriod = viewMode === 'weekly' ? currentWeek : currentMonth;
 
+  // Calculate actual hours worked from clock-in/out times
+  const calculateActualHours = (clockInTime?: string, clockOutTime?: string): number => {
+    if (!clockInTime || !clockOutTime) return 0;
+    const start = new Date(clockInTime);
+    const end = new Date(clockOutTime);
+    const diffMs = end.getTime() - start.getTime();
+    const hours = diffMs / (1000 * 60 * 60);
+    return Math.max(0, hours); // Ensure non-negative
+  };
+
   // Calculate payroll for each staff member
+  // IMPORTANT: Only counts shifts that have been clocked in AND clocked out
   const calculatePayroll = () => {
     return staff.map(staffMember => {
+      // Filter to only include COMPLETED shifts (clocked in AND clocked out)
       const staffShifts = shifts.filter(shift => 
         shift.staffName === staffMember.name &&
         new Date(shift.date) >= currentPeriod.start &&
-        new Date(shift.date) <= currentPeriod.end
+        new Date(shift.date) <= currentPeriod.end &&
+        shift.clockedIn === true &&
+        shift.clockedOut === true // Only count fully completed shifts
       );
 
       let totalHours = 0;
@@ -96,7 +110,8 @@ const Payroll: React.FC = () => {
       let nightHours = 0;
 
       staffShifts.forEach(shift => {
-        const hours = shift.extended ? shift.duration + (shift.extensionHours || 0) : shift.duration;
+        // Use ACTUAL clock-in/out times, not scheduled duration
+        const hours = calculateActualHours(shift.clockInTime, shift.clockOutTime);
         totalHours += hours;
         if (shift.type === 'Day') {
           dayHours += hours;

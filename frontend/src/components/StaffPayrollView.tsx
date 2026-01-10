@@ -20,10 +20,10 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
         // Load shifts
         const allShifts = await shiftsAPI.getAll();
         setShifts(allShifts);
-        
+
         // Load approved leave requests
         const requests = await leaveAPI.getAllRequests();
-        const myApprovedLeave = requests.filter(r => 
+        const myApprovedLeave = requests.filter(r =>
           r.status === 'approved' && r.staffId === staffId
         );
         setLeaveRequests(myApprovedLeave);
@@ -38,18 +38,18 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
   const getMonthDates = (monthOffset: number) => {
     const today = new Date();
     const currentDay = today.getDate();
-    
+
     let periodStart: Date;
     if (currentDay >= 14) {
       periodStart = new Date(today.getFullYear(), today.getMonth() + monthOffset, 14);
     } else {
       periodStart = new Date(today.getFullYear(), today.getMonth() - 1 + monthOffset, 14);
     }
-    
+
     const periodEnd = new Date(periodStart);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
     periodEnd.setDate(14);
-    
+
     return {
       start: periodStart,
       end: periodEnd,
@@ -59,12 +59,26 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
 
   const currentMonth = getMonthDates(selectedMonth);
 
+  // Calculate actual hours worked from clock-in/out times
+  const calculateActualHours = (clockInTime?: string, clockOutTime?: string): number => {
+    if (!clockInTime || !clockOutTime) return 0;
+    const start = new Date(clockInTime);
+    const end = new Date(clockOutTime);
+    const diffMs = end.getTime() - start.getTime();
+    const hours = diffMs / (1000 * 60 * 60);
+    return Math.max(0, hours); // Ensure non-negative
+  };
+
   // Calculate payroll
+  // IMPORTANT: Only counts shifts that have been clocked in AND clocked out
   const calculatePayroll = () => {
-    const myShifts = shifts.filter(shift => 
+    // Filter to only include COMPLETED shifts (clocked in AND clocked out)
+    const myShifts = shifts.filter(shift =>
       shift.staffName === staffName &&
       new Date(shift.date) >= currentMonth.start &&
-      new Date(shift.date) <= currentMonth.end
+      new Date(shift.date) <= currentMonth.end &&
+      shift.clockedIn === true &&
+      shift.clockedOut === true // Only count fully completed shifts
     );
 
     let totalHours = 0;
@@ -74,9 +88,10 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
     let overtimeHours = 0;
 
     myShifts.forEach(shift => {
-      const hours = shift.extended ? shift.duration + (shift.extensionHours || 0) : shift.duration;
+      // Use ACTUAL clock-in/out times, not scheduled duration
+      const hours = calculateActualHours(shift.clockInTime, shift.clockOutTime);
       totalHours += hours;
-      
+
       // Calculate regular vs overtime per shift (first 12 hours = regular, rest = overtime)
       if (hours <= 12) {
         regularHours += hours;
@@ -84,7 +99,7 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
         regularHours += 12;
         overtimeHours += (hours - 12);
       }
-      
+
       if (shift.type === 'Day') {
         dayHours += hours;
       } else {
@@ -97,8 +112,8 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
       const leaveStart = new Date(leave.startDate);
       const leaveEnd = new Date(leave.endDate);
       return ((leaveStart >= currentMonth.start && leaveStart <= currentMonth.end) ||
-              (leaveEnd >= currentMonth.start && leaveEnd <= currentMonth.end) ||
-              (leaveStart <= currentMonth.start && leaveEnd >= currentMonth.end));
+        (leaveEnd >= currentMonth.start && leaveEnd <= currentMonth.end) ||
+        (leaveStart <= currentMonth.start && leaveEnd >= currentMonth.end));
     });
 
     let leaveHours = 0;

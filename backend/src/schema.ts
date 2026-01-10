@@ -8,6 +8,7 @@ export const staff = pgTable('staff', {
   phone: text('phone'), // Staff phone number for authentication
   username: text('username'), // For staff login
   password: text('password'), // Hashed password for staff login
+  telegramChatId: text('telegram_chat_id'), // Telegram chat ID for reminders
   role: text('role').notNull(), // 'Admin' | 'Site Manager' | 'Worker'
   site: text('site').notNull(),
   status: text('status').notNull().default('Active'), // 'Active' | 'Inactive'

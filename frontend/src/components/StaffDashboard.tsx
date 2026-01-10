@@ -82,7 +82,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
     .filter(s => s.date >= today && !s.isBank)
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 10);
-  
+
   const todayShifts = shifts.filter(s => s.date === today && !s.isBank);
   const activeShift = todayShifts.find(s => s.clockedIn && !s.clockedOut);
 
@@ -310,6 +310,26 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             >
               📊 My Attendance
             </button>
+            <button
+              onClick={() => window.open(`https://t.me/SocialCareClockInBot?start=${staffId}`, '_blank')}
+              style={{
+                background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '16px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)'
+              }}
+            >
+              🔔 Connect Telegram
+            </button>
           </div>
         </div>
 
@@ -338,7 +358,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
                   ACTIVE
                 </IonBadge>
               </div>
-              
+
               <div style={{ color: '#6b7280', fontSize: '13px', marginBottom: '12px' }}>
                 Clocked in at: {activeShift.clockInTime ? new Date(activeShift.clockInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
               </div>
@@ -362,15 +382,15 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             <IonIcon icon={calendar} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
             My Schedule
           </h3>
-          <StaffCalendar 
-            staffId={staffId} 
-            shifts={shifts} 
+          <StaffCalendar
+            staffId={staffId}
+            shifts={shifts}
             onDayClick={(date, dayShifts) => {
               if (dayShifts.length > 0) {
                 setModalShift(dayShifts[0]);
                 setShowShiftModal(true);
               }
-            }} 
+            }}
           />
         </div>
 
@@ -424,10 +444,10 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
         </div>
 
         {showScanner && selectedShift && (
-          <QRScanner 
-            onScan={handleQRScan} 
-            onClose={() => setShowScanner(false)} 
-            shiftInfo={selectedShift} 
+          <QRScanner
+            onScan={handleQRScan}
+            onClose={() => setShowScanner(false)}
+            shiftInfo={selectedShift}
           />
         )}
 
@@ -437,9 +457,9 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             shift={modalShift}
             coworkers={allShifts
               .filter(s => s.date === modalShift.date && s.siteId === modalShift.siteId && s.staffId !== staffId)
-              .map(s => ({ 
-                staffName: s.staffName, 
-                type: `${s.type} Shift ${s.startTime}-${s.endTime}` 
+              .map(s => ({
+                staffName: s.staffName,
+                type: `${s.type} Shift ${s.startTime}-${s.endTime}`
               }))}
             onClose={() => setShowShiftModal(false)}
             onAccept={async (shiftId) => {
