@@ -343,3 +343,19 @@ export async function triggerDeclinedShiftAlert(shift: any) {
   }
 }
 
+// ==========================================
+// PENDING IMPLEMENTATION STUBS (Fixes Build)
+// ==========================================
+
+async function runPreShiftReminders() {
+  console.log('🚧 runPreShiftReminders: Not implemented yet');
+}
+
+async function checkMissingClockOuts() {
+  console.log('🚧 checkMissingClockOuts: Not implemented yet');
+}
+
+async function generateShiftSummaries() {
+  console.log('🚧 generateShiftSummaries: Not implemented yet');
+}
+

@@ -23,7 +23,7 @@ export function initTelegramBot() {
         bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
         // Handle /start command - this is how staff link their account
-        bot.onText(/\/start (.+)/, async (msg, match) => {
+        bot.onText(/\/start (.+)/, async (msg: TelegramBot.Message, match: RegExpExecArray | null) => {
             const chatId = msg.chat.id;
             const staffId = match ? match[1] : null;
 
@@ -60,7 +60,7 @@ export function initTelegramBot() {
 
 
         // Handle /start command without parameters
-        bot.onText(/^\/start$/, async (msg) => {
+        bot.onText(/^\/start$/, async (msg: TelegramBot.Message) => {
             const chatId = msg.chat.id;
             bot?.sendMessage(chatId,
                 '👋 Welcome to the Social Care Clock-in Bot!\n\n' +
