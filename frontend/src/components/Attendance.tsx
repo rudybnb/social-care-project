@@ -1,20 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Shift } from '../data/sharedData';
 
-interface Shift {
-  id: string;
-  date: string;
-  staffId: string;
-  staffName: string;
-  siteName: string;
-  siteId: string;
-  startTime: string;
-  endTime: string;
-  clockedIn: boolean;
-  clockedOut: boolean;
-  clockInTime?: string;
-  clockOutTime?: string;
-  duration: number;
-}
 
 const Attendance: React.FC = () => {
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -64,8 +50,8 @@ const Attendance: React.FC = () => {
 
   // Filter shifts for selected date
   const todayShifts = shifts.filter(s => s.date === selectedDate);
-  const filteredShifts = selectedSite === 'all' 
-    ? todayShifts 
+  const filteredShifts = selectedSite === 'all'
+    ? todayShifts
     : todayShifts.filter(s => s.siteId === selectedSite);
 
   // Check if selected date is today or in the future
@@ -95,7 +81,7 @@ const Attendance: React.FC = () => {
 
   const handleAdminClockIn = async (shiftId: string) => {
     if (!window.confirm('Clock in this staff member now?')) return;
-    
+
     try {
       const now = new Date().toISOString();
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts/${shiftId}`, {
@@ -106,7 +92,7 @@ const Attendance: React.FC = () => {
           clockInTime: now
         })
       });
-      
+
       if (response.ok) {
         alert('Staff clocked in successfully!');
         fetchShifts();
@@ -123,7 +109,7 @@ const Attendance: React.FC = () => {
 
   const handleAdminClockOut = async (shiftId: string) => {
     if (!window.confirm('Clock out this staff member now?')) return;
-    
+
     try {
       const now = new Date().toISOString();
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts/${shiftId}`, {
@@ -134,7 +120,7 @@ const Attendance: React.FC = () => {
           clockOutTime: now
         })
       });
-      
+
       if (response.ok) {
         alert('Staff clocked out successfully!');
         fetchShifts();
@@ -153,21 +139,21 @@ const Attendance: React.FC = () => {
     const timeType = type === 'in' ? 'Clock In' : 'Clock Out';
     const currentTimeStr = currentTime ? new Date(currentTime).toLocaleString('en-GB') : 'Not set';
     const newTime = prompt(`Edit ${timeType} time\n\nCurrent: ${currentTimeStr}\n\nEnter new time (YYYY-MM-DD HH:MM format):\nExample: 2025-12-22 08:30`);
-    
+
     if (!newTime) return;
-    
+
     try {
       const timestamp = new Date(newTime).toISOString();
-      const updates = type === 'in' 
+      const updates = type === 'in'
         ? { clockedIn: true, clockInTime: timestamp }
         : { clockedOut: true, clockOutTime: timestamp };
-      
+
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts/${shiftId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       });
-      
+
       if (response.ok) {
         alert(`${timeType} time updated successfully!`);
         fetchShifts();
@@ -196,9 +182,9 @@ const Attendance: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '12px', 
+        <div style={{
+          display: 'flex',
+          gap: '12px',
           marginBottom: '24px',
           flexWrap: 'wrap'
         }}>
@@ -270,9 +256,9 @@ const Attendance: React.FC = () => {
         </div>
 
         {/* Summary Cards */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
           gap: '16px',
           marginBottom: '24px'
         }}>
@@ -395,9 +381,9 @@ const Attendance: React.FC = () => {
             <h2 style={{ color: 'white', fontSize: '20px', fontWeight: 'bold', marginBottom: '16px' }}>
               ✅ Completed Today
             </h2>
-            <div style={{ 
-              backgroundColor: '#1a1a1a', 
-              borderRadius: '12px', 
+            <div style={{
+              backgroundColor: '#1a1a1a',
+              borderRadius: '12px',
               overflow: 'hidden',
               border: '1px solid #3a3a3a'
             }}>
@@ -530,7 +516,7 @@ const Attendance: React.FC = () => {
                     ) : (
                       // Today/Future: Show Not Started badge, Clock In, and Edit buttons
                       <>
-                        <div style={{ 
+                        <div style={{
                           backgroundColor: '#f59e0b20',
                           border: '1px solid #f59e0b',
                           borderRadius: '6px',

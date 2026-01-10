@@ -1,21 +1,8 @@
 import React, { useState } from 'react';
+import { Shift } from '../data/sharedData';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { approvalAPI } from '../services/approvalAPI';
 
-interface Shift {
-  id: string;
-  date: string;
-  staffId: string;
-  staffName: string;
-  siteName: string;
-  siteId: string;
-  startTime: string;
-  endTime: string;
-  clockedIn: boolean;
-  clockedOut: boolean;
-  clockInTime?: string;
-  clockOutTime?: string;
-}
 
 const ClockInOut: React.FC = () => {
   const [searchParams] = useSearchParams();

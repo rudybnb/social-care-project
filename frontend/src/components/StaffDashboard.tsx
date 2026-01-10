@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Shift } from '../data/sharedData';
 import { IonPage, IonContent, IonHeader, IonToolbar, IonTitle, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonBadge, IonIcon, IonRefresher, IonRefresherContent, IonToast } from '@ionic/react';
 import { calendar, time, location, qrCode, logOut, statsChart } from 'ionicons/icons';
 import QRScanner from './QRScanner';
@@ -6,22 +7,6 @@ import StaffCalendar from './StaffCalendar';
 import ShiftDetailsModal from './ShiftDetailsModal';
 import StaffAttendance from './StaffAttendance';
 
-interface Shift {
-  id: string;
-  date: string;
-  type: string;
-  startTime: string;
-  endTime: string;
-  siteId?: string;
-  siteName: string;
-  siteColor: string;
-  duration: number;
-  clockedIn: boolean;
-  clockedOut: boolean;
-  clockInTime?: string;
-  clockOutTime?: string;
-  isBank: boolean;
-}
 
 interface StaffDashboardProps {
   staffId: string;

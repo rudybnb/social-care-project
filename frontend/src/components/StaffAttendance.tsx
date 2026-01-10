@@ -1,19 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { Shift } from '../data/sharedData';
 import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonCard, IonCardContent, IonButton, IonIcon, IonBadge } from '@ionic/react';
 import { arrowBack, calendar, time, checkmarkCircle, closeCircle } from 'ionicons/icons';
 
-interface Shift {
-  id: string;
-  date: string;
-  siteName: string;
-  startTime: string;
-  endTime: string;
-  clockedIn: boolean;
-  clockedOut: boolean;
-  clockInTime?: string;
-  clockOutTime?: string;
-  duration: number;
-}
 
 interface StaffAttendanceProps {
   staffId: string;
@@ -96,13 +85,13 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ staffId, onBack }) =>
           <IonTitle>My Attendance</IonTitle>
         </IonToolbar>
       </IonHeader>
-      
+
       <IonContent style={{ '--background': '#0a0a0a' }}>
         <div style={{ padding: '16px' }}>
           {/* Period Selector */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '8px', 
+          <div style={{
+            display: 'flex',
+            gap: '8px',
             marginBottom: '16px',
             backgroundColor: '#1a1a1a',
             padding: '8px',
@@ -160,7 +149,7 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ staffId, onBack }) =>
             <h2 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>
               Clock In/Out History
             </h2>
-            
+
             {loading && (
               <div style={{ textAlign: 'center', color: '#9ca3af', padding: '20px' }}>
                 Loading...
@@ -191,7 +180,7 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ staffId, onBack }) =>
                           {formatDate(shift.date)} • {shift.startTime} - {shift.endTime}
                         </div>
                       </div>
-                      <IonBadge 
+                      <IonBadge
                         color={isComplete ? 'success' : isInProgress ? 'warning' : 'medium'}
                         style={{ fontSize: '11px' }}
                       >
@@ -201,18 +190,18 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ staffId, onBack }) =>
 
                     {/* Clock Times */}
                     {(shift.clockedIn || shift.clockedOut) && (
-                      <div style={{ 
-                        display: 'grid', 
-                        gridTemplateColumns: '1fr 1fr', 
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
                         gap: '12px',
                         backgroundColor: '#0a0a0a',
                         padding: '12px',
                         borderRadius: '8px'
                       }}>
                         <div>
-                          <div style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
                             gap: '4px',
                             color: '#10b981',
                             fontSize: '12px',
@@ -227,9 +216,9 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ staffId, onBack }) =>
                         </div>
 
                         <div>
-                          <div style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
                             gap: '4px',
                             color: shift.clockedOut ? '#ef4444' : '#6b7280',
                             fontSize: '12px',
@@ -247,7 +236,7 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ staffId, onBack }) =>
 
                     {/* Actual Duration */}
                     {actualDuration && (
-                      <div style={{ 
+                      <div style={{
                         marginTop: '12px',
                         paddingTop: '12px',
                         borderTop: '1px solid #3a3a3a',
