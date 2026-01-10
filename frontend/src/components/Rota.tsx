@@ -868,14 +868,28 @@ const Rota: React.FC = () => {
       }
     } else {
       // No opposite shift exists, removing would leave NO coverage
-      alert(
-        `❌ CANNOT REMOVE SHIFT\n\n` +
+      const confirmed = window.confirm(
+        `⚠️ REMOVE ONLY SHIFT\n\n` +
         `This is the ONLY shift assigned at ${shiftToDelete.siteName} on ${shiftToDelete.date}.\n\n` +
         `Removing it would leave NO COVERAGE for that day.\n\n` +
-        `You must assign a replacement before removing this shift.`
+        `Are you sure you want to remove it completely?`
       );
-      setShowDeleteConfirm(false);
-      setShiftToDelete(null);
+
+      if (confirmed) {
+        try {
+          await removeShift(shiftToDelete.id);
+          setShifts(getShifts());
+          setShowDeleteConfirm(false);
+          setShiftToDelete(null);
+          alert(`✅ Shift successfully removed.`);
+        } catch (error) {
+          console.error('Error deleting shift:', error);
+          alert('❌ Failed to delete shift. Please try again.');
+        }
+      } else {
+        setShowDeleteConfirm(false);
+        setShiftToDelete(null);
+      }
       return;
     }
   };
