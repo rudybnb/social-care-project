@@ -68,7 +68,7 @@ app.get('/api/staff', async (_req: Request, res: Response) => {
 app.get('/api/staff/:id', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     if (!id) return res.status(400).json({ error: 'ID is required' });
     const staffMember = await db.select().from(staff).where(eq(staff.id, id));
     if (staffMember.length === 0) {
@@ -183,7 +183,7 @@ app.post('/api/staff', async (req: Request, res: Response) => {
 app.put('/api/staff/:id', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     if (!id) return res.status(400).json({ error: 'ID is required' });
 
     // Hash password if it's being updated and is not already hashed
@@ -210,7 +210,7 @@ app.put('/api/staff/:id', async (req: Request, res: Response) => {
 app.delete('/api/staff/:id', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     if (!id) return res.status(400).json({ error: 'ID is required' });
     const deleted = await db.delete(staff).where(eq(staff.id, id)).returning();
     if (deleted.length === 0) {
@@ -241,7 +241,7 @@ app.get('/api/sites', async (_req: Request, res: Response) => {
 app.get('/api/sites/:id', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     if (!id) return res.status(400).json({ error: 'ID is required' });
     const site = await db.select().from(sites).where(eq(sites.id, id));
     if (site.length === 0) {
@@ -270,7 +270,7 @@ app.post('/api/sites', async (req: Request, res: Response) => {
 app.put('/api/sites/:id', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     if (!id) return res.status(400).json({ error: 'ID is required' });
     const updated = await db.update(sites)
       .set({ ...req.body, updatedAt: new Date() })
@@ -290,7 +290,7 @@ app.put('/api/sites/:id', async (req: Request, res: Response) => {
 app.delete('/api/sites/:id', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     if (!id) return res.status(400).json({ error: 'ID is required' });
     const deleted = await db.delete(sites).where(eq(sites.id, id)).returning();
     if (deleted.length === 0) {
@@ -321,7 +321,7 @@ app.get('/api/shifts', async (_req: Request, res: Response) => {
 app.get('/api/shifts/:id', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     if (!id) return res.status(400).json({ error: 'ID is required' });
     const shift = await db.select().from(shifts).where(eq(shifts.id, id));
     if (shift.length === 0) {
@@ -338,7 +338,7 @@ app.get('/api/shifts/:id', async (req: Request, res: Response) => {
 app.get('/api/staff/:id/shifts', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     const staffShifts = await db.select().from(shifts).where(eq(shifts.staffId, id));
     res.json(staffShifts);
   } catch (error) {
@@ -375,7 +375,7 @@ app.post('/api/shifts', async (req: Request, res: Response) => {
 app.put('/api/shifts/:id', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     if (!id) return res.status(400).json({ error: 'ID is required' });
 
     // Check if trying to change staff_status on a locked shift
@@ -407,7 +407,7 @@ app.put('/api/shifts/:id', async (req: Request, res: Response) => {
 app.delete('/api/shifts/:id', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     if (!id) return res.status(400).json({ error: 'ID is required' });
     const deleted = await db.delete(shifts).where(eq(shifts.id, id)).returning();
     if (deleted.length === 0) {
@@ -538,7 +538,7 @@ app.get('/api/auth/me', async (_req: Request, res: Response) => {
 app.get('/api/staff/:staffId/shifts', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { staffId } = req.params;
+    const staffId = req.params.staffId as string;
 
     if (!staffId) {
       return res.status(400).json({ error: 'Staff ID required' });
@@ -596,7 +596,7 @@ app.post('/api/staff/lookup', async (req: Request, res: Response) => {
 app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { shiftId } = req.params;
+    const shiftId = req.params.shiftId as string;
     const { qrCode, staffId } = req.body;
 
     console.log(`[ClockIn] Attempting clock-in. Shift: ${shiftId}, Staff: ${staffId}, QR: ${qrCode}`);
@@ -697,7 +697,7 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
 app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { shiftId } = req.params;
+    const shiftId = req.params.shiftId as string;
     const { qrCode, staffId } = req.body;
 
     if (!shiftId || !qrCode || !staffId) {
@@ -851,7 +851,7 @@ app.post('/api/shifts/unscheduled-clock-in', async (req: Request, res: Response)
 app.patch('/api/shifts/:id/status', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { staffStatus, declineReason } = req.body;
 
     if (!id) return res.status(400).json({ error: 'ID is required' });
@@ -909,7 +909,7 @@ app.patch('/api/shifts/:id/status', async (req: Request, res: Response) => {
 app.post('/api/sites/:siteId/generate-qr', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { siteId } = req.params;
+    const siteId = req.params.siteId as string;
 
     if (!siteId) {
       return res.status(400).json({ error: 'Site ID required' });
@@ -1277,7 +1277,7 @@ app.post('/api/approvals', async (req: Request, res: Response) => {
 app.get('/api/approvals', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { status } = req.query;
+    const status = req.query.status as string;
 
     let requests;
     if (status) {
@@ -1302,7 +1302,9 @@ app.get('/api/approvals', async (req: Request, res: Response) => {
 app.get('/api/approvals/check', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { staffId, siteId, date } = req.query;
+    const staffId = req.query.staffId as string;
+    const siteId = req.query.siteId as string;
+    const date = req.query.date as string;
 
     if (!staffId || !siteId || !date) {
       return res.status(400).json({ error: 'Missing required parameters' });
@@ -1334,7 +1336,7 @@ app.get('/api/approvals/check', async (req: Request, res: Response) => {
 app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { approvedBy } = req.body;
 
     if (!approvedBy) {
@@ -1397,7 +1399,7 @@ app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
 app.post('/api/approvals/:id/reject', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { rejectedBy, notes } = req.body;
 
     const updated = await db.update(approvalRequests)
