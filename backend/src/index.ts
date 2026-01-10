@@ -1620,7 +1620,7 @@ app.post('/api/admin/fix-shift-duration/:shiftId', async (req: Request, res: Res
     const shift = shiftResult[0];
 
     if (!shift.clockInTime || !shift.clockOutTime) {
-      return res.status(400).json({ error: 'Shift missing clock times', clockInTime: shift.clockInTime, clockOutTime: shift.clockOutTime });
+      return res.status(400).json({ error: 'Shift missing clock times' });
     }
 
     const clockIn = new Date(shift.clockInTime);
@@ -1629,33 +1629,56 @@ app.post('/api/admin/fix-shift-duration/:shiftId', async (req: Request, res: Res
     const actualDuration = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
 
     console.log(`[FixShift] Calculated duration: ${actualDuration}h (was ${shift.duration}h)`);
-    console.log(`[FixShift] Clock in: ${clockIn.toISOString()}, Clock out: ${clockOut.toISOString()}`);
 
-    // Try the standard Drizzle update with returning
-    const result = await db.update(shifts)
-      .set({
-        duration: actualDuration
-      })
-      .where(eq(shifts.id, shiftId))
-      .returning({ id: shifts.id, duration: shifts.duration });
+    // First try: Update just the notes field (should work if any update works)
+    let testUpdate;
+    try {
+      testUpdate = await db.update(shifts)
+        .set({ notes: `Test update at ${new Date().toISOString()}` })
+        .where(eq(shifts.id, shiftId))
+        .returning({ id: shifts.id });
+      console.log('[FixShift] Test notes update succeeded:', testUpdate);
+    } catch (testErr: any) {
+      console.error('[FixShift] Test notes update FAILED:', testErr.message);
+      return res.status(500).json({
+        error: 'Even simple update failed',
+        details: testErr.message,
+        hypothesis: 'Database connection or permissions issue'
+      });
+    }
 
-    console.log(`[FixShift] Update result:`, result);
+    // Second try: Update duration with rounded integer
+    const roundedDuration = Math.round(actualDuration);
+    try {
+      const durationUpdate = await db.update(shifts)
+        .set({ duration: roundedDuration })
+        .where(eq(shifts.id, shiftId))
+        .returning({ id: shifts.id, duration: shifts.duration });
+      console.log('[FixShift] Integer duration update succeeded:', durationUpdate);
 
-    // Verify the update worked
-    const verifyResult = await db.select({ duration: shifts.duration }).from(shifts).where(eq(shifts.id, shiftId));
-    console.log(`[FixShift] Verification:`, verifyResult);
+      // Verify
+      const verify = await db.select({ duration: shifts.duration }).from(shifts).where(eq(shifts.id, shiftId));
 
-    res.json({
-      success: true,
-      shiftId,
-      oldDuration: shift.duration,
-      newDuration: actualDuration,
-      updateResult: result,
-      verifyResult: verifyResult
-    });
+      return res.json({
+        success: true,
+        shiftId,
+        oldDuration: shift.duration,
+        newDuration: roundedDuration,
+        note: 'Rounded to integer due to float issues',
+        verification: verify
+      });
+    } catch (durationErr: any) {
+      console.error('[FixShift] Duration update FAILED:', durationErr.message);
+      return res.status(500).json({
+        error: 'Duration update failed but notes update worked',
+        details: durationErr.message,
+        hypothesis: 'Issue with duration float type',
+        testUpdateWorked: testUpdate
+      });
+    }
   } catch (error: any) {
     console.error('[FixShift] Error:', error);
-    res.status(500).json({ error: 'Fix failed', details: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Fix failed', details: error.message });
   }
 });
 
