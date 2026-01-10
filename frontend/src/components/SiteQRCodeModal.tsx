@@ -1,5 +1,12 @@
+
+import React, { useState } from 'react';
 import QRCode from 'qrcode';
 
+interface SiteQRCodeModalProps {
+  siteId: string;
+  siteName: string;
+  onClose: () => void;
+}
 const SiteQRCodeModal: React.FC<SiteQRCodeModalProps> = ({ siteId, siteName, onClose }) => {
   const [copied, setCopied] = useState(false);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
