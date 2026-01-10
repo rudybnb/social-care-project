@@ -738,15 +738,32 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
       return res.status(400).json({ error: 'Invalid QR code for this site' });
     }
 
-    // Update shift with clock-out time
+    // Calculate actual duration from clock-in to clock-out
+    const now = new Date();
+    const clockInTime = shift[0].clockInTime ? new Date(shift[0].clockInTime) : null;
+    let actualDuration = shift[0].duration || 0; // Default to existing
+
+    if (clockInTime) {
+      const diffMs = now.getTime() - clockInTime.getTime();
+      actualDuration = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100; // Hours with 2 decimal places
+    }
+
+    // Calculate actual end time
+    const actualEndTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    // Update shift with clock-out time and actual duration
     const updated = await db.update(shifts)
       .set({
         clockedOut: true,
-        clockOutTime: new Date(),
-        updatedAt: new Date()
+        clockOutTime: now,
+        endTime: actualEndTime,
+        duration: actualDuration,
+        updatedAt: now
       })
       .where(eq(shifts.id, shiftId))
       .returning();
+
+    console.log(`[ClockOut] ${shift[0].staffName} clocked out. Duration: ${actualDuration} hours`);
 
     res.json({ message: 'Clocked out successfully', shift: updated[0] });
   } catch (error) {
