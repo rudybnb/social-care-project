@@ -1,45 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { IonIcon } from '@ionic/react';
 import { chevronBack, chevronForward } from 'ionicons/icons';
-
-interface Shift {
-  id: string;
-  date: string;
-  type: string;
-  startTime: string;
-  endTime: string;
-  siteName: string;
-  siteColor: string;
-  duration: number;
-  clockedIn: boolean;
-  clockedOut: boolean;
-  clockInTime?: string;
-  clockOutTime?: string;
-  isBank: boolean;
-  status?: string;
-}
-
-interface AllShift {
-  id: string;
-  staffId: string;
-  staffName: string;
-  siteId: string;
-  siteName: string;
-  siteColor: string;
-  date: string;
-  type: string;
-  startTime: string;
-  endTime: string;
-  duration: number;
-  clockedIn: boolean;
-  clockedOut: boolean;
-}
+import { Shift } from '../data/sharedData';
 
 interface StaffCalendarProps {
   staffId: string;
   shifts: Shift[];
   onDayClick?: (date: Date, dayShifts: Shift[]) => void;
 }
+
 
 const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onDayClick }) => {
   const [selectedMonth, setSelectedMonth] = useState(0);
@@ -48,38 +17,38 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onDayCli
   const getMonthDates = (monthOffset: number = 0) => {
     const today = new Date();
     const targetMonth = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
-    
+
     const year = targetMonth.getFullYear();
     const month = targetMonth.getMonth();
-    
+
     // Get first day of month and adjust to Monday
     const firstDay = new Date(year, month, 1);
     const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1; // Monday = 0
-    
+
     // Get last day of month
     const lastDay = new Date(year, month + 1, 0).getDate();
-    
+
     const dates = [];
-    
+
     // Add previous month days to fill the week
     for (let i = startDay - 1; i >= 0; i--) {
       const date = new Date(year, month, -i);
       dates.push({ date, isCurrentMonth: false });
     }
-    
+
     // Add current month days
     for (let i = 1; i <= lastDay; i++) {
       const date = new Date(year, month, i);
       dates.push({ date, isCurrentMonth: true });
     }
-    
+
     // Add next month days to complete the grid
     const remainingDays = 42 - dates.length; // 6 rows × 7 days
     for (let i = 1; i <= remainingDays; i++) {
       const date = new Date(year, month + 1, i);
       dates.push({ date, isCurrentMonth: false });
     }
-    
+
     return { dates, month: targetMonth };
   };
 
@@ -101,9 +70,9 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onDayCli
   return (
     <div style={{ padding: '16px' }}>
       {/* Month Navigator */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: '20px',
         padding: '12px',
@@ -123,15 +92,15 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onDayCli
         >
           <IonIcon icon={chevronBack} />
         </button>
-        
-        <div style={{ 
-          color: 'white', 
+
+        <div style={{
+          color: 'white',
           fontSize: '18px',
           fontWeight: '600'
         }}>
           {formatMonth(month)}
         </div>
-        
+
         <button
           onClick={() => setSelectedMonth(selectedMonth + 1)}
           style={{
@@ -214,7 +183,7 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onDayCli
                 }}
               >
                 {/* Date Number */}
-                <div style={{ 
+                <div style={{
                   color: isCurrentMonth ? 'white' : '#666',
                   fontSize: '14px',
                   fontWeight: isToday ? 'bold' : '500',
@@ -226,8 +195,8 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onDayCli
 
                 {/* Shift Indicators - Simple colored dots like admin */}
                 {hasShifts && (
-                  <div style={{ 
-                    display: 'flex', 
+                  <div style={{
+                    display: 'flex',
                     flexDirection: 'column',
                     gap: '4px',
                     alignItems: 'center'
@@ -263,7 +232,7 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onDayCli
         color: '#999'
       }}>
         <div style={{ marginBottom: '4px' }}>
-          <span style={{ 
+          <span style={{
             display: 'inline-block',
             width: '20px',
             height: '4px',
