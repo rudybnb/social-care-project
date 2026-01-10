@@ -1631,21 +1631,27 @@ app.post('/api/admin/fix-shift-duration/:shiftId', async (req: Request, res: Res
     console.log(`[FixShift] Calculated duration: ${actualDuration}h (was ${shift.duration}h)`);
     console.log(`[FixShift] Clock in: ${clockIn.toISOString()}, Clock out: ${clockOut.toISOString()}`);
 
-    // Update with raw SQL for maximum compatibility
-    const result = await db.execute(
-      sql`UPDATE shifts SET duration = ${actualDuration}, updated_at = NOW() WHERE id = ${shiftId} RETURNING id, duration`
-    );
+    // Try the standard Drizzle update with returning
+    const result = await db.update(shifts)
+      .set({
+        duration: actualDuration
+      })
+      .where(eq(shifts.id, shiftId))
+      .returning({ id: shifts.id, duration: shifts.duration });
 
     console.log(`[FixShift] Update result:`, result);
+
+    // Verify the update worked
+    const verifyResult = await db.select({ duration: shifts.duration }).from(shifts).where(eq(shifts.id, shiftId));
+    console.log(`[FixShift] Verification:`, verifyResult);
 
     res.json({
       success: true,
       shiftId,
       oldDuration: shift.duration,
       newDuration: actualDuration,
-      clockInTime: shift.clockInTime,
-      clockOutTime: shift.clockOutTime,
-      result
+      updateResult: result,
+      verifyResult: verifyResult
     });
   } catch (error: any) {
     console.error('[FixShift] Error:', error);
