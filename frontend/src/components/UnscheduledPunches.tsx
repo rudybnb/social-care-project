@@ -79,11 +79,13 @@ const UnscheduledPunches: React.FC = () => {
                 // Standard approach: create new, delete old.
             };
 
+            // Remove prefix and create as a new shift
+            // Use type assertion to bypass the mandatory ID requirement for shiftsAPI.create
+            const { id: oldId, ...shiftDataBase } = selectedShiftForSplit;
             const newShiftData = {
-                ...selectedShiftForSplit,
-                ...updatedShift,
-                id: undefined // Let backend generate a new ID
-            };
+                ...shiftDataBase,
+                ...updatedShift
+            } as any;
 
             await shiftsAPI.create(newShiftData);
             await removeShift(selectedShiftForSplit.id);
