@@ -130,6 +130,9 @@ export interface Shift {
   clockOutTime?: string;
   duplicateShiftApprovedBy?: string;
   declineReason?: string;
+  responseLocked?: boolean;
+  autoAccepted?: boolean;
+  weekDeadline?: string;
 }
 
 export const shiftsAPI = {

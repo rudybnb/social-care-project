@@ -11,7 +11,7 @@ interface QRScannerProps {
     type: string;
     startTime: string;
     endTime: string;
-    clockedIn: boolean;
+    clockedIn?: boolean;
   };
 }
 
@@ -121,15 +121,15 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose, shiftInfo }) => 
           marginBottom: '24px',
           position: 'relative'
         }}>
-          <div 
-            id={qrCodeRegionId} 
+          <div
+            id={qrCodeRegionId}
             style={{
               borderRadius: '16px',
               overflow: 'hidden',
               border: success ? '3px solid #10b981' : error ? '3px solid #ef4444' : '3px solid #2563eb'
             }}
           />
-          
+
           {success && (
             <div style={{
               position: 'absolute',

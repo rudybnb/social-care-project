@@ -27,25 +27,7 @@ import {
   calendar
 } from 'ionicons/icons';
 
-interface Shift {
-  id: string;
-  date: string;
-  type: string;
-  startTime: string;
-  endTime: string;
-  siteName: string;
-  siteColor: string;
-  duration: number;
-  clockedIn: boolean;
-  clockedOut: boolean;
-  status?: string;
-  clockInTime?: string;
-  clockOutTime?: string;
-  isBank: boolean;
-  responseLocked?: boolean;
-  autoAccepted?: boolean;
-  weekDeadline?: string;
-}
+import { Shift } from '../services/api';
 
 interface Coworker {
   staffName: string;
@@ -165,7 +147,7 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
   };
 
   const isToday = shift.date === new Date().toISOString().split('T')[0];
-  const isPending = !shift.status || shift.status === 'pending';
+  const isPending = !shift.staffStatus || shift.staffStatus === 'pending';
 
   return (
     <IonModal isOpen={isOpen} onDidDismiss={onClose}>
@@ -409,7 +391,7 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                 style={{ '--background': '#9333ea', '--background-activated': '#7c3aed', marginTop: '8px' }}
               >
                 <IonIcon slot="start" icon={qrCode} />
-                {shift.status === 'accepted' ? 'Clock In with QR' : 'Accept & Clock In'}
+                {shift.staffStatus === 'accepted' ? 'Clock In with QR' : 'Accept & Clock In'}
               </IonButton>
             )}
 
