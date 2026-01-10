@@ -1,6 +1,6 @@
 // Shared data store with backend API integration
-import { staffAPI, sitesAPI, shiftsAPI } from '../services/api';
-export type { Shift } from '../services/api';
+import { staffAPI, sitesAPI, shiftsAPI, type Shift } from '../services/api';
+export type { Shift };
 
 export interface Site {
   id: string;
