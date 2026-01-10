@@ -6,6 +6,7 @@ const UnscheduledPunches: React.FC = () => {
     // We now use ApprovalRequest[] instead of Shift[]
     const [requests, setRequests] = useState<ApprovalRequest[]>([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const loadData = async () => {
         setLoading(true);
@@ -13,8 +14,10 @@ const UnscheduledPunches: React.FC = () => {
             // Fetch pending requests from the dedicated API
             const pendingRequests = await approvalAPI.getPendingRequests();
             setRequests(pendingRequests);
+            setError(null);
         } catch (error) {
             console.error('Failed to load approval requests:', error);
+            setError('Failed to load requests. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -75,6 +78,57 @@ const UnscheduledPunches: React.FC = () => {
                 <p style={{ color: '#9ca3af', fontSize: '15px' }}>
                     These are requests from staff to clock in without a scheduled shift.
                 </p>
+            </div>
+
+            {error && (
+                <div style={{
+                    backgroundColor: '#ef444420',
+                    border: '1px solid #ef4444',
+                    color: '#ef4444',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    marginBottom: '20px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <span>⚠️ {error}</span>
+                    <button
+                        onClick={loadData}
+                        style={{
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
+                        }}
+                    >
+                        Retry
+                    </button>
+                </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+                <button
+                    onClick={loadData}
+                    disabled={loading}
+                    style={{
+                        backgroundColor: '#374151',
+                        color: 'white',
+                        border: '1px solid #4b5563',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        cursor: loading ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '14px'
+                    }}
+                >
+                    {loading ? '↻ Refreshing...' : '↻ Refresh List'}
+                </button>
             </div>
 
             {loading ? (
