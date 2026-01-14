@@ -895,6 +895,7 @@ app.post('/api/shifts/unscheduled-clock-in', async (req: Request, res: Response)
     }
 
     const site = siteResult[0];
+    const siteId = site.id;
 
     // Get staff details
     const staffResult = await db.select().from(staff).where(eq(staff.id, staffId));
