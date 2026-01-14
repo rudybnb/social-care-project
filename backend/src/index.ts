@@ -686,7 +686,10 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
 
     // QR Code Validation
     // The user confirmed they still want this check.
-    const expectedQR = `SITE_${shift.siteId}`;
+    // QR Code Validation
+    // FIX: Site IDs already start with SITE_, so we shouldn't double prefix if present
+    const expectedQR = shift.siteId.startsWith('SITE_') ? shift.siteId : `SITE_${shift.siteId}`;
+
     if (qrCode !== expectedQR) {
       console.log(`[ClockIn] Invalid QR. Expected ${expectedQR}, got ${qrCode}`);
       return res.status(400).json({ error: 'Invalid QR code. Please ensure you are scanning the correct site code.' });
@@ -789,8 +792,9 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
       return res.status(404).json({ error: 'Site not found' });
     }
 
-    // Simple QR code validation: SITE_{siteId}
-    const expectedQR = `SITE_${shift[0].siteId}`;
+    // Simple QR code validation: Match Site ID (handling SITE_ prefix)
+    const expectedQR = shift[0].siteId.startsWith('SITE_') ? shift[0].siteId : `SITE_${shift[0].siteId}`;
+
     if (qrCode !== expectedQR) {
       return res.status(400).json({ error: 'Invalid QR code for this site' });
     }
@@ -839,102 +843,111 @@ app.post('/api/shifts/unscheduled-clock-in', async (req: Request, res: Response)
       return res.status(400).json({ error: 'QR code and staff ID required' });
     }
 
-    // Extract siteId from QR (expects SITE_{siteId})
-    const siteId = qrCode.startsWith('SITE_') ? qrCode.replace('SITE_', '') : null;
-    if (!siteId) {
+    // Extract siteId from QR
+    // FIX: If QR is SITE_003, and ID is SITE_003, we should just use the QR as ID?
+    // Or if ID is 003, we strip. 
+    // Logic: Try exact match first, then try stripping SITE_
+
+    let siteId = qrCode;
+    // Verify site exists (Try exact match first - e.g. SITE_003)
+    let siteResult = await db.select().from(sites).where(eq(sites.id, siteId));
+
+    if (siteResult.length === 0 && qrCode.startsWith('SITE_')) {
+      // Fallback: Try stripping SITE_ prefix (e.g. if ID is just 003)
+      siteId = qrCode.replace('SITE_', '');
+      siteResult = await db.select().from(sites).where(eq(sites.id, siteId));
+    }
+
+    if (siteResult.length === 0) {
       return res.status(400).json({ error: 'Invalid site QR code' });
     }
-
-    // Verify site exists
-    const siteResult = await db.select().from(sites).where(eq(sites.id, siteId));
-    if (siteResult.length === 0) {
-      return res.status(404).json({ error: 'Site not found' });
-    }
+    return res.status(404).json({ error: 'Site not found' });
+  }
     const site = siteResult[0];
 
-    // Get staff details
-    const staffResult = await db.select().from(staff).where(eq(staff.id, staffId));
-    if (staffResult.length === 0) {
-      return res.status(404).json({ error: 'Staff member not found' });
-    }
-    const staffMember = staffResult[0];
+  // Get staff details
+  const staffResult = await db.select().from(staff).where(eq(staff.id, staffId));
+  if (staffResult.length === 0) {
+    return res.status(404).json({ error: 'Staff member not found' });
+  }
+  const staffMember = staffResult[0];
 
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
 
-    // Check if there's already a pending or approved request for today
-    const existingRequest = await db.select()
-      .from(approvalRequests)
-      .where(
+  // Check if there's already a pending or approved request for today
+  const existingRequest = await db.select()
+    .from(approvalRequests)
+    .where(
+      and(
+        eq(approvalRequests.staffId, staffId),
+        eq(approvalRequests.siteId, siteId),
+        eq(approvalRequests.date, dateStr)
+      )
+    );
+
+  if (existingRequest.length > 0) {
+    const existing = existingRequest[0];
+    if (existing.status === 'approved') {
+      // Already approved - check if shift exists
+      const approvedShift = await db.select().from(shifts).where(
         and(
-          eq(approvalRequests.staffId, staffId),
-          eq(approvalRequests.siteId, siteId),
-          eq(approvalRequests.date, dateStr)
+          eq(shifts.staffId, staffId),
+          eq(shifts.siteId, siteId),
+          eq(shifts.date, dateStr)
         )
       );
-
-    if (existingRequest.length > 0) {
-      const existing = existingRequest[0];
-      if (existing.status === 'approved') {
-        // Already approved - check if shift exists
-        const approvedShift = await db.select().from(shifts).where(
-          and(
-            eq(shifts.staffId, staffId),
-            eq(shifts.siteId, siteId),
-            eq(shifts.date, dateStr)
-          )
-        );
-        if (approvedShift.length > 0) {
-          return res.json({
-            message: 'Your request was already approved. You may clock in to your shift.',
-            status: 'approved',
-            shift: approvedShift[0]
-          });
-        }
-      } else if (existing.status === 'pending') {
+      if (approvedShift.length > 0) {
         return res.json({
-          message: 'Your request is pending admin approval. Your scan time has been recorded.',
-          status: 'pending',
-          requestId: existing.id,
-          scanTime: existing.requestTime
-        });
-      } else if (existing.status === 'rejected') {
-        return res.status(403).json({
-          error: 'Your request for today was rejected. Please contact your manager.',
-          status: 'rejected'
+          message: 'Your request was already approved. You may clock in to your shift.',
+          status: 'approved',
+          shift: approvedShift[0]
         });
       }
+    } else if (existing.status === 'pending') {
+      return res.json({
+        message: 'Your request is pending admin approval. Your scan time has been recorded.',
+        status: 'pending',
+        requestId: existing.id,
+        scanTime: existing.requestTime
+      });
+    } else if (existing.status === 'rejected') {
+      return res.status(403).json({
+        error: 'Your request for today was rejected. Please contact your manager.',
+        status: 'rejected'
+      });
     }
-
-    // Create a new approval request (records the scan time)
-    console.log(`[UnscheduledClockIn] Creating approval request for ${staffMember.name} at ${site.name}`);
-
-    const newRequest = await db.insert(approvalRequests).values({
-      staffId: staffId,
-      staffName: staffMember.name,
-      siteId: site.id,
-      siteName: site.name,
-      date: dateStr,
-      requestTime: now,
-      status: 'pending',
-      notes: `Scan time recorded: ${now.toISOString()}`,
-      createdAt: now,
-      updatedAt: now
-    }).returning();
-
-    console.log(`[UnscheduledClockIn] Approval request created: ${newRequest[0].id}`);
-
-    res.json({
-      message: 'Your arrival has been recorded and is pending admin approval.',
-      status: 'pending',
-      requestId: newRequest[0].id,
-      scanTime: now.toISOString(),
-      siteName: site.name
-    });
-  } catch (error) {
-    console.error('Error in unscheduled clock-in:', error);
-    res.status(500).json({ error: 'Failed to process unscheduled clock-in' });
   }
+
+  // Create a new approval request (records the scan time)
+  console.log(`[UnscheduledClockIn] Creating approval request for ${staffMember.name} at ${site.name}`);
+
+  const newRequest = await db.insert(approvalRequests).values({
+    staffId: staffId,
+    staffName: staffMember.name,
+    siteId: site.id,
+    siteName: site.name,
+    date: dateStr,
+    requestTime: now,
+    status: 'pending',
+    notes: `Scan time recorded: ${now.toISOString()}`,
+    createdAt: now,
+    updatedAt: now
+  }).returning();
+
+  console.log(`[UnscheduledClockIn] Approval request created: ${newRequest[0].id}`);
+
+  res.json({
+    message: 'Your arrival has been recorded and is pending admin approval.',
+    status: 'pending',
+    requestId: newRequest[0].id,
+    scanTime: now.toISOString(),
+    siteName: site.name
+  });
+} catch (error) {
+  console.error('Error in unscheduled clock-in:', error);
+  res.status(500).json({ error: 'Failed to process unscheduled clock-in' });
+}
 });
 
 // Update shift status (accept/decline)
