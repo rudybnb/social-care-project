@@ -108,9 +108,9 @@ export async function initializeAgents() {
   console.log('   - Tomorrow Coverage Check (6PM)');
   console.log('   - Pre-Shift Telegram Reminders (15 min)');
   console.log('   - Missing Clock-Out Detector (30 min)');
-  console.log('   - Missing Clock-Out Detector (30 min)
-    - Shift Summaries(08: 30 & 20: 30)
-  - Shift Verification(30 min)');
+  console.log('   - Shift Summaries (08:30 & 20:30)');
+  console.log('   - Shift Verification (30 min)');
+  console.log('   - Daily Payroll Report (07:30)');
 }
 
 // Agent 1: Send daily shift reminders
