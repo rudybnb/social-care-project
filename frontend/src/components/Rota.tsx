@@ -1725,8 +1725,8 @@ const Rota: React.FC = () => {
                                   </div>
                                   {shift.clockedIn && (
                                     <div style={{ fontSize: '10px', marginTop: '2px', display: 'flex', gap: '4px' }}>
-                                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>In: {shift.clockInTime}</span>
-                                      {shift.clockedOut && <span style={{ color: '#10b981', fontWeight: 'bold' }}>Out: {shift.clockOutTime}</span>}
+                                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>In: {new Date(shift.clockInTime!).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                                      {shift.clockedOut && <span style={{ color: '#10b981', fontWeight: 'bold' }}>Out: {new Date(shift.clockOutTime!).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>}
                                     </div>
                                   )}
                                   {shift.is24Hour && (
