@@ -1796,12 +1796,6 @@ app.listen(PORT, async () => {
     console.error('⚠️  Failed to initialize auto clock-out scheduler:', error.message);
   }
 
-  // Initialize Automation Agents (Email & Telegram Reminders)
-  try {
-    const { initializeAgents } = await import('./services/automationAgents.js');
-    await initializeAgents();
-  } catch (error: any) {
-    console.error('⚠️  Failed to initialize automation agents:', error.message);
-  }
+
 });
 
