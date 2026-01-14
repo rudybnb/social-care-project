@@ -9,6 +9,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import authRoutes from './routes/auth.js';
 import { calculatePayForPeriod } from './services/payrollAuditService.js';
+import { sendDailyPayrollReport } from './services/emailService.js';
 
 dotenv.config();
 
@@ -67,6 +68,33 @@ app.get('/api/admin/audit-payroll', async (req: Request, res: Response) => {
 
     console.log(`Auditing payroll from ${startDate} to ${endDate}...`);
     const result = await calculatePayForPeriod(startDate, endDate);
+
+    // Handle email request
+    if (req.query.email === 'true') {
+      const emailTo = 'laurenalecia@ecelsia.co.uk';
+
+      let totalCost = 0; let totalHours = 0; let staffCount = 0; let breakdownText = "";
+      result.staffSummary.forEach(s => {
+        if (s.totalHours > 0) {
+          staffCount++;
+          totalCost += s.totalPay;
+          totalHours += s.totalHours;
+          breakdownText += `${s.staffName.padEnd(20)} | ${s.totalHours.toFixed(1).padStart(5)}h | £${s.totalPay.toFixed(2).padStart(8)}\n`;
+        }
+      });
+
+      const reportData = {
+        date: `${startDate} to ${endDate}`,
+        staffCount,
+        totalHours,
+        totalCost: totalCost.toFixed(2),
+        breakdownText
+      };
+
+      await sendDailyPayrollReport(emailTo, reportData);
+      console.log(`Manual audit email sent to ${emailTo}`);
+      return res.json({ ...result, emailSent: true, emailTo });
+    }
 
     // Return full report as text if requested, else JSON
     if (req.query.format === 'text') {
