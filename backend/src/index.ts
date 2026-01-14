@@ -71,7 +71,7 @@ app.get('/api/admin/audit-payroll', async (req: Request, res: Response) => {
 
     // Handle email request
     if (req.query.email === 'true') {
-      const emailTo = 'laurenalecia@ecelsia.co.uk';
+      const emailTo = 'laurenalecia@eclesia.co.uk';
 
       let totalCost = 0; let totalHours = 0; let staffCount = 0; let breakdownText = "";
       result.staffSummary.forEach(s => {

@@ -17,7 +17,7 @@ import { auditSingleShift, calculatePayForPeriod } from './payrollAuditService.j
 // Admin email for alerts
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@socialcare.com';
 const ACCOUNTS_EMAIL = process.env.ACCOUNTS_EMAIL || ADMIN_EMAIL; // Use same if not set
-const REPORT_EMAIL = 'laurenalecia@ecelsia.co.uk';
+const REPORT_EMAIL = 'laurenalecia@eclesia.co.uk';
 
 import { initTelegramBot, sendClockInReminder, sendLateClockInAlert as sendTelegramLateAlert, sendClockOutReminder, sendForgotClockOutAlert, sendShiftSummary } from './telegramService.js';
 
