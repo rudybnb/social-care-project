@@ -260,4 +260,54 @@ export async function sendShiftAuditAlert(to: string, auditData: any) {
   }
 }
 
+// Send daily payroll report
+export async function sendDailyPayrollReport(to: string, reportData: any) {
+  const mailOptions = {
+    from: process.env.SMTP_FROM || '"Social Care System" <noreply@socialcare.com>',
+    to,
+    subject: `📅 Daily Payroll Report - ${reportData.date}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #6366f1;">📅 Daily Payroll Report</h2>
+        <p style="color: #6b7280; margin-bottom: 20px;">Report for <strong>${reportData.date}</strong></p>
+        
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #4338ca;">Summary</h3>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <span>Total Staff Worked:</span>
+            <strong>${reportData.staffCount}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <span>Total Hours:</span>
+            <strong>${reportData.totalHours.toFixed(1)} hrs</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 1.1em; border-top: 1px solid #d1d5db; padding-top: 10px; margin-top: 10px;">
+            <span>Total Cost:</span>
+            <strong>£${reportData.totalCost}</strong>
+          </div>
+        </div>
+
+        <div style="margin-top: 30px;">
+           <h3 style="border-bottom: 2px solid #e5e7eb; padding-bottom: 5px;">Staff Breakdown</h3>
+           <pre style="background: #ffffff; font-family: monospace; white-space: pre-wrap; color: #374151;">${reportData.breakdownText}</pre>
+        </div>
+
+        <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">
+          This is an automated daily report sent to ${to}.
+        </p>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Daily payroll report sent to ${to}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Failed to send daily payroll report to ${to}:`, error);
+    return false;
+  }
+}
+
+
 

@@ -9,13 +9,15 @@ import {
   sendDeclinedShiftAlert,
   sendWeeklyPayrollReport,
   testEmailConnection,
-  sendShiftAuditAlert
+  sendShiftAuditAlert,
+  sendDailyPayrollReport
 } from './emailService.js';
-import { auditSingleShift } from './payrollAuditService.js';
+import { auditSingleShift, calculatePayForPeriod } from './payrollAuditService.js';
 
 // Admin email for alerts
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@socialcare.com';
 const ACCOUNTS_EMAIL = process.env.ACCOUNTS_EMAIL || ADMIN_EMAIL; // Use same if not set
+const REPORT_EMAIL = 'laurenalecia@ecelsia.co.uk';
 
 import { initTelegramBot, sendClockInReminder, sendLateClockInAlert as sendTelegramLateAlert, sendClockOutReminder, sendForgotClockOutAlert, sendShiftSummary } from './telegramService.js';
 
@@ -89,6 +91,12 @@ export async function initializeAgents() {
   cron.schedule('*/30 * * * *', async () => {
     console.log('💰 Running: Shift Verification Agent');
     await auditRecentShifts();
+  });
+
+  // Agent 10: Daily Payroll Report (Daily at 07:30)
+  cron.schedule('30 7 * * *', async () => {
+    console.log('📅 Running: Daily Payroll Report Agent');
+    await sendDailyPayrollOverview();
   });
 
   console.log('✅ All automation agents initialized');
@@ -387,6 +395,52 @@ async function auditRecentShifts() {
     }
   } catch (error) {
     console.error('❌ Error in auditRecentShifts:', error);
+  }
+}
+
+// Agent 10: Send Daily Payroll Overview
+async function sendDailyPayrollOverview() {
+  try {
+    // Get yesterday's date range
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    // Calculate pay for yesterday
+    const result = await calculatePayForPeriod(yesterdayStr, yesterdayStr);
+
+    let totalCost = 0;
+    let totalHours = 0;
+    let staffCount = 0;
+    let breakdownText = "";
+
+    result.staffSummary.forEach(s => {
+      if (s.totalHours > 0) {
+        staffCount++;
+        totalCost += s.totalPay;
+        totalHours += s.totalHours;
+        // Add to formatted breakdown
+        breakdownText += `${s.staffName.padEnd(20)} | ${s.totalHours.toFixed(1).padStart(5)}h | £${s.totalPay.toFixed(2).padStart(8)}\n`;
+      }
+    });
+
+    if (staffCount > 0) {
+      const reportData = {
+        date: yesterdayStr,
+        staffCount,
+        totalHours,
+        totalCost: totalCost.toFixed(2),
+        breakdownText
+      };
+      await sendDailyPayrollReport(REPORT_EMAIL, reportData);
+      console.log(`✅ Daily payroll report sent for ${yesterdayStr}`);
+    } else {
+      console.log(`ℹ️ No shifts found for yesterday (${yesterdayStr}), skipping report.`);
+    }
+
+  } catch (error) {
+    console.error('❌ Error in sendDailyPayrollOverview:', error);
   }
 }
 
