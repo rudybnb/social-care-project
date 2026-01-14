@@ -8,11 +8,14 @@ import {
   sendLateClockInAlert,
   sendDeclinedShiftAlert,
   sendWeeklyPayrollReport,
-  testEmailConnection
+  testEmailConnection,
+  sendShiftAuditAlert
 } from './emailService.js';
+import { auditSingleShift } from './payrollAuditService.js';
 
 // Admin email for alerts
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@socialcare.com';
+const ACCOUNTS_EMAIL = process.env.ACCOUNTS_EMAIL || ADMIN_EMAIL; // Use same if not set
 
 import { initTelegramBot, sendClockInReminder, sendLateClockInAlert as sendTelegramLateAlert, sendClockOutReminder, sendForgotClockOutAlert, sendShiftSummary } from './telegramService.js';
 
@@ -82,6 +85,12 @@ export async function initializeAgents() {
     await generateShiftSummaries();
   });
 
+  // Agent 9: Shift Verification Agent (Every 30 minutes)
+  cron.schedule('*/30 * * * *', async () => {
+    console.log('💰 Running: Shift Verification Agent');
+    await auditRecentShifts();
+  });
+
   console.log('✅ All automation agents initialized');
   console.log('📋 Active agents:');
   console.log('   - Daily Email Reminders (7:00 AM)');
@@ -91,7 +100,9 @@ export async function initializeAgents() {
   console.log('   - Tomorrow Coverage Check (6PM)');
   console.log('   - Pre-Shift Telegram Reminders (15 min)');
   console.log('   - Missing Clock-Out Detector (30 min)');
-  console.log('   - Shift Summaries (08:30 & 20:30)');
+  console.log('   - Missing Clock-Out Detector (30 min)
+    - Shift Summaries(08: 30 & 20: 30)
+  - Shift Verification(30 min)');
 }
 
 // Agent 1: Send daily shift reminders
@@ -340,6 +351,42 @@ export async function triggerDeclinedShiftAlert(shift: any) {
     console.log('✅ Declined shift alert sent');
   } catch (error) {
     console.error('❌ Error sending declined shift alert:', error);
+  }
+}
+
+// Agent 9: Audit Recent Shifts
+async function auditRecentShifts() {
+  try {
+    const now = new Date();
+    // Look back 35 minutes to catch shifts clocked out since last run (every 30 mins)
+    // with a 5 minute buffer.
+    const lookback = new Date(now.getTime() - 35 * 60000);
+    const lookbackStr = lookback.toISOString(); // or keep as date object if drizzle supports it? 
+    // Drizzle timestamps are usually Date objects in node-postgres? 
+    // Schema says timestamp('clock_out_time'), so it expects Date.
+
+    // Find shifts clocked out recently
+    const recentShifts = await db.select().from(shifts)
+      .where(and(
+        eq(shifts.clockedOut, true),
+        gte(shifts.clockOutTime, lookback)
+      ));
+
+    if (recentShifts.length > 0) {
+      console.log(`🔎 Found ${recentShifts.length} recently completed shifts to audit.`);
+      for (const shift of recentShifts) {
+        try {
+          const auditData = await auditSingleShift(shift.id);
+          // Send to Admin (or Accounts email if distinct)
+          await sendShiftAuditAlert(ACCOUNTS_EMAIL, auditData);
+          console.log(`✅ Audited shift ${shift.id} for ${shift.staffName}`);
+        } catch (err) {
+          console.error(`❌ Failed to audit shift ${shift.id}:`, err);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error in auditRecentShifts:', error);
   }
 }
 

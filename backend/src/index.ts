@@ -8,6 +8,7 @@ import { users, staff, sites, shifts, approvalRequests } from './schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import authRoutes from './routes/auth.js';
+import { calculatePayForPeriod } from './services/payrollAuditService.js';
 
 dotenv.config();
 
@@ -51,6 +52,34 @@ app.get('/api/health', async (_req: Request, res: Response) => {
 });
 
 // ==================== STAFF ROUTES ====================
+
+// Audit Payroll Route
+app.get('/api/admin/audit-payroll', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate and endDate are required (YYYY-MM-DD)' });
+    }
+
+    console.log(`Auditing payroll from ${startDate} to ${endDate}...`);
+    const result = await calculatePayForPeriod(startDate, endDate);
+
+    // Return full report as text if requested, else JSON
+    if (req.query.format === 'text') {
+      res.setHeader('Content-Type', 'text/plain');
+      return res.send(result.fullReport);
+    }
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error auditing payroll:', error);
+    res.status(500).json({ error: 'Failed to audit payroll', details: error.message });
+  }
+});
 
 // Get all staff
 app.get('/api/staff', async (_req: Request, res: Response) => {

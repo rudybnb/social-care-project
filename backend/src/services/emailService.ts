@@ -211,3 +211,53 @@ export async function sendWeeklyPayrollReport(to: string, staffName: string, pay
   }
 }
 
+// Send shift audit alert
+export async function sendShiftAuditAlert(to: string, auditData: any) {
+  const mailOptions = {
+    from: process.env.SMTP_FROM || '"Social Care System" <noreply@socialcare.com>',
+    to,
+    subject: `💰 Shift Audit: ${auditData.staffName} - ${auditData.date}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #10b981;">💰 Shift Cost Audit</h2>
+        
+        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin: 0 0 10px 0;">${auditData.staffName}</h3>
+          <p style="margin: 5px 0;"><strong>Site:</strong> ${auditData.site}</p>
+          <p style="margin: 5px 0;"><strong>Shift:</strong> ${auditData.shiftType} (${auditData.startTime} - ${auditData.endTime})</p>
+          <p style="margin: 5px 0;"><strong>Duration:</strong> ${auditData.duration} hrs</p>
+        </div>
+
+        <div style="border: 1px solid #e5e7eb; padding: 15px; border-radius: 8px; margin: 20px 0;">
+           <h3 style="color: #059669; margin-top: 0;">Financial Breakdown</h3>
+           <p style="font-size: 1.25em; font-weight: bold; margin: 10px 0;">Total Cost: £${auditData.cost}</p>
+           <p style="white-space: pre-wrap; background: #ecfdf5; padding: 10px; border-radius: 4px;">${auditData.breakdown}</p>
+        </div>
+
+        <div style="margin-top: 20px; font-size: 0.9em; color: #6b7280;">
+          <p><strong>Raw Rate Data (at time of calculation):</strong></p>
+          <ul>
+            <li>Standard: £${auditData.rawRates.standard}</li>
+            <li>Enhanced: ${auditData.rawRates.enhanced || 'N/A'}</li>
+            <li>Night: ${auditData.rawRates.night || 'N/A'}</li>
+          </ul>
+        </div>
+
+        <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">
+          This is an automated verification alert.
+        </p>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Shift audit alert sent to ${to}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Failed to send shift audit alert to ${to}:`, error);
+    return false;
+  }
+}
+
+
