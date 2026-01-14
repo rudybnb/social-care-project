@@ -687,11 +687,21 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
     // QR Code Validation
     // The user confirmed they still want this check.
     // QR Code Validation
-    // FIX: Site IDs already start with SITE_, so we shouldn't double prefix if present
-    const expectedQR = shift.siteId.startsWith('SITE_') ? shift.siteId : `SITE_${shift.siteId}`;
+    // Logic: 
+    // 1. Exact match Site ID
+    // 2. Exact match SITE_{siteId}
+    // 3. QR contains Site ID (e.g. SITE:SITE_001:12345)
 
-    if (qrCode !== expectedQR) {
-      console.log(`[ClockIn] Invalid QR. Expected ${expectedQR}, got ${qrCode}`);
+    const plainSiteId = shift.siteId.replace('SITE_', ''); // Just the number/code part
+
+    const isValidQR =
+      qrCode === shift.siteId ||
+      qrCode === `SITE_${shift.siteId}` ||
+      qrCode.includes(shift.siteId) ||
+      qrCode.includes(`SITE_${plainSiteId}`);
+
+    if (!isValidQR) {
+      console.log(`[ClockIn] Invalid QR. Shift Site: ${shift.siteId}, Scanned: ${qrCode}`);
       return res.status(400).json({ error: 'Invalid QR code. Please ensure you are scanning the correct site code.' });
     }
 
@@ -792,10 +802,16 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
       return res.status(404).json({ error: 'Site not found' });
     }
 
-    // Simple QR code validation: Match Site ID (handling SITE_ prefix)
-    const expectedQR = shift[0].siteId.startsWith('SITE_') ? shift[0].siteId : `SITE_${shift[0].siteId}`;
+    // QR Code Validation (Robust)
+    const plainSiteId = shift[0].siteId.replace('SITE_', '');
 
-    if (qrCode !== expectedQR) {
+    const isValidQR =
+      qrCode === shift[0].siteId ||
+      qrCode === `SITE_${shift[0].siteId}` ||
+      qrCode.includes(shift[0].siteId) ||
+      qrCode.includes(`SITE_${plainSiteId}`);
+
+    if (!isValidQR) {
       return res.status(400).json({ error: 'Invalid QR code for this site' });
     }
 
@@ -848,14 +864,30 @@ app.post('/api/shifts/unscheduled-clock-in', async (req: Request, res: Response)
     // Or if ID is 003, we strip. 
     // Logic: Try exact match first, then try stripping SITE_
 
-    let siteId = qrCode;
-    // Verify site exists (Try exact match first - e.g. SITE_003)
-    let siteResult = await db.select().from(sites).where(eq(sites.id, siteId));
+    // Extract siteId from QR (Robust Search)
+    // Strategy:
+    // 1. Try finding site where ID == qrCode
+    // 2. Try finding site where qrCode CONTAINS ID (most likely for SITE:SITE_001:123 format)
 
-    if (siteResult.length === 0 && qrCode.startsWith('SITE_')) {
-      // Fallback: Try stripping SITE_ prefix (e.g. if ID is just 003)
-      siteId = qrCode.replace('SITE_', '');
-      siteResult = await db.select().from(sites).where(eq(sites.id, siteId));
+    let siteResult = await db.select().from(sites).where(eq(sites.id, qrCode));
+
+    if (siteResult.length === 0) {
+      // Fallback: Check if we can find a site whose ID is contained within the QR string
+      // This is expensive to do via SQL LIKE %%, so we fetch all sites and check in memory (assuming few sites)
+      // OR try to extract valid looking IDs.
+
+      // Better: Try to extract SITE_XXX from the QR string
+      const match = qrCode.match(/(SITE_[A-Za-z0-9_]+)/);
+      if (match) {
+        const extractedId = match[1];
+        siteResult = await db.select().from(sites).where(eq(sites.id, extractedId));
+      }
+    }
+
+    // Fallback 2: Check for just the numeric part if SITE_ failed? 
+    if (siteResult.length === 0 && qrCode.includes('SITE_')) {
+      const possibleId = qrCode.replace('SITE_', ''); // dangerous if simple split
+      // Skip for now, regex above is safer
     }
 
     if (siteResult.length === 0) {
