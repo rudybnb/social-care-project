@@ -8,6 +8,7 @@ import { users, staff, sites, shifts, approvalRequests } from './schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import authRoutes from './routes/auth.js';
+import adminRoutes from './routes/admin.js';
 import { calculatePayForPeriod } from './services/payrollAuditService.js';
 import { sendDailyPayrollReport } from './services/emailService.js';
 
@@ -31,6 +32,7 @@ export const db = pool ? drizzle(pool) : undefined;
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes); // Register new admin routes
 
 // Health check for Render
 app.get('/api/health', async (_req: Request, res: Response) => {

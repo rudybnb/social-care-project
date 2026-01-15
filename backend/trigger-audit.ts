@@ -1,14 +1,14 @@
-import { calculatePayForPeriod } from './src/services/payrollAuditService';
-import { sendDailyPayrollReport } from './src/services/emailService';
+import { calculatePayForPeriod } from './src/services/payrollAuditService.ts';
+import { sendDailyPayrollReport } from './src/services/emailService.ts';
 import dotenv from 'dotenv';
-import { pool } from './src/db';
+import { pool } from './src/db.ts';
 
 dotenv.config();
 
 async function run() {
     const START = '2025-12-14';
     const END = '2026-01-14';
-    const EMAIL = 'laurenalecia@ecelsia.co.uk';
+    const EMAIL = 'laurenalecia@eclesia.co.uk';
 
     console.log(`🔍 Auditing payroll from ${START} to ${END}...`);
 

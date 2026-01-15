@@ -83,15 +83,25 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
             // 1. Tally Hours
             for (const shift of weeklyShifts) {
                 const hours = shift.duration || 12; // Default logic
+
+                // Format times
+                const formatTime = (d: Date | string | null) => {
+                    if (!d) return "??:??";
+                    const dateObj = typeof d === 'string' ? new Date(d) : d;
+                    return dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+                };
+
+                const timeStr = `[${formatTime(shift.clockInTime)} - ${formatTime(shift.clockOutTime)}]`;
+
                 // Check if Night
                 const isNight = shift.type?.toLowerCase().includes('night');
 
                 if (isNight) {
                     nightHours += hours;
-                    logEntries.push(`  - ${shift.date} (${shift.type}): ${hours}h -> **Night Rate**`);
+                    logEntries.push(`  - ${shift.date} (${shift.type}) ${timeStr}: ${hours}h -> **Night Rate**`);
                 } else {
                     dayHours += hours;
-                    logEntries.push(`  - ${shift.date} (${shift.type}): ${hours}h -> **Day Logic**`);
+                    logEntries.push(`  - ${shift.date} (${shift.type}) ${timeStr}: ${hours}h -> **Day Logic**`);
                 }
             }
 

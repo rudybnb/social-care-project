@@ -19,7 +19,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@socialcare.com';
 const ACCOUNTS_EMAIL = process.env.ACCOUNTS_EMAIL || ADMIN_EMAIL; // Use same if not set
 const REPORT_EMAIL = 'laurenalecia@eclesia.co.uk';
 
-import { initTelegramBot, sendClockInReminder, sendLateClockInAlert as sendTelegramLateAlert, sendClockOutReminder, sendForgotClockOutAlert, sendShiftSummary } from './telegramService.js';
+import { initTelegramBot, sendClockInReminder, sendLateClockInAlert as sendTelegramLateAlert, sendClockOutReminder, sendForgotClockOutAlert, sendShiftSummary, sendPayrollReport } from './telegramService.js';
 
 // Initialize all automation agents
 export async function initializeAgents() {
@@ -433,8 +433,23 @@ async function sendDailyPayrollOverview() {
         totalCost: totalCost.toFixed(2),
         breakdownText
       };
-      await sendDailyPayrollReport(REPORT_EMAIL, reportData);
-      console.log(`✅ Daily payroll report sent for ${yesterdayStr}`);
+
+      // Try Email (might fail if auth invalid)
+      try {
+        await sendDailyPayrollReport(REPORT_EMAIL, reportData);
+        console.log(`✅ Daily payroll report EMAIL sent for ${yesterdayStr}`);
+      } catch (emailErr) {
+        console.error(`⚠️ Email failed (using Telegram fallback):`, emailErr);
+      }
+
+      // Send Telegram (Backup/Primary)
+      try {
+        await sendPayrollReport(reportData);
+        console.log(`✅ Daily payroll report TELEGRAM sent for ${yesterdayStr}`);
+      } catch (tgErr) {
+        console.error(`❌ Telegram failed:`, tgErr);
+      }
+
     } else {
       console.log(`ℹ️ No shifts found for yesterday (${yesterdayStr}), skipping report.`);
     }

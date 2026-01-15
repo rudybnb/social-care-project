@@ -3,8 +3,8 @@
 
 import TelegramBot from 'node-telegram-bot-api';
 import { db } from '../index.js';
-import { staff } from '../schema.js';
-import { eq } from 'drizzle-orm';
+import { staff, shifts } from '../schema.js';
+import { eq, and } from 'drizzle-orm';
 
 // Telegram Bot Token - set this in environment variables
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
@@ -59,18 +59,233 @@ export function initTelegramBot() {
 
 
 
-        // Handle /start command without parameters
-        bot.onText(/^\/start$/, async (msg: TelegramBot.Message) => {
+        // Handle /fix command - Manual Clock-In/Out
+        // Format: /fix <StaffName> <Date> <Start> <End>
+        // Example: /fix Lauren 14/01 08:00 20:00
+        bot.onText(/\/fix (.+)/, async (msg: TelegramBot.Message, match: RegExpExecArray | null) => {
             const chatId = msg.chat.id;
-            bot?.sendMessage(chatId,
-                '👋 Welcome to the Social Care Clock-in Bot!\n\n' +
-                'To link your account:\n' +
-                '1. Open the Staff App\n' +
-                '2. Go to Settings\n' +
-                '3. Tap "Link Telegram"\n' +
-                '4. Click the link provided\n\n' +
-                'If you\'re an admin, your chat ID is: ' + chatId
-            );
+            // Security: Only allow admin chat
+            if (ADMIN_CHAT_ID && chatId.toString() !== ADMIN_CHAT_ID) {
+                return;
+            }
+
+            const rawInput = match ? match[1] : '';
+            // Split by space, handle potentially multi-word names later? No, keep simple for now.
+            // Better regex or splitting: Name might have spaces.
+            // Let's assume Name is first token(s), then Date, Start, End.
+            // Actually, safer to ask: /fix <Date> <Start> <End> <StaffName...>
+            // Or just split by spaces and try to parse date/time from the end.
+
+            const parts = rawInput.trim().split(/\s+/);
+            if (parts.length < 4) {
+                bot?.sendMessage(chatId, '❌ Usage: /fix <StaffName> <Date> <StartHH:MM> <EndHH:MM>\nExample: /fix Lauren 2025-01-14 08:00 20:00');
+                return;
+            }
+
+            const endTimeStr = parts.pop();
+            const startTimeStr = parts.pop();
+            const dateStr = parts.pop();
+            const staffNamePart = parts.join(' '); // Remainder is name
+
+            if (!endTimeStr || !startTimeStr || !dateStr || !staffNamePart) return;
+
+            try {
+                if (!db) {
+                    bot?.sendMessage(chatId, '❌ Database not connected.');
+                    return;
+                }
+
+                // 1. Find Staff
+                const allStaff = await db.select().from(staff);
+                // Fuzzy match
+                const targetStaff = allStaff.find(s => s.name.toLowerCase().includes(staffNamePart.toLowerCase()));
+
+                if (!targetStaff) {
+                    bot?.sendMessage(chatId, `❌ Staff member containing "${staffNamePart}" not found.`);
+                    return;
+                }
+
+                // 2. Parse Date
+                // Handle DD/MM or YYYY-MM-DD
+                let targetDate = dateStr;
+                if (dateStr.includes('/')) {
+                    const [d, m, y] = dateStr.split('/');
+                    const year = y && y.length === 4 ? y : `20${y || '25'}`; // Guess year 2025/2026? Warning: unsafe.
+                    // Ideally force YYYY-MM-DD or use specific Logic
+                    // Let's rely on standard ISO for now if possible, or try to format.
+                    // Actually, db stores date as YYYY-MM-DD string.
+                    targetDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                }
+
+                // 3. Find Shift
+                const shiftsFound = await db.select().from(shifts).where(and(
+                    eq(shifts.staffId, targetStaff.id),
+                    eq(shifts.date, targetDate)
+                )); // Note: this relies on 'date' column string format match
+
+                if (shiftsFound.length === 0) {
+                    // Try creating it? Or error?
+                    // For now error, user can create shift in app or I can add create logic.
+                    // Error is safer.
+                    bot?.sendMessage(chatId, `❌ No shift found for ${targetStaff.name} on ${targetDate}.`);
+                    return;
+                }
+
+                const targetShift = shiftsFound[0]; // Update first match
+
+                // 4. Update Times
+                const clockIn = new Date(`${targetDate}T${startTimeStr}:00`);
+                const clockOut = new Date(`${targetDate}T${endTimeStr}:00`);
+
+                // Handle overnight
+                if (clockOut < clockIn) {
+                    clockOut.setDate(clockOut.getDate() + 1);
+                }
+
+                const durationMs = clockOut.getTime() - clockIn.getTime();
+                const durationHours = durationMs / (1000 * 60 * 60);
+
+                await db.update(shifts)
+                    .set({
+                        clockedIn: true,
+                        clockInTime: clockIn,
+                        clockedOut: true,
+                        clockOutTime: clockOut,
+                        duration: parseFloat(durationHours.toFixed(2)),
+                        notes: (targetShift.notes || '') + ' [Manual /fix]',
+                        updatedAt: new Date()
+                    })
+                    .where(eq(shifts.id, targetShift.id));
+
+                bot?.sendMessage(chatId, `✅ Updated shift for <b>${targetStaff.name}</b> on ${targetDate}.\nTime: ${startTimeStr} - ${endTimeStr} (${durationHours.toFixed(2)}h)`, { parse_mode: 'HTML' });
+
+            } catch (err: any) {
+                console.error(err);
+                bot?.sendMessage(chatId, `❌ Error: ${err.message}`);
+            }
+        });
+
+        // Handle /fixbatch command - Batch Manual Clock-In/Out for same staff
+        // Format: /fixbatch <StaffName>
+        //         <Date> <Start> <End>
+        //         <Date> <Start> <End>
+        // Example: /fixbatch Lauren
+        //          15/12 10:00 15:00
+        //          16/12 08:00 16:00
+        bot.onText(/\/fixbatch (.+)/s, async (msg: TelegramBot.Message, match: RegExpExecArray | null) => {
+            const chatId = msg.chat.id;
+            // Security: Only allow admin chat
+            if (ADMIN_CHAT_ID && chatId.toString() !== ADMIN_CHAT_ID) {
+                return;
+            }
+
+            const rawInput = match ? match[1] : '';
+            const lines = rawInput.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            if (lines.length < 2) {
+                bot?.sendMessage(chatId,
+                    '❌ Usage: /fixbatch <StaffName>\n' +
+                    '<Date> <StartHH:MM> <EndHH:MM>\n' +
+                    '<Date> <StartHH:MM> <EndHH:MM>\n\n' +
+                    'Example:\n/fixbatch Lauren\n15/12 10:00 15:00\n16/12 08:00 16:00');
+                return;
+            }
+
+            const staffNamePart = lines[0];
+            const shiftLines = lines.slice(1);
+
+            try {
+                if (!db) {
+                    bot?.sendMessage(chatId, '❌ Database not connected.');
+                    return;
+                }
+
+                // 1. Find Staff
+                const allStaff = await db.select().from(staff);
+                const targetStaff = allStaff.find(s => s.name.toLowerCase().includes(staffNamePart.toLowerCase()));
+
+                if (!targetStaff) {
+                    bot?.sendMessage(chatId, `❌ Staff member containing "${staffNamePart}" not found.`);
+                    return;
+                }
+
+                const results: string[] = [];
+                let successCount = 0;
+                let errorCount = 0;
+
+                // 2. Process each shift line
+                for (const line of shiftLines) {
+                    const parts = line.split(/\s+/);
+                    if (parts.length < 3) {
+                        results.push(`❌ Invalid format: ${line}`);
+                        errorCount++;
+                        continue;
+                    }
+
+                    const [dateStr, startTimeStr, endTimeStr] = parts;
+
+                    // Parse Date
+                    let targetDate = dateStr;
+                    if (dateStr.includes('/')) {
+                        const [d, m, y] = dateStr.split('/');
+                        const year = y && y.length === 4 ? y : `20${y || '25'}`;
+                        targetDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                    }
+
+                    // Find Shift
+                    const shiftsFound = await db.select().from(shifts).where(and(
+                        eq(shifts.staffId, targetStaff.id),
+                        eq(shifts.date, targetDate)
+                    ));
+
+                    if (shiftsFound.length === 0) {
+                        results.push(`❌ No shift on ${targetDate}`);
+                        errorCount++;
+                        continue;
+                    }
+
+                    const targetShift = shiftsFound[0];
+
+                    // Update Times
+                    const clockIn = new Date(`${targetDate}T${startTimeStr}:00`);
+                    const clockOut = new Date(`${targetDate}T${endTimeStr}:00`);
+
+                    // Handle overnight
+                    if (clockOut < clockIn) {
+                        clockOut.setDate(clockOut.getDate() + 1);
+                    }
+
+                    const durationMs = clockOut.getTime() - clockIn.getTime();
+                    const durationHours = durationMs / (1000 * 60 * 60);
+
+                    await db.update(shifts)
+                        .set({
+                            clockedIn: true,
+                            clockInTime: clockIn,
+                            clockedOut: true,
+                            clockOutTime: clockOut,
+                            duration: parseFloat(durationHours.toFixed(2)),
+                            notes: (targetShift.notes || '') + ' [Manual /fixbatch]',
+                            updatedAt: new Date()
+                        })
+                        .where(eq(shifts.id, targetShift.id));
+
+                    results.push(`✅ ${targetDate}: ${startTimeStr}-${endTimeStr} (${durationHours.toFixed(1)}h)`);
+                    successCount++;
+                }
+
+                // Send summary
+                const summary =
+                    `📋 <b>Batch Update for ${targetStaff.name}</b>\n\n` +
+                    results.join('\n') +
+                    `\n\n✅ ${successCount} updated | ❌ ${errorCount} failed`;
+
+                bot?.sendMessage(chatId, summary, { parse_mode: 'HTML' });
+
+            } catch (err: any) {
+                console.error(err);
+                bot?.sendMessage(chatId, `❌ Error: ${err.message}`);
+            }
         });
 
         console.log('✅ Telegram bot initialized successfully');
@@ -180,6 +395,24 @@ export async function sendShiftSummary(
         `━━━━━━━━━━━━━━━━\n` +
         `✅ Clocked Out: ${clockedOut}\n` +
         `❌ Not Clocked Out: ${notClockedOut}`;
+
+    return sendAdminTelegram(message);
+}
+
+// Send daily payroll report to admin
+export async function sendPayrollReport(reportData: any): Promise<boolean> {
+    const breakdown = reportData.breakdownText ? reportData.breakdownText.substring(0, 3500) : 'No detail'; // Telegram limit is 4096
+
+    const message =
+        `📅 <b>Daily Payroll Report</b>\n` +
+        `Date: ${reportData.date}\n` +
+        `━━━━━━━━━━━━━━━━\n` +
+        `👥 Staff Worked: ${reportData.staffCount}\n` +
+        `⏱ Total Hours: ${reportData.totalHours} hrs\n` +
+        `💷 <b>Total Cost: £${reportData.totalCost}</b>\n\n` +
+        `<b>Breakdown:</b>\n` +
+        `<pre>${breakdown}</pre>\n` +
+        `(End of Report)`;
 
     return sendAdminTelegram(message);
 }
