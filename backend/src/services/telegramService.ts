@@ -288,6 +288,112 @@ export function initTelegramBot() {
             }
         });
 
+        // Handle /report command - Manual Daily Payroll Report
+        // Usage: /report or /report YYYY-MM-DD
+        bot.onText(/\/report(?: (.+))?/, async (msg: TelegramBot.Message, match: RegExpExecArray | null) => {
+            const chatId = msg.chat.id;
+            // Security: Only allow admin chat
+            if (ADMIN_CHAT_ID && chatId.toString() !== ADMIN_CHAT_ID) {
+                return;
+            }
+
+            try {
+                if (!db) {
+                    bot?.sendMessage(chatId, '❌ Database not connected.');
+                    return;
+                }
+
+                // Parse date - default to yesterday
+                let targetDate: string;
+                const dateArg = match ? match[1]?.trim() : null;
+
+                if (dateArg) {
+                    // Handle DD/MM or YYYY-MM-DD format
+                    if (dateArg.includes('/')) {
+                        const [d, m, y] = dateArg.split('/');
+                        const year = y && y.length === 4 ? y : `20${y || '25'}`;
+                        targetDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                    } else {
+                        targetDate = dateArg;
+                    }
+                } else {
+                    // Default to yesterday
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    targetDate = yesterday.toISOString().split('T')[0];
+                }
+
+                bot?.sendMessage(chatId, `📊 Generating report for ${targetDate}...`);
+
+                // Get all shifts for that date
+                const dayShifts = await db.select().from(shifts).where(eq(shifts.date, targetDate));
+
+                if (dayShifts.length === 0) {
+                    bot?.sendMessage(chatId, `ℹ️ No shifts found for ${targetDate}.`);
+                    return;
+                }
+
+                // Get all staff for rate lookup
+                const allStaff = await db.select().from(staff);
+                const staffMap = new Map(allStaff.map(s => [s.id, s]));
+
+                let totalCost = 0;
+                let totalHours = 0;
+                let staffCount = 0;
+                const staffTotals = new Map<string, { name: string; hours: number; pay: number }>();
+
+                for (const shift of dayShifts) {
+                    if (!shift.clockedIn || !shift.staffId) continue;
+
+                    const hours = shift.duration || 0;
+                    const staffMember = staffMap.get(shift.staffId);
+                    if (!staffMember) continue;
+
+                    // Calculate pay (simplified - use shift type for rate)
+                    const rate = shift.type === 'Night Shift'
+                        ? parseFloat(staffMember.nightRate || '15')
+                        : parseFloat(staffMember.standardRate || '12.50');
+
+                    const pay = hours * rate;
+
+                    // Accumulate per staff
+                    const existing = staffTotals.get(shift.staffId);
+                    if (existing) {
+                        existing.hours += hours;
+                        existing.pay += pay;
+                    } else {
+                        staffTotals.set(shift.staffId, { name: staffMember.name, hours, pay });
+                        staffCount++;
+                    }
+
+                    totalHours += hours;
+                    totalCost += pay;
+                }
+
+                // Format breakdown
+                let breakdown = '';
+                staffTotals.forEach(s => {
+                    breakdown += `${s.name.padEnd(18)} | ${s.hours.toFixed(1).padStart(5)}h | £${s.pay.toFixed(2)}\n`;
+                });
+
+                const message =
+                    `📅 <b>Payroll Report</b>\n` +
+                    `Date: ${targetDate}\n` +
+                    `━━━━━━━━━━━━━━━━\n` +
+                    `👥 Staff Worked: ${staffCount}\n` +
+                    `⏱ Total Hours: ${totalHours.toFixed(1)} hrs\n` +
+                    `💷 <b>Total Cost: £${totalCost.toFixed(2)}</b>\n\n` +
+                    `<b>Breakdown:</b>\n` +
+                    `<pre>${breakdown || 'No clocked shifts'}</pre>`;
+
+                bot?.sendMessage(chatId, message, { parse_mode: 'HTML' });
+
+            } catch (err: any) {
+                console.error(err);
+                bot?.sendMessage(chatId, `❌ Error: ${err.message}`);
+            }
+        });
+
         console.log('✅ Telegram bot initialized successfully');
         return bot;
     } catch (error) {
