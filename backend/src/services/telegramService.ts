@@ -57,7 +57,11 @@ export function initTelegramBot() {
             }
         });
 
-
+        // Handle /ping command - Simple health check
+        bot.onText(/\/ping/, async (msg: TelegramBot.Message) => {
+            const chatId = msg.chat.id;
+            bot?.sendMessage(chatId, `🏓 Pong! Bot is running.\nTime: ${new Date().toISOString()}`);
+        });
 
         // Handle /fix command - Manual Clock-In/Out
         // Format: /fix <StaffName> <Date> <Start> <End>
