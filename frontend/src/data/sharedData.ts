@@ -339,6 +339,21 @@ export const getShifts = (): any[] => {
   return [...shifts];
 };
 
+// Force refresh shifts from backend (for when data may have changed externally, e.g., via Telegram bot)
+export const forceRefreshShifts = async (): Promise<void> => {
+  try {
+    console.log('Force refreshing shifts from backend...');
+    const backendShifts = await shiftsAPI.getAll();
+    if (backendShifts.length > 0) {
+      shifts = backendShifts;
+      console.log(`✅ Refreshed ${shifts.length} shifts from backend`);
+    }
+    notifyDataChanged();
+  } catch (error) {
+    console.error('Failed to refresh shifts from backend:', error);
+  }
+};
+
 export const setShifts = async (newShifts: any[]): Promise<void> => {
   shifts = newShifts;
   notifyDataChanged();

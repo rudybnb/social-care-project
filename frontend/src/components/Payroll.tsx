@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getShifts, getStaff, subscribeToDataChange, getAllWorkers } from '../data/sharedData';
+import { getShifts, getStaff, subscribeToDataChange, getAllWorkers, forceRefreshShifts } from '../data/sharedData';
 import { calculateWeeklyHours } from '../utils/hoursCalculator';
 import { leaveAPI } from '../services/leaveAPI';
 
@@ -12,6 +12,7 @@ const Payroll: React.FC = () => {
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
   const [selectedMonth, setSelectedMonth] = useState(0);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Subscribe to shift changes
   useEffect(() => {
@@ -40,10 +41,10 @@ const Payroll: React.FC = () => {
     const today = new Date();
     const monday = new Date(today);
     monday.setDate(today.getDate() - today.getDay() + 1 + (weekOffset * 7));
-    
+
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
-    
+
     return {
       start: monday,
       end: sunday,
@@ -57,7 +58,7 @@ const Payroll: React.FC = () => {
   const getMonthDates = (monthOffset: number) => {
     const today = new Date();
     const currentDay = today.getDate();
-    
+
     // Determine the current pay period
     let periodStart: Date;
     if (currentDay >= 14) {
@@ -67,11 +68,11 @@ const Payroll: React.FC = () => {
       // We're in the period that started on the 14th of last month
       periodStart = new Date(today.getFullYear(), today.getMonth() - 1 + monthOffset, 14);
     }
-    
+
     const periodEnd = new Date(periodStart);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
     periodEnd.setDate(14); // Ends on 14th of next month
-    
+
     return {
       start: periodStart,
       end: periodEnd,
@@ -97,7 +98,7 @@ const Payroll: React.FC = () => {
   const calculatePayroll = () => {
     return staff.map(staffMember => {
       // Filter to only include COMPLETED shifts (clocked in AND clocked out)
-      const staffShifts = shifts.filter(shift => 
+      const staffShifts = shifts.filter(shift =>
         shift.staffName === staffMember.name &&
         new Date(shift.date) >= currentPeriod.start &&
         new Date(shift.date) <= currentPeriod.end &&
@@ -125,9 +126,9 @@ const Payroll: React.FC = () => {
         const leaveStart = new Date(leave.startDate);
         const leaveEnd = new Date(leave.endDate);
         return leave.staffName === staffMember.name &&
-               ((leaveStart >= currentPeriod.start && leaveStart <= currentPeriod.end) ||
-                (leaveEnd >= currentPeriod.start && leaveEnd <= currentPeriod.end) ||
-                (leaveStart <= currentPeriod.start && leaveEnd >= currentPeriod.end));
+          ((leaveStart >= currentPeriod.start && leaveStart <= currentPeriod.end) ||
+            (leaveEnd >= currentPeriod.start && leaveEnd <= currentPeriod.end) ||
+            (leaveStart <= currentPeriod.start && leaveEnd >= currentPeriod.end));
       });
 
       let leaveHours = 0;
@@ -141,7 +142,7 @@ const Payroll: React.FC = () => {
 
       // Check if this is an agency worker
       const isAgency = 'agencyName' in staffMember;
-      
+
       let standardPay = 0;
       let enhancedPay = 0;
       let nightPay = 0;
@@ -159,9 +160,9 @@ const Payroll: React.FC = () => {
           nightHours,
           calculation: `${totalHours}h × £${agencyRate} = £${totalHours * agencyRate}`
         });
-        
+
         totalPay = totalHours * agencyRate;
-        
+
         // For display purposes, show day hours as "standard" and night hours as "night"
         standardPay = dayHours * agencyRate;
         nightPay = nightHours * agencyRate;
@@ -171,17 +172,17 @@ const Payroll: React.FC = () => {
         // Irina Mitrovici: £14/hour for all hours
         // Everyone else: £12.50/hour for all hours
         const standardRate = parseFloat(staffMember.standardRate) || 12.50;
-        
+
         // Simple flat rate: all hours at standard rate (day or night)
         const workPay = (dayHours + nightHours) * standardRate;
         const leavePay = leaveHours * 12.50; // Fixed rate for all leave pay
-        
+
         totalPay = workPay + leavePay;
         standardPay = totalPay;
         enhancedPay = 0;
         nightPay = 0;
       }
-      
+
       return {
         name: staffMember.name,
         isAgency,
@@ -283,16 +284,27 @@ const Payroll: React.FC = () => {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    
+
     // Generate filename with period
     const filename = `Payroll_${currentPeriod.label.replace(/\s+/g, '_')}.csv`;
-    
+
     link.setAttribute('href', url);
     link.setAttribute('download', filename);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Refresh shifts from backend (useful after Telegram bot updates)
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await forceRefreshShifts();
+      setShifts(getShifts());
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Show password screen if not unlocked
@@ -441,8 +453,31 @@ const Payroll: React.FC = () => {
           </button>
         </div>
 
-        {/* Export Button */}
-        <div style={{ marginBottom: '16px' }}>
+        {/* Export and Refresh Buttons */}
+        <div style={{ marginBottom: '16px', display: 'flex', gap: '12px' }}>
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: isRefreshing ? '#4b5563' : '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: isRefreshing ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            onMouseOver={(e) => !isRefreshing && (e.currentTarget.style.backgroundColor = '#2563eb')}
+            onMouseOut={(e) => !isRefreshing && (e.currentTarget.style.backgroundColor = '#3b82f6')}
+          >
+            <span style={{ fontSize: '18px' }}>{isRefreshing ? '⏳' : '🔄'}</span>
+            {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+          </button>
           <button
             onClick={exportToExcel}
             style={{

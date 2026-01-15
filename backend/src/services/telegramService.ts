@@ -236,14 +236,28 @@ export function initTelegramBot() {
                         targetDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
                     }
 
-                    // Find Shift
-                    const shiftsFound = await db.select().from(shifts).where(and(
+
+                    // Find Shift - search by staffId OR staffName (for robustness)
+                    let shiftsFound = await db.select().from(shifts).where(and(
                         eq(shifts.staffId, targetStaff.id),
                         eq(shifts.date, targetDate)
                     ));
 
+                    // If not found by staffId, try by staffName
                     if (shiftsFound.length === 0) {
-                        results.push(`❌ No shift on ${targetDate}`);
+                        shiftsFound = await db.select().from(shifts).where(and(
+                            eq(shifts.staffName, targetStaff.name),
+                            eq(shifts.date, targetDate)
+                        ));
+                    }
+
+                    if (shiftsFound.length === 0) {
+                        // Check if there are ANY shifts for this staff member on nearby dates for debugging
+                        const anyShifts = await db.select().from(shifts).where(
+                            eq(shifts.staffName, targetStaff.name)
+                        );
+                        const availableDates = anyShifts.map(s => s.date).slice(0, 5).join(', ');
+                        results.push(`❌ No shift for "${targetStaff.name}" on ${targetDate} (Available: ${availableDates || 'none'})`);
                         errorCount++;
                         continue;
                     }
@@ -259,23 +273,30 @@ export function initTelegramBot() {
                         clockOut.setDate(clockOut.getDate() + 1);
                     }
 
+
                     const durationMs = clockOut.getTime() - clockIn.getTime();
                     const durationHours = durationMs / (1000 * 60 * 60);
 
-                    await db.update(shifts)
-                        .set({
-                            clockedIn: true,
-                            clockInTime: clockIn,
-                            clockedOut: true,
-                            clockOutTime: clockOut,
-                            duration: parseFloat(durationHours.toFixed(2)),
-                            notes: (targetShift.notes || '') + ' [Manual /fixbatch]',
-                            updatedAt: new Date()
-                        })
-                        .where(eq(shifts.id, targetShift.id));
+                    try {
+                        await db.update(shifts)
+                            .set({
+                                clockedIn: true,
+                                clockInTime: clockIn,
+                                clockedOut: true,
+                                clockOutTime: clockOut,
+                                duration: parseFloat(durationHours.toFixed(2)),
+                                notes: (targetShift.notes || '') + ' [Manual /fixbatch]',
+                                updatedAt: new Date()
+                            })
+                            .where(eq(shifts.id, targetShift.id));
 
-                    results.push(`✅ ${targetDate}: ${startTimeStr}-${endTimeStr} (${durationHours.toFixed(1)}h)`);
-                    successCount++;
+                        results.push(`✅ ${targetDate}: ${startTimeStr}-${endTimeStr} (${durationHours.toFixed(1)}h)`);
+                        successCount++;
+                    } catch (updateError: any) {
+                        console.error(`Failed to update shift ${targetShift.id}:`, updateError);
+                        results.push(`❌ DB error on ${targetDate}: ${updateError.message?.substring(0, 50) || 'Unknown'}`);
+                        errorCount++;
+                    }
                 }
 
                 // Send summary
