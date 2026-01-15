@@ -101,11 +101,17 @@ export function initTelegramBot() {
 
                 // 1. Find Staff
                 const allStaff = await db.select().from(staff);
+                console.log(`[/fix] Found ${allStaff.length} staff members in DB`);
                 // Fuzzy match
                 const targetStaff = allStaff.find(s => s.name.toLowerCase().includes(staffNamePart.toLowerCase()));
 
                 if (!targetStaff) {
-                    bot?.sendMessage(chatId, `❌ Staff member containing "${staffNamePart}" not found.`);
+                    // Show available staff names for debugging
+                    const staffNames = allStaff.map(s => s.name).slice(0, 15).join(', ');
+                    bot?.sendMessage(chatId,
+                        `❌ Staff member containing "${staffNamePart}" not found.\n\n` +
+                        `📋 Available staff (${allStaff.length} total):\n${staffNames || 'None found'}`
+                    );
                     return;
                 }
 
@@ -206,10 +212,17 @@ export function initTelegramBot() {
 
                 // 1. Find Staff
                 const allStaff = await db.select().from(staff);
+                console.log(`[/fixbatch] Found ${allStaff.length} staff members in DB`);
+
                 const targetStaff = allStaff.find(s => s.name.toLowerCase().includes(staffNamePart.toLowerCase()));
 
                 if (!targetStaff) {
-                    bot?.sendMessage(chatId, `❌ Staff member containing "${staffNamePart}" not found.`);
+                    // Show available staff names for debugging
+                    const staffNames = allStaff.map(s => s.name).slice(0, 15).join(', ');
+                    bot?.sendMessage(chatId,
+                        `❌ Staff member containing "${staffNamePart}" not found.\n\n` +
+                        `📋 Available staff (${allStaff.length} total):\n${staffNames || 'None found'}`
+                    );
                     return;
                 }
 
