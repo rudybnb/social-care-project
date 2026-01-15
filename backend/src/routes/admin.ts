@@ -1,9 +1,9 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, Router } from 'express';
 import { db } from '../index.js';
 import { shifts, staff } from '../schema.js';
 import { eq, and } from 'drizzle-orm';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Manual Clock-In/Out for a single shift
 router.post('/manual-clock', async (req: Request, res: Response) => {
