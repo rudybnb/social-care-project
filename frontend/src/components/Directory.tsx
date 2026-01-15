@@ -10,7 +10,7 @@ const Directory: React.FC = () => {
   const [qrModalStaff, setQrModalStaff] = useState<{ id: string | number; name: string } | null>(null);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  
+
   // Staff state
   const [formData, setFormData] = useState({
     firstName: '',
@@ -95,7 +95,7 @@ const Directory: React.FC = () => {
 
     try {
       await addStaff(newStaff);
-      
+
       setFormData({
         firstName: '',
         lastName: '',
@@ -141,7 +141,7 @@ const Directory: React.FC = () => {
     const nameParts = staff.name.split(' ');
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
-    
+
     setFormData({
       firstName,
       lastName,
@@ -165,13 +165,13 @@ const Directory: React.FC = () => {
 
   const handleUpdateStaff = () => {
     if (!editingStaff) return;
-    
+
     if (!formData.firstName || !formData.lastName || !formData.standardRate) {
       alert('Please fill in required fields: First Name, Last Name, and Standard Rate');
       return;
     }
 
-    const updatedStaff = {
+    const updatedStaff: any = {
       name: `${formData.firstName} ${formData.lastName}`,
       email: formData.email,
       phone: formData.phone,
@@ -186,6 +186,11 @@ const Directory: React.FC = () => {
       pension: formData.pension,
       deductions: formData.otherDeductions
     };
+
+    // Only include password if a new one was entered
+    if (formData.password && formData.password.trim() !== '') {
+      updatedStaff.password = formData.password;
+    }
 
     updateStaff(editingStaff.id, updatedStaff);
     setShowEditModal(false);
@@ -950,8 +955,8 @@ const Directory: React.FC = () => {
                       <span style={{ color: '#6b7280' }}>Rates:</span> {staff.rates}
                     </div>
                     <div>
-                      <span style={{ color: '#6b7280' }}>Pension:</span> {staff.pension} • 
-                      <span style={{ color: '#6b7280' }}> Deductions:</span> {staff.deductions} • 
+                      <span style={{ color: '#6b7280' }}>Pension:</span> {staff.pension} •
+                      <span style={{ color: '#6b7280' }}> Deductions:</span> {staff.deductions} •
                       <span style={{ color: '#6b7280' }}> Tax:</span> {staff.tax}
                     </div>
                   </div>
@@ -1650,7 +1655,7 @@ const Directory: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 style={{ color: 'white', fontSize: '20px', marginBottom: '20px' }}>Edit Staff Member</h2>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               {/* First Name */}
               <div>
@@ -1737,6 +1742,31 @@ const Directory: React.FC = () => {
                 />
                 <div style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px' }}>
                   Used for clock in/out authentication (last 4 digits)
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  placeholder="Leave blank to keep current password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+                <div style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px' }}>
+                  Enter new password to change, or leave blank to keep existing
                 </div>
               </div>
 
