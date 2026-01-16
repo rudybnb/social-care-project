@@ -818,7 +818,6 @@ const Payroll: React.FC = () => {
             touchAction: 'manipulation'
           }}
         >
-        >
           📄 Export to CSV
         </button>
       </div>
