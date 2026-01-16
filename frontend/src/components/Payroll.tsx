@@ -101,9 +101,10 @@ const Payroll: React.FC = () => {
       const staffShifts = shifts.filter(shift =>
         shift.staffName === staffMember.name &&
         new Date(shift.date) >= currentPeriod.start &&
-        new Date(shift.date) <= currentPeriod.end &&
-        shift.clockedIn === true &&
-        shift.clockedOut === true // Only count fully completed shifts
+        new Date(shift.date) >= currentPeriod.start &&
+        new Date(shift.date) <= currentPeriod.end
+        // shift.clockedIn === true &&
+        // shift.clockedOut === true // REMOVED: Now including ALL scheduled shifts regardless of clock status
       );
 
       let totalHours = 0;
@@ -834,7 +835,7 @@ const Payroll: React.FC = () => {
           }}>
             <span style={{ fontSize: '24px' }}>⚠️</span>
             <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>
-              Incomplete Shifts (Not Included in Payroll)
+              Incomplete Shifts (Included but Unverified)
             </h2>
           </div>
           <div style={{
@@ -856,7 +857,7 @@ const Payroll: React.FC = () => {
               <div>Staff Name</div>
               <div>Date</div>
               <div>Type</div>
-              <div>Issue</div>
+              <div>Issue (Still Paid)</div>
             </div>
             {incompleteShifts.map((shift, index) => (
               <div

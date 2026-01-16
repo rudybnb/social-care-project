@@ -400,8 +400,9 @@ export function initTelegramBot() {
                 const staffTotals = new Map<string, { name: string; hours: number; pay: number }>();
 
                 for (const shift of dayShifts) {
-                    if (!shift.clockedIn || !shift.staffId) continue;
+                    if (!shift.staffId) continue;
 
+                    // Use scheduled duration if hours are missing (e.g. not clocked out)
                     const hours = shift.duration || 0;
                     const staffMember = staffMap.get(shift.staffId);
                     if (!staffMember) continue;
