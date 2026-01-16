@@ -219,7 +219,18 @@ export async function auditSingleShift(shiftId: string) {
 
     // Re-run simulation
     for (const s of weekShifts) {
-        const hours = s.duration || 12;
+        // Calculate duration from Scheduled Times for ACCURACY with new rule
+        let hours = 0;
+        try {
+            const start = new Date(`${s.date}T${s.startTime}:00`);
+            let end = new Date(`${s.date}T${s.endTime}:00`);
+            if (end < start) end.setDate(end.getDate() + 1);
+            hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+            if (hours < 0) hours = 0;
+        } catch (e) {
+            hours = s.duration || 0; // Fallback
+        }
+
         const isTargetShift = s.id === shift.id;
         const isNight = s.type?.toLowerCase().includes('night');
 
@@ -229,7 +240,7 @@ export async function auditSingleShift(shiftId: string) {
             const cost = hours * nightRate;
             if (isTargetShift) {
                 shiftCost = cost;
-                breakdown = `${hours}h @ Night Rate (£${nightRate})`;
+                breakdown = `${hours.toFixed(2)}h @ Night Rate (£${nightRate})`;
             }
         } else {
             // Day
