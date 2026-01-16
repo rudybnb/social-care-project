@@ -20,7 +20,26 @@ export function initTelegramBot() {
     }
 
     try {
-        bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+        const disablePolling = process.env.DISABLE_TELEGRAM_POLLING === 'true';
+
+        bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
+            polling: !disablePolling
+        });
+
+        if (disablePolling) {
+            console.log('ℹ️ Telegram polling disabled by environment variable');
+        } else {
+            // Handle polling errors to prevent crash/noisy logs on deployment
+            bot.on('polling_error', (error: any) => {
+                // 409 Conflict is normal during zero-downtime deployments
+                if (error.code === 'ETELEGRAM' && error.message.includes('409 Conflict')) {
+                    // Suppress stack trace for expected conflicts
+                    console.warn(`⚠️ Telegram Polling Conflict: Another instance is running (normal during deployment).`);
+                } else {
+                    console.error('❌ Telegram Polling Error:', error.message);
+                }
+            });
+        }
 
         // Handle /start command - this is how staff link their account
         bot.onText(/\/start (.+)/, async (msg: TelegramBot.Message, match: RegExpExecArray | null) => {
