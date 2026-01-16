@@ -218,10 +218,20 @@ const Payroll: React.FC = () => {
         totalPay,
         shifts: staffShifts.length
       };
-    }).filter(p => p.totalHours > 0); // Only show staff with hours
+    }).filter(p => p.totalHours > 0);
+  };
+
+  const calculateIncompleteShifts = () => {
+    return shifts.filter(shift => {
+      const shiftDate = new Date(shift.date);
+      const inPeriod = shiftDate >= currentPeriod.start && shiftDate <= currentPeriod.end;
+      const isComplete = shift.clockedIn === true && shift.clockedOut === true;
+      return inPeriod && !isComplete;
+    });
   };
 
   const payrollData = calculatePayroll();
+  const incompleteShifts = calculateIncompleteShifts();
   const totalPayroll = payrollData.reduce((sum, p) => sum + p.totalPay, 0);
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
@@ -808,9 +818,72 @@ const Payroll: React.FC = () => {
             touchAction: 'manipulation'
           }}
         >
+        >
           📄 Export to CSV
         </button>
       </div>
+
+      {/* Incomplete Shifts Warning */}
+      {incompleteShifts.length > 0 && (
+        <div style={{ marginTop: '32px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '16px',
+            color: '#f59e0b'
+          }}>
+            <span style={{ fontSize: '24px' }}>⚠️</span>
+            <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>
+              Incomplete Shifts (Not Included in Payroll)
+            </h2>
+          </div>
+          <div style={{
+            backgroundColor: '#1a1a1a',
+            borderRadius: '12px',
+            border: '1px solid #f59e0b',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr 2fr',
+              padding: '16px',
+              backgroundColor: '#2d1b06',
+              borderBottom: '1px solid #78350f',
+              fontSize: '12px',
+              fontWeight: '600',
+              color: '#fcd34d'
+            }}>
+              <div>Staff Name</div>
+              <div>Date</div>
+              <div>Type</div>
+              <div>Issue</div>
+            </div>
+            {incompleteShifts.map((shift, index) => (
+              <div
+                key={index}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr 1fr 2fr',
+                  padding: '16px',
+                  borderBottom: index < incompleteShifts.length - 1 ? '1px solid #2a2a2a' : 'none',
+                  fontSize: '13px',
+                  color: '#d1d5db'
+                }}
+              >
+                <div style={{ fontWeight: '600' }}>{shift.staffName}</div>
+                <div>{new Date(shift.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>
+                <div>{shift.type}</div>
+                <div style={{ color: '#f59e0b' }}>
+                  {!shift.clockedIn && !shift.clockedOut ? 'Missing Clock In & Out' :
+                    !shift.clockedIn ? 'Missing Clock In' :
+                      !shift.clockedOut ? 'Missing Clock Out' : 'Incomplete'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
