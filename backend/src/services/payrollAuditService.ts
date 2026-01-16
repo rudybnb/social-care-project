@@ -80,28 +80,47 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
             // Sort shifts by date
             weeklyShifts.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-            // 1. Tally Hours
+            // 1. Tally Hours (Using Scheduled Times)
             for (const shift of weeklyShifts) {
-                const hours = shift.duration || 12; // Default logic
+                // Determine duration based on Scheduled Times (startTime / endTime)
+                // Format: HH:MM. Date: YYYY-MM-DD.
 
-                // Format times
-                const formatTime = (d: Date | string | null) => {
-                    if (!d) return "??:??";
-                    const dateObj = typeof d === 'string' ? new Date(d) : d;
-                    return dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-                };
+                let hours = 0;
+                let timeStr = "Invalid Time";
 
-                const timeStr = `[${formatTime(shift.clockInTime)} - ${formatTime(shift.clockOutTime)}]`;
+                try {
+                    const start = new Date(`${shift.date}T${shift.startTime}:00`);
+                    let end = new Date(`${shift.date}T${shift.endTime}:00`);
+
+                    // Handle overnight shifts (if end < start, assume next day)
+                    if (end < start) {
+                        end.setDate(end.getDate() + 1);
+                    }
+
+                    const durationMs = end.getTime() - start.getTime();
+                    hours = durationMs / (1000 * 60 * 60);
+
+                    // Cap/Fix potential weird data
+                    if (hours < 0) hours = 0;
+
+                    // Formatting for report
+                    const formatTime = (t: string) => t.substring(0, 5); // HH:MM
+                    timeStr = `[${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}]`;
+
+                } catch (e) {
+                    timeStr = "Error parsing time";
+                    hours = 0;
+                }
 
                 // Check if Night
                 const isNight = shift.type?.toLowerCase().includes('night');
 
                 if (isNight) {
                     nightHours += hours;
-                    logEntries.push(`  - ${shift.date} (${shift.type}) ${timeStr}: ${hours}h -> **Night Rate**`);
+                    logEntries.push(`  - ${shift.date} (${shift.type}) ${timeStr}: ${hours.toFixed(2)}h -> **Night Rate**`);
                 } else {
                     dayHours += hours;
-                    logEntries.push(`  - ${shift.date} (${shift.type}) ${timeStr}: ${hours}h -> **Day Logic**`);
+                    logEntries.push(`  - ${shift.date} (${shift.type}) ${timeStr}: ${hours.toFixed(2)}h -> **Day Logic**`);
                 }
             }
 
@@ -110,9 +129,7 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
             const enhancedRateStub = (person.enhancedRate && person.enhancedRate !== '—') ? person.enhancedRate : person.standardRate;
             const enhancedRate = parseFloat(enhancedRateStub as string) || 0;
 
-            const nightRateStub = (person.nightRate && person.nightRate !== '—') ? person.nightRate : person.standardRate; // fallback to standard if no night rate? Usually strict night rate.
-            // Automation agent logic: const nightRate = parseFloat(staffMember.nightRate) || 15.00; -> fallback to 15?
-            // Let's stick to DB values. If DB is missing, warn.
+            const nightRateStub = (person.nightRate && person.nightRate !== '—') ? person.nightRate : person.standardRate;
             const nightRate = parseFloat(nightRateStub as string) || 0;
 
             const first20 = Math.min(dayHours, 20);
@@ -128,7 +145,7 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
 
             // Add to report
             logEntries.forEach(l => report += l + '\n');
-            report += `\n**Calculation:**\n`;
+            report += `\n**Calculation (Based on Scheduled Times):**\n`;
             report += `- Day Hours: ${dayHours.toFixed(2)}h\n`;
             report += `  - Standard (First 20h): ${first20.toFixed(2)}h * £${standardRate} = £${standardPay.toFixed(2)}\n`;
             report += `  - Enhanced (Rest):      ${after20.toFixed(2)}h * £${enhancedRate} = £${enhancedPay.toFixed(2)}\n`;
