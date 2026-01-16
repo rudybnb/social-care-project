@@ -111,8 +111,26 @@ const Payroll: React.FC = () => {
       let nightHours = 0;
 
       staffShifts.forEach(shift => {
-        // Use ACTUAL clock-in/out times, not scheduled duration
-        const hours = calculateActualHours(shift.clockInTime, shift.clockOutTime);
+        // Use SCHEDULED times for payroll calculation as per new rules
+        // Calculate duration from start/end time strings (HH:MM)
+        let hours = 0;
+        if (shift.startTime && shift.endTime) {
+          const dateStr = shift.date; // YYYY-MM-DD
+          const start = new Date(`${dateStr}T${shift.startTime}:00`);
+          let end = new Date(`${dateStr}T${shift.endTime}:00`);
+
+          // Handle overnight shifts
+          if (end < start) {
+            end.setDate(end.getDate() + 1);
+          }
+
+          const diffMs = end.getTime() - start.getTime();
+          hours = diffMs / (1000 * 60 * 60);
+          hours = Math.max(0, hours);
+        } else {
+          // Fallback to duration if times missing (shouldn't happen on valid shifts)
+          hours = shift.duration || 0;
+        }
         totalHours += hours;
         if (shift.type === 'Day') {
           dayHours += hours;
