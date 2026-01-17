@@ -100,6 +100,9 @@ const Payroll: React.FC = () => {
       // Filter to only include COMPLETED shifts (clocked in AND clocked out)
       const staffShifts = shifts.filter(shift =>
         shift.staffName === staffMember.name &&
+        shift.staffName !== 'Bank Management' &&
+        shift.staffName !== 'Agency' &&
+        shift.staffName !== 'BANK (Placeholder)' &&
         new Date(shift.date) >= currentPeriod.start &&
         new Date(shift.date) >= currentPeriod.start &&
         new Date(shift.date) <= currentPeriod.end
