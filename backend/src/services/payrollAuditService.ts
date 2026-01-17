@@ -40,6 +40,9 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
         const myShifts = staffShifts[person.id] || [];
         if (myShifts.length === 0) continue;
 
+        // SKIP placeholders
+        if (person.name === 'Bank Management' || person.name === 'Agency') continue;
+
         let personTotalPay = 0;
         let personTotalHours = 0;
 
