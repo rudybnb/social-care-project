@@ -1082,7 +1082,14 @@ const Rota: React.FC = () => {
 
   const handleExport = () => {
     // 1. Prepare Shifts Data
-    const shiftsData = shifts.map(shift => ({
+    // Filter out "Bank Management" and placeholder records from export
+    const shiftsToExport = shifts.filter(s =>
+      s.staffName !== 'Bank Management' &&
+      s.staffName !== 'Agency' &&
+      s.staffName !== 'BANK (Placeholder)'
+    );
+
+    const shiftsData = shiftsToExport.map(shift => ({
       'Staff Name': shift.staffName,
       'Site': shift.siteName,
       'Date': shift.date,
@@ -1096,7 +1103,7 @@ const Rota: React.FC = () => {
     }));
 
     // 2. Prepare Clocking Data
-    const clockingData = shifts
+    const clockingData = shiftsToExport
       .filter(s => s.clockedIn)
       .map(shift => ({
         'Staff Name': shift.staffName,
