@@ -7,7 +7,11 @@ const Payroll: React.FC = () => {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [shifts, setShifts] = useState(getShifts());
-  const staff = getAllWorkers(); // Include both permanent staff and agency workers
+  const staff = getAllWorkers().filter(s =>
+    s.name !== 'Bank Management' &&
+    s.name !== 'Agency' &&
+    s.name !== 'BANK (Placeholder)'
+  ); // Include both permanent staff and agency workers, excluding placeholders
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
   const [selectedMonth, setSelectedMonth] = useState(0);
