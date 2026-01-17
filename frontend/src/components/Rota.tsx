@@ -3,6 +3,7 @@ import Modal from './Modal';
 import { getSites, getStaff, subscribeToSitesChange, Site as SharedSite, StaffMember, getShifts, setShifts as setSharedShifts, subscribeToDataChange, addShift, updateShift, removeShift, getAllWorkers, Shift } from '../data/sharedData';
 import { shiftsAPI } from '../services/api';
 import { calculateDuration, calculateEndTime } from '../utils/calculateDuration';
+import { exportToExcel } from '../utils/excelExport';
 
 
 const Rota: React.FC = () => {
@@ -1079,6 +1080,45 @@ const Rota: React.FC = () => {
     }
   };
 
+  const handleExport = () => {
+    // 1. Prepare Shifts Data
+    const shiftsData = shifts.map(shift => ({
+      'Staff Name': shift.staffName,
+      'Site': shift.siteName,
+      'Date': shift.date,
+      'Type': shift.type,
+      'Start Time': shift.startTime,
+      'End Time': shift.endTime || calculateEndTime(shift.startTime, shift.duration),
+      'Duration (Hrs)': shift.duration,
+      'Status': shift.staffStatus,
+      'Is Bank': shift.isBank ? 'Yes' : 'No',
+      'Is 24Hour': shift.is24Hour ? 'Yes' : 'No'
+    }));
+
+    // 2. Prepare Clocking Data
+    const clockingData = shifts
+      .filter(s => s.clockedIn)
+      .map(shift => ({
+        'Staff Name': shift.staffName,
+        'Site': shift.siteName,
+        'Date': shift.date,
+        'Scheduled Start': shift.startTime,
+        'Scheduled End': shift.endTime || calculateEndTime(shift.startTime, shift.duration),
+        'Clock In': shift.clockInTime ? new Date(shift.clockInTime).toLocaleTimeString() : '',
+        'Clock Out': shift.clockOutTime ? new Date(shift.clockOutTime).toLocaleTimeString() : '',
+        'Clocked Duration (Hrs)': shift.clockInTime && shift.clockOutTime
+          ? ((new Date(shift.clockOutTime).getTime() - new Date(shift.clockInTime).getTime()) / (1000 * 60 * 60)).toFixed(2)
+          : 'In Progress',
+        'Status': shift.staffStatus
+      }));
+
+    // 3. Export
+    exportToExcel([
+      { name: 'Rota Shifts', data: shiftsData },
+      { name: 'Clocking Records', data: clockingData }
+    ], `Rota_Export_${new Date().toISOString().split('T')[0]}`);
+  };
+
   return (
     <div style={{ padding: '20px 16px', maxWidth: '1600px', margin: '0 auto' }}>
       {/* Sticky Header */}
@@ -1101,27 +1141,46 @@ const Rota: React.FC = () => {
               {new Date(weekDates[0]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - {new Date(weekDates[6]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
           </div>
-          <button
-            onClick={() => setShowAssignShift(true)}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              setShowAssignShift(true);
-            }}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: '#9333ea',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '15px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              touchAction: 'manipulation',
-              boxShadow: '0 2px 8px rgba(147, 51, 234, 0.3)'
-            }}
-          >
-            + Assign Shift
-          </button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={handleExport}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                touchAction: 'manipulation',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+              }}
+            >
+              📥 Export Excel
+            </button>
+            <button
+              onClick={() => setShowAssignShift(true)}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                setShowAssignShift(true);
+              }}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#9333ea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                touchAction: 'manipulation',
+                boxShadow: '0 2px 8px rgba(147, 51, 234, 0.3)'
+              }}
+            >
+              + Assign Shift
+            </button>
+          </div>
         </div>
 
         {/* Declined Shifts Alert */}
