@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Modal from './Modal';
 import { getShifts, getStaff, subscribeToDataChange, getAllWorkers, forceRefreshShifts } from '../data/sharedData';
 import { calculateWeeklyHours } from '../utils/hoursCalculator';
 import { leaveAPI } from '../services/leaveAPI';
@@ -16,7 +17,13 @@ const Payroll: React.FC = () => {
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
   const [selectedMonth, setSelectedMonth] = useState(0);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportDateRange, setExportDateRange] = useState({
+    start: new Date().toISOString().split('T')[0],
+    end: new Date().toISOString().split('T')[0]
+  });
 
   // Subscribe to shift changes
   useEffect(() => {
@@ -99,7 +106,7 @@ const Payroll: React.FC = () => {
 
   // Calculate payroll for each staff member
   // IMPORTANT: Only counts shifts that have been clocked in AND clocked out
-  const calculatePayroll = () => {
+  const getPayrollData = (startDate: Date, endDate: Date) => {
     return staff.map(staffMember => {
       // Filter to only include COMPLETED shifts (clocked in AND clocked out)
       const staffShifts = shifts.filter(shift =>
@@ -107,9 +114,9 @@ const Payroll: React.FC = () => {
         shift.staffName !== 'Bank Management' &&
         shift.staffName !== 'Agency' &&
         shift.staffName !== 'BANK (Placeholder)' &&
-        new Date(shift.date) >= currentPeriod.start &&
-        new Date(shift.date) >= currentPeriod.start &&
-        new Date(shift.date) <= currentPeriod.end
+        new Date(shift.date) >= startDate &&
+        new Date(shift.date) >= startDate &&
+        new Date(shift.date) <= endDate
         // shift.clockedIn === true &&
         // shift.clockedOut === true // REMOVED: Now including ALL scheduled shifts regardless of clock status
       );
@@ -152,16 +159,16 @@ const Payroll: React.FC = () => {
         const leaveStart = new Date(leave.startDate);
         const leaveEnd = new Date(leave.endDate);
         return leave.staffName === staffMember.name &&
-          ((leaveStart >= currentPeriod.start && leaveStart <= currentPeriod.end) ||
-            (leaveEnd >= currentPeriod.start && leaveEnd <= currentPeriod.end) ||
-            (leaveStart <= currentPeriod.start && leaveEnd >= currentPeriod.end));
+          ((leaveStart >= startDate && leaveStart <= endDate) ||
+            (leaveEnd >= startDate && leaveEnd <= endDate) ||
+            (leaveStart <= startDate && leaveEnd >= endDate));
       });
 
       let leaveHours = 0;
       staffLeave.forEach(leave => {
         // Calculate overlapping days
-        const leaveStart = new Date(Math.max(new Date(leave.startDate).getTime(), currentPeriod.start.getTime()));
-        const leaveEnd = new Date(Math.min(new Date(leave.endDate).getTime(), currentPeriod.end.getTime()));
+        const leaveStart = new Date(Math.max(new Date(leave.startDate).getTime(), startDate.getTime()));
+        const leaveEnd = new Date(Math.min(new Date(leave.endDate).getTime(), endDate.getTime()));
         const days = Math.ceil((leaveEnd.getTime() - leaveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         leaveHours += days * 8; // 8 hours per day
       });
@@ -238,7 +245,7 @@ const Payroll: React.FC = () => {
     });
   };
 
-  const payrollData = calculatePayroll();
+  const payrollData = getPayrollData(currentPeriod.start, currentPeriod.end);
   const incompleteShifts = calculateIncompleteShifts();
   const totalPayroll = payrollData.reduce((sum, p) => sum + p.totalPay, 0);
 
@@ -254,7 +261,7 @@ const Payroll: React.FC = () => {
   };
 
   // Export to Excel/CSV function
-  const exportToExcel = () => {
+  const exportPayrollCSV = (data: any[], filename: string) => {
     // Prepare CSV headers
     const headers = [
       'Staff Name',
@@ -272,7 +279,7 @@ const Payroll: React.FC = () => {
     ];
 
     // Prepare data rows
-    const rows = payrollData.map(staff => [
+    const rows = data.map((staff: any) => [
       staff.name,
       staff.isAgency ? `Agency (${staff.agencyName})` : 'Permanent',
       staff.totalHours.toFixed(2),
@@ -291,16 +298,16 @@ const Payroll: React.FC = () => {
     rows.push([
       'TOTAL',
       '',
-      payrollData.reduce((sum, p) => sum + p.totalHours, 0).toFixed(2),
-      payrollData.reduce((sum, p) => sum + p.dayHours, 0).toFixed(2),
-      payrollData.reduce((sum, p) => sum + p.nightHours, 0).toFixed(2),
-      payrollData.reduce((sum, p) => sum + p.leaveHours, 0).toFixed(2),
-      payrollData.reduce((sum, p) => sum + p.standardPay, 0).toFixed(2),
-      payrollData.reduce((sum, p) => sum + p.enhancedPay, 0).toFixed(2),
-      payrollData.reduce((sum, p) => sum + p.nightPay, 0).toFixed(2),
-      payrollData.reduce((sum, p) => sum + p.leavePay, 0).toFixed(2),
-      totalPayroll.toFixed(2),
-      payrollData.reduce((sum, p) => sum + p.shifts, 0)
+      data.reduce((sum: number, p: any) => sum + p.totalHours, 0).toFixed(2),
+      data.reduce((sum: number, p: any) => sum + p.dayHours, 0).toFixed(2),
+      data.reduce((sum: number, p: any) => sum + p.nightHours, 0).toFixed(2),
+      data.reduce((sum: number, p: any) => sum + p.leaveHours, 0).toFixed(2),
+      data.reduce((sum: number, p: any) => sum + p.standardPay, 0).toFixed(2),
+      data.reduce((sum: number, p: any) => sum + p.enhancedPay, 0).toFixed(2),
+      data.reduce((sum: number, p: any) => sum + p.nightPay, 0).toFixed(2),
+      data.reduce((sum: number, p: any) => sum + p.leavePay, 0).toFixed(2),
+      data.reduce((sum: number, p: any) => sum + p.totalPay, 0).toFixed(2),
+      data.reduce((sum: number, p: any) => sum + p.shifts, 0)
     ]);
 
     // Convert to CSV format
@@ -322,7 +329,7 @@ const Payroll: React.FC = () => {
     const url = URL.createObjectURL(blob);
 
     // Generate filename with period
-    const filename = `Payroll_${currentPeriod.label.replace(/\s+/g, '_')}.csv`;
+    // const filename = `Payroll_${currentPeriod.label.replace(/\s+/g, '_')}.csv`;
 
     link.setAttribute('href', url);
     link.setAttribute('download', filename);
@@ -341,6 +348,25 @@ const Payroll: React.FC = () => {
     } finally {
       setIsRefreshing(false);
     }
+  };
+
+  const handleCustomExport = () => {
+    if (!exportDateRange.start || !exportDateRange.end) {
+      alert('Please select a start and end date');
+      return;
+    }
+
+    const start = new Date(exportDateRange.start);
+    const end = new Date(exportDateRange.end);
+
+    // Set end date to end of day
+    end.setHours(23, 59, 59, 999);
+
+    const data = getPayrollData(start, end);
+    const filename = `Payroll_Export_${exportDateRange.start}_to_${exportDateRange.end}.csv`;
+
+    exportPayrollCSV(data, filename);
+    setShowExportModal(false);
   };
 
   // Show password screen if not unlocked
@@ -515,7 +541,13 @@ const Payroll: React.FC = () => {
             {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
           </button>
           <button
-            onClick={exportToExcel}
+            onClick={() => {
+              setExportDateRange({
+                start: currentPeriod.start.toISOString().split('T')[0],
+                end: currentPeriod.end.toISOString().split('T')[0]
+              });
+              setShowExportModal(true);
+            }}
             style={{
               padding: '12px 24px',
               backgroundColor: '#10b981',
@@ -806,29 +838,7 @@ const Payroll: React.FC = () => {
         )}
       </div>
 
-      {/* Export Button */}
-      <div style={{ marginTop: '24px', textAlign: 'right' }}>
-        <button
-          onClick={() => alert('Export feature coming soon!')}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            alert('Export feature coming soon!');
-          }}
-          style={{
-            padding: '12px 24px',
-            backgroundColor: '#8b5cf6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            touchAction: 'manipulation'
-          }}
-        >
-          📄 Export to CSV
-        </button>
-      </div>
+      {/* Export Button Removed (Moved to header) */}
 
       {/* Incomplete Shifts Warning */}
       {incompleteShifts.length > 0 && (
@@ -891,6 +901,87 @@ const Payroll: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Export Modal */}
+      <Modal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title="Export Payroll Data"
+      >
+        <div style={{ color: 'white' }}>
+          <p style={{ color: '#9ca3af', marginBottom: '24px' }}>
+            Select the date range for the payroll export.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>Start Date</label>
+              <input
+                type="date"
+                value={exportDateRange.start}
+                onChange={(e) => setExportDateRange({ ...exportDateRange, start: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#1a1a1a',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '8px',
+                  color: 'white',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>End Date</label>
+              <input
+                type="date"
+                value={exportDateRange.end}
+                onChange={(e) => setExportDateRange({ ...exportDateRange, end: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#1a1a1a',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '8px',
+                  color: 'white',
+                  outline: 'none'
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <button
+              onClick={() => setShowExportModal(false)}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: 'transparent',
+                color: '#9ca3af',
+                border: '1px solid #3a3a3a',
+                borderRadius: '8px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCustomExport}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Export CSV
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
