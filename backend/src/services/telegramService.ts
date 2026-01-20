@@ -397,7 +397,7 @@ export function initTelegramBot() {
                 let totalCost = 0;
                 let totalHours = 0;
                 let staffCount = 0;
-                const staffTotals = new Map<string, { name: string; hours: number; pay: number }>();
+                const staffTotals = new Map<string, { name: string; hours: number; pay: number; notes: Set<string> }>();
 
                 for (const shift of dayShifts) {
                     if (!shift.staffId) continue;
@@ -419,8 +419,15 @@ export function initTelegramBot() {
                     if (existing) {
                         existing.hours += hours;
                         existing.pay += pay;
+                        if (shift.notes) existing.notes.add(shift.notes);
+                        if (shift.declineReason) existing.notes.add(`Declined: ${shift.declineReason}`);
+                        if (shift.extensionReason) existing.notes.add(`Extended: ${shift.extensionReason}`);
                     } else {
-                        staffTotals.set(shift.staffId, { name: staffMember.name, hours, pay });
+                        const notes = new Set<string>();
+                        if (shift.notes) notes.add(shift.notes);
+                        if (shift.declineReason) notes.add(`Declined: ${shift.declineReason}`);
+                        if (shift.extensionReason) notes.add(`Extended: ${shift.extensionReason}`);
+                        staffTotals.set(shift.staffId, { name: staffMember.name, hours, pay, notes });
                         staffCount++;
                     }
 
@@ -432,6 +439,9 @@ export function initTelegramBot() {
                 let breakdown = '';
                 staffTotals.forEach(s => {
                     breakdown += `${s.name.padEnd(18)} | ${s.hours.toFixed(1).padStart(5)}h | £${s.pay.toFixed(2)}\n`;
+                    if (s.notes && s.notes.size > 0) {
+                        s.notes.forEach(n => breakdown += `   ↳ ${n.substring(0, 50)}\n`);
+                    }
                 });
 
                 const message =

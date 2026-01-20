@@ -416,12 +416,22 @@ async function sendDailyPayrollOverview() {
     let breakdownText = "";
 
     result.staffSummary.forEach(s => {
-      if (s.totalHours > 0) {
-        staffCount++;
-        totalCost += s.totalPay;
-        totalHours += s.totalHours;
-        // Add to formatted breakdown
+      // Include if hours > 0 OR if there are notes (e.g. absent but with reason)
+      // Actually, user question implies Kingsley IS showing but NO reason. 
+      // If he has 0 hours, he won't show. If he has >0 hours, he shows.
+
+      if (s.totalHours > 0 || (s.notes && s.notes.length > 0)) {
+        if (s.totalHours > 0) {
+          staffCount++;
+          totalCost += s.totalPay;
+          totalHours += s.totalHours;
+        }
+
         breakdownText += `${s.staffName.padEnd(20)} | ${s.totalHours.toFixed(1).padStart(5)}h | £${s.totalPay.toFixed(2).padStart(8)}\n`;
+
+        if (s.notes && s.notes.length > 0) {
+          s.notes.forEach(n => breakdownText += `   ↳ ${n.substring(0, 50)}\n`);
+        }
       }
     });
 

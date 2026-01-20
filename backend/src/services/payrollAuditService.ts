@@ -14,6 +14,7 @@ interface StaffAuditSummary {
     totalPay: number;
     totalHours: number;
     weeks: any[];
+    notes: string[]; // Unique notes/reasons for this period
 }
 
 export async function calculatePayForPeriod(startDate: string, endDate: string): Promise<AuditResult> {
@@ -80,11 +81,85 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
             let nightHours = 0;
             const logEntries: string[] = [];
 
-            // Sort shifts by date
-            weeklyShifts.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            // Sort shifts by date and time
+            weeklyShifts.sort((a, b) => {
+                // Primary sort: Date
+                if (a.date !== b.date) return a.date.localeCompare(b.date);
+                // Secondary sort: Start Time
+                return a.startTime.localeCompare(b.startTime);
+            });
 
-            // 1. Tally Hours (Using Scheduled Times)
+            // 0. Deduplicate / Handle Overlaps
+            const processedShifts: typeof weeklyShifts = [];
+            const warnings: string[] = [];
+
             for (const shift of weeklyShifts) {
+                if (processedShifts.length === 0) {
+                    processedShifts.push(shift);
+                    continue;
+                }
+
+                const last = processedShifts[processedShifts.length - 1];
+
+                // Check overlap
+                // Only if same date (logic simplified for daily shifts, overnight needs care but we sorted by date)
+                if (last.date === shift.date) {
+                    const lastStart = new Date(`${last.date}T${last.startTime}:00`);
+                    let lastEnd = new Date(`${last.date}T${last.endTime}:00`);
+                    if (lastEnd < lastStart) lastEnd.setDate(lastEnd.getDate() + 1);
+
+                    const currStart = new Date(`${shift.date}T${shift.startTime}:00`);
+                    let currEnd = new Date(`${shift.date}T${shift.endTime}:00`);
+                    if (currEnd < currStart) currEnd.setDate(currEnd.getDate() + 1);
+
+                    // If overlap: Start of current < End of last
+                    // (Assuming sorted by start time)
+                    if (currStart < lastEnd) {
+                        // OVERLAP DETECTED
+                        warnings.push(`⚠️ Overlap: ${shift.date} [${last.startTime}-${last.endTime}] vs [${shift.startTime}-${shift.endTime}]`);
+
+                        // Decide providing the "better" shift
+                        // 1. Clocked Out wins
+                        const lastScore = (last.clockedOut ? 4 : 0) + (last.clockedIn ? 2 : 0);
+                        const currScore = (shift.clockedOut ? 4 : 0) + (shift.clockedIn ? 2 : 0);
+
+                        if (currScore > lastScore) {
+                            // Replace last with current
+                            processedShifts.pop();
+                            processedShifts.push(shift);
+                            warnings.push(`   -> Kept [${shift.startTime}-${shift.endTime}] (better status)`);
+                        } else if (currScore < lastScore) {
+                            // Keep last, ignore current
+                            warnings.push(`   -> Kept [${last.startTime}-${last.endTime}] (better status)`);
+                        } else {
+                            // Same status, keep Longest
+                            const lastDur = lastEnd.getTime() - lastStart.getTime();
+                            const currDur = currEnd.getTime() - currStart.getTime();
+                            if (currDur > lastDur) {
+                                processedShifts.pop();
+                                processedShifts.push(shift);
+                                warnings.push(`   -> Kept [${shift.startTime}-${shift.endTime}] (longer)`);
+                            } else {
+                                warnings.push(`   -> Kept [${last.startTime}-${last.endTime}] (longer/first)`);
+                            }
+                        }
+                    } else {
+                        processedShifts.push(shift);
+                    }
+                } else {
+                    processedShifts.push(shift);
+                }
+            }
+
+            // Print warnings to report
+            if (warnings.length > 0) {
+                warnings.forEach(w => report += `> ${w}\n`);
+                // Also add to weekSummaries or notes if needed?
+                // We'll trust the report text for now.
+            }
+
+            // 1. Tally Hours (Using Processed Shifts)
+            for (const shift of processedShifts) {
                 // Determine duration based on Scheduled Times (startTime / endTime)
                 // Format: HH:MM. Date: YYYY-MM-DD.
 
@@ -158,9 +233,21 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
             weekSummaries.push({ weekStart, totalWeekPay, dayHours, nightHours });
         }
 
+        const uniqueNotes = new Set<string>();
+        myShifts.forEach(s => {
+            if (s.notes) uniqueNotes.add(s.notes);
+            if (s.declineReason) uniqueNotes.add(`Declined: ${s.declineReason}`);
+        });
+
         report += `**Total Period Pay: £${personTotalPay.toFixed(2)}** (${personTotalHours.toFixed(2)} hours)\n`;
         report += `---\n\n`;
-        summaries.push({ staffName: person.name, totalPay: personTotalPay, totalHours: personTotalHours, weeks: weekSummaries });
+        summaries.push({
+            staffName: person.name,
+            totalPay: personTotalPay,
+            totalHours: personTotalHours,
+            weeks: weekSummaries,
+            notes: Array.from(uniqueNotes)
+        });
     }
 
     return {
