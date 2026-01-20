@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { getSites, getStaff, subscribeToSitesChange, Site as SharedSite, StaffMember, getShifts, setShifts as setSharedShifts, subscribeToDataChange, addShift, updateShift, removeShift, getAllWorkers, Shift } from '../data/sharedData';
-import { shiftsAPI } from '../services/api';
+import { shiftsAPI, leaveAPI } from '../services/api';
 import { calculateDuration, calculateEndTime } from '../utils/calculateDuration';
 import { exportToExcel } from '../utils/excelExport';
 
@@ -771,17 +771,16 @@ const Rota: React.FC = () => {
       ];
 
       const choice = window.prompt(
-        `⚠️ COVERAGE REQUIRED\n\n` +
-        `Removing this shift will break the 24-hour cycle at ${shiftToDelete.siteName} on ${shiftToDelete.date}.\n\n` +
-        `Current coverage:\n` +
-        `• ${shiftToDelete.type} Shift: ${shiftToDelete.staffName} (being removed)\n` +
-        `• ${oppositeShiftType} Shift: ${oppositeShift.staffName} (will remain)\n\n` +
+        `⚠️ REMOVE SHIFT\n\n` +
+        `You are removing ${shiftToDelete.staffName} (${shiftToDelete.type}) at ${shiftToDelete.siteName}.\n` +
+        `This will break the 24-hour cycle with ${oppositeShift.staffName} (${oppositeShiftType}).\n\n` +
         `Choose an option:\n` +
-        `1 = Assign replacement worker\n` +
-        `2 = Approve ${oppositeShift.staffName} for 24hr shift\n` +
-        `3 = Cancel removal\n` +
-        `4 = Delete complete 24h shift (requires reason)\n\n` +
-        `Enter 1, 2, 3, or 4:`
+        `1 = Replace this worker (Re-assign slot)\n` +
+        `2 = Remove this worker ONLY (Leave slot empty)\n` +
+        `3 = Approve ${oppositeShift.staffName} for 24hr shift\n` +
+        `4 = Delete BOTH shifts (Clear day)\n` +
+        `5 = Cancel\n\n` +
+        `Enter number:`
       );
 
       if (choice === '1') {
@@ -808,6 +807,14 @@ const Rota: React.FC = () => {
         setShowAssignShift(true);
         return;
       } else if (choice === '2') {
+        // Remove strictly this worker only
+        await removeShift(shiftToDelete.id);
+        setShifts(getShifts());
+        setShowDeleteConfirm(false);
+        setShiftToDelete(null);
+        alert(`✅ Worker removed from shift.`);
+        return;
+      } else if (choice === '3') {
         // Remove shift and convert opposite to 24-hour with approval
         const updated24HrShift = {
           ...oppositeShift,
@@ -1080,7 +1087,7 @@ const Rota: React.FC = () => {
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     // 1. Prepare Shifts Data
     // Filter out "Bank Management" and placeholder records from export
     const shiftsToExport = shifts.filter(s =>
@@ -1089,7 +1096,7 @@ const Rota: React.FC = () => {
       s.staffName !== 'BANK (Placeholder)'
     );
 
-    const shiftsData = shiftsToExport.map(shift => ({
+    let shiftsData: any[] = shiftsToExport.map(shift => ({
       'Staff Name': shift.staffName,
       'Site': shift.siteName,
       'Date': shift.date,
@@ -1102,7 +1109,38 @@ const Rota: React.FC = () => {
       'Is 24Hour': shift.is24Hour ? 'Yes' : 'No'
     }));
 
-    // 2. Prepare Clocking Data
+    // 2. Fetch and Append Leave Data
+    try {
+      const leaveDays = await leaveAPI.getDays();
+      const leaveData = leaveDays.map((leave: any) => ({
+        'Staff Name': leave.staffName,
+        'Site': 'Annual Leave',
+        'Date': leave.date,
+        'Type': 'Day', // Treat as Day for filtering/sorting
+        'Start Time': '09:00', // Nominal time
+        'End Time': '17:00',   // Nominal time
+        'Duration (Hrs)': leave.hours || 8,
+        'Status': 'accepted',
+        'Is Bank': 'No',
+        'Is 24Hour': 'No'
+      }));
+
+      shiftsData = [...shiftsData, ...leaveData];
+
+      // Sort by date then staff
+      shiftsData.sort((a, b) => {
+        const dateA = new Date(a.Date).getTime();
+        const dateB = new Date(b.Date).getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        return a['Staff Name'].localeCompare(b['Staff Name']);
+      });
+
+    } catch (error) {
+      console.error('Error fetching leave data for export:', error);
+      alert('Warning: Could not fetch leave data. Exporting shifts only.');
+    }
+
+    // 3. Prepare Clocking Data
     const clockingData = shiftsToExport
       .filter(s => s.clockedIn)
       .map(shift => ({
@@ -1119,7 +1157,7 @@ const Rota: React.FC = () => {
         'Status': shift.staffStatus
       }));
 
-    // 3. Export
+    // 4. Export
     exportToExcel([
       { name: 'Rota Shifts', data: shiftsData },
       { name: 'Clocking Records', data: clockingData }
