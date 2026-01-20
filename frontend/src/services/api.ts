@@ -181,3 +181,18 @@ export const shiftsAPI = {
   },
 };
 
+// ==================== LEAVE API ====================
+
+export const leaveAPI = {
+  async getDays(startDate?: string, endDate?: string): Promise<any[]> {
+    let url = `${API_BASE_URL}/api/leave/days`;
+    if (startDate && endDate) {
+      url += `?startDate=${startDate}&endDate=${endDate}`;
+    }
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch leave days');
+    return response.json();
+  }
+};
+
+
