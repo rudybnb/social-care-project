@@ -602,3 +602,13 @@ export function generateTelegramLink(staffId: string): string {
 }
 
 export { bot };
+
+// Send generic system alert to Admin
+export async function sendSystemAlert(message: string) {
+    if (!bot || !ADMIN_CHAT_ID) return;
+    try {
+        await bot.sendMessage(ADMIN_CHAT_ID, `🚨 <b>SYSTEM ALERT</b>\n\n${message}`, { parse_mode: 'HTML' });
+    } catch (error) {
+        console.error('Error sending system alert:', error);
+    }
+}
