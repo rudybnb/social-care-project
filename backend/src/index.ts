@@ -11,6 +11,7 @@ import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import { calculatePayForPeriod } from './services/payrollAuditService.js';
 import { sendDailyPayrollReport } from './services/emailService.js';
+import { getWeekDeadline } from './jobs/autoAcceptShifts.js';
 
 dotenv.config();
 
@@ -412,7 +413,8 @@ app.post('/api/shifts', async (req: Request, res: Response) => {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
 
     // Calculate week deadline for the shift
-    const { getWeekDeadline } = await import('./jobs/autoAcceptShifts.js');
+    // Calculate week deadline for the shift
+    // const { getWeekDeadline } = await import('./jobs/autoAcceptShifts.js'); // Moved to static import
     const shiftDate = new Date(req.body.date);
     const weekDeadline = getWeekDeadline(shiftDate);
 
