@@ -711,6 +711,28 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
       return res.status(400).json({ error: 'Invalid QR code. Please ensure you are scanning the correct site code.' });
     }
 
+
+
+    // VALIDATION: Shift must be ACCEPTED before clock-in
+    if (shift.staffStatus !== 'accepted') {
+      console.log(`[ClockIn] BLOCKED - Shift status is ${shift.staffStatus}, not accepted`);
+      const statusMessage = shift.staffStatus === 'pending'
+        ? 'You must accept this shift before you can clock in. Please accept the shift in your app first.'
+        : 'This shift has been declined. Please contact your manager.';
+      return res.status(403).json({
+        error: statusMessage,
+        staffStatus: shift.staffStatus,
+        shiftId: shiftId
+      });
+    }
+
+    // Check if already clocked in but not out (re-clocking in?)
+    if (shift.clockedIn && !shift.clockedOut) {
+      console.log(`[ClockIn] Already clocked in at ${shift.clockInTime}`);
+      return res.status(200).json({ message: 'Already clocked in', shift });
+    }
+
+
     // Auto-Clock-Out Logic: If already clocked into another site/shift, close it first.
     try {
       const activeShifts = await db.select().from(shifts).where(
@@ -736,25 +758,6 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
     } catch (autoErr) {
       console.error('[ClockIn] Error during auto-clock-out:', autoErr);
       // Continue anyway, we don't want to block the new clock-in
-    }
-
-    // VALIDATION: Shift must be ACCEPTED before clock-in
-    if (shift.staffStatus !== 'accepted') {
-      console.log(`[ClockIn] BLOCKED - Shift status is ${shift.staffStatus}, not accepted`);
-      const statusMessage = shift.staffStatus === 'pending'
-        ? 'You must accept this shift before you can clock in. Please accept the shift in your app first.'
-        : 'This shift has been declined. Please contact your manager.';
-      return res.status(403).json({
-        error: statusMessage,
-        staffStatus: shift.staffStatus,
-        shiftId: shiftId
-      });
-    }
-
-    // Check if already clocked in but not out (re-clocking in?)
-    if (shift.clockedIn && !shift.clockedOut) {
-      console.log(`[ClockIn] Already clocked in at ${shift.clockInTime}`);
-      return res.status(200).json({ message: 'Already clocked in', shift });
     }
 
     // Update shift with clock-in time
