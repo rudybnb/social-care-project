@@ -397,7 +397,7 @@ export function initTelegramBot() {
                 let totalCost = 0;
                 let totalHours = 0;
                 let staffCount = 0;
-                const staffTotals = new Map<string, { name: string; hours: number; pay: number; notes: Set<string> }>();
+                const staffTotals = new Map<string, { name: string; hours: number; pay: number; notes: Set<string>; times: string[] }>();
 
                 for (const shift of dayShifts) {
                     if (!shift.staffId) continue;
@@ -414,11 +414,20 @@ export function initTelegramBot() {
 
                     const pay = hours * rate;
 
+                    // Format Time: 08:00-20:00 (Actual if clocked in, else Scheduled)
+                    const formatT = (d: Date) => d.toISOString().substring(11, 16);
+                    let start = shift.startTime;
+                    let end = shift.endTime;
+                    if (shift.clockInTime) start = formatT(new Date(shift.clockInTime));
+                    if (shift.clockOutTime) end = formatT(new Date(shift.clockOutTime));
+                    const timeStr = `${start}-${end}`;
+
                     // Accumulate per staff
                     const existing = staffTotals.get(shift.staffId);
                     if (existing) {
                         existing.hours += hours;
                         existing.pay += pay;
+                        existing.times.push(timeStr);
                         if (shift.notes) existing.notes.add(shift.notes);
                         if (shift.declineReason) existing.notes.add(`Declined: ${shift.declineReason}`);
                         if (shift.extensionReason) existing.notes.add(`Extended: ${shift.extensionReason}`);
@@ -427,7 +436,7 @@ export function initTelegramBot() {
                         if (shift.notes) notes.add(shift.notes);
                         if (shift.declineReason) notes.add(`Declined: ${shift.declineReason}`);
                         if (shift.extensionReason) notes.add(`Extended: ${shift.extensionReason}`);
-                        staffTotals.set(shift.staffId, { name: staffMember.name, hours, pay, notes });
+                        staffTotals.set(shift.staffId, { name: staffMember.name, hours, pay, notes, times: [timeStr] });
                         staffCount++;
                     }
 
@@ -438,7 +447,13 @@ export function initTelegramBot() {
                 // Format breakdown
                 let breakdown = '';
                 staffTotals.forEach(s => {
-                    breakdown += `${s.name.padEnd(18)} | ${s.hours.toFixed(1).padStart(5)}h | £${s.pay.toFixed(2)}\n`;
+                    // Combine multiple times if needed (e.g. 08:00-12:00, 13:00-17:00)
+                    // But keep concise. Join with comma unique.
+                    const uniqueTimes = Array.from(new Set(s.times)).join(', ');
+                    const truncatedName = s.name.substring(0, 14).padEnd(14);
+                    const truncatedTime = uniqueTimes.substring(0, 11).padEnd(11); // Truncate to fit column like automated report
+
+                    breakdown += `${truncatedName} | ${truncatedTime} | ${s.hours.toFixed(1).padStart(4)}h | £${s.pay.toFixed(2)}\n`;
                     if (s.notes && s.notes.size > 0) {
                         s.notes.forEach(n => breakdown += `   ↳ ${n.substring(0, 50)}\n`);
                     }
