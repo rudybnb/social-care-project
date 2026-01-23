@@ -12,6 +12,7 @@ import adminRoutes from './routes/admin.js';
 import { calculatePayForPeriod } from './services/payrollAuditService.js';
 import { sendDailyPayrollReport } from './services/emailService.js';
 import { getWeekDeadline } from './jobs/autoAcceptShifts.js';
+import { initAuditLog, logActivity } from './services/auditLogService.js';
 
 dotenv.config();
 
@@ -706,6 +707,7 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
 
     if (!isValidQR) {
       console.log(`[ClockIn] Invalid QR. Shift Site: ${shift.siteId}, Scanned: ${qrCode}`);
+      await logActivity('CLOCK_IN_FAIL', 'FAILURE', staffId, shift.staffName, shift.siteName, `Invalid QR: ${qrCode}`);
       return res.status(400).json({ error: 'Invalid QR code. Please ensure you are scanning the correct site code.' });
     }
 
@@ -766,6 +768,7 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
       .returning();
 
     console.log(`[ClockIn] Success for shift ${shiftId}`);
+    await logActivity('CLOCK_IN_SUCCESS', 'SUCCESS', staffId, shift.staffName, shift.siteName, 'Clocked in via App', { qrCode });
     res.json({ message: 'Clocked in successfully', shift: updated[0] });
   } catch (error) {
     console.error('[ClockIn] Critical Error:', error);
@@ -845,6 +848,7 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
       .returning();
 
     console.log(`[ClockOut] ${shift[0].staffName} clocked out. Duration: ${actualDuration} hours`);
+    await logActivity('CLOCK_OUT_SUCCESS', 'SUCCESS', staffId, shift[0].staffName, site[0].name, `Clocked out via App. Duration: ${actualDuration}h`, { qrCode, actualDuration });
 
     res.json({ message: 'Clocked out successfully', shift: updated[0] });
   } catch (error) {
@@ -1791,6 +1795,7 @@ app.post('/api/admin/fix-shift-duration/:shiftId', async (req: Request, res: Res
 app.listen(PORT, async () => {
   console.log(`API server listening on http://localhost:${PORT}`);
   await runStartupMigration();
+  await initAuditLog();
 
   // Initialize automation agents (with error handling to prevent server crash)
   try {
