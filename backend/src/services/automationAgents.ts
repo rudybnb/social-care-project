@@ -533,6 +533,24 @@ async function sendDailyPayrollOverview() {
     // 1. Calculate pay for yesterday
     const result = await calculatePayForPeriod(yesterdayStr, yesterdayStr);
 
+    // Fetch detailed shifts for yesterday (For Time Map & Discrepancy)
+    const yesterdayShifts = await db.select().from(shifts).where(eq(shifts.date, yesterdayStr));
+
+    // Build Time Map
+    const timeMap: Record<string, string> = {};
+    yesterdayShifts.forEach(s => {
+      if (!s.staffName) return;
+      const formatT = (d: Date) => d.toISOString().substring(11, 16);
+      let start = s.startTime;
+      let end = s.endTime;
+
+      if (s.clockInTime) start = formatT(new Date(s.clockInTime));
+      if (s.clockOutTime) end = formatT(new Date(s.clockOutTime));
+
+      const str = `${start}-${end}`;
+      timeMap[s.staffName] = timeMap[s.staffName] ? timeMap[s.staffName] + ', ' + str : str;
+    });
+
     let totalCost = 0;
     let totalHours = 0;
     let staffCount = 0;
@@ -546,7 +564,9 @@ async function sendDailyPayrollOverview() {
           totalHours += s.totalHours;
         }
 
-        breakdownText += `${s.staffName.padEnd(20)} | ${s.totalHours.toFixed(1).padStart(5)}h | £${s.totalPay.toFixed(2).padStart(8)}\n`;
+        const timeStr = timeMap[s.staffName] || '--:--';
+        const nameDisplay = s.staffName.substring(0, 14).padEnd(14);
+        breakdownText += `${nameDisplay} | ${timeStr.padEnd(11)} | ${s.totalHours.toFixed(1).padStart(4)}h | £${s.totalPay.toFixed(2).padStart(7)}\n`;
 
         if (s.notes && s.notes.length > 0) {
           s.notes.forEach(n => breakdownText += `   ↳ ${n.substring(0, 50)}\n`);
@@ -557,8 +577,7 @@ async function sendDailyPayrollOverview() {
     // 2. Operational Discrepancy Audit (What was "broken")
     let discrepancyText = "";
 
-    // Fetch detailed shifts for yesterday to analyze compliance
-    const yesterdayShifts = await db.select().from(shifts).where(eq(shifts.date, yesterdayStr));
+    // Analyze compliance
     const issues: string[] = [];
 
     for (const shift of yesterdayShifts) {
