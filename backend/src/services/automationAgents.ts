@@ -521,7 +521,7 @@ async function auditRecentShifts() {
   }
 }
 
-// Agent 10: Send Daily Payroll Overview
+// Agent 10: Send Daily Payroll Overview & Operational Audit
 async function sendDailyPayrollOverview() {
   try {
     // Get yesterday's date range
@@ -530,7 +530,7 @@ async function sendDailyPayrollOverview() {
     yesterday.setDate(today.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-    // Calculate pay for yesterday
+    // 1. Calculate pay for yesterday
     const result = await calculatePayForPeriod(yesterdayStr, yesterdayStr);
 
     let totalCost = 0;
@@ -539,10 +539,6 @@ async function sendDailyPayrollOverview() {
     let breakdownText = "";
 
     result.staffSummary.forEach(s => {
-      // Include if hours > 0 OR if there are notes (e.g. absent but with reason)
-      // Actually, user question implies Kingsley IS showing but NO reason. 
-      // If he has 0 hours, he won't show. If he has >0 hours, he shows.
-
       if (s.totalHours > 0 || (s.notes && s.notes.length > 0)) {
         if (s.totalHours > 0) {
           staffCount++;
@@ -558,37 +554,91 @@ async function sendDailyPayrollOverview() {
       }
     });
 
-    if (staffCount > 0) {
+    // 2. Operational Discrepancy Audit (What was "broken")
+    let discrepancyText = "";
+
+    // Fetch detailed shifts for yesterday to analyze compliance
+    const yesterdayShifts = await db.select().from(shifts).where(eq(shifts.date, yesterdayStr));
+    const issues: string[] = [];
+
+    for (const shift of yesterdayShifts) {
+      if (!shift.staffId) continue;
+
+      // Check 1: Missed Shift (Accepted but never clocked in)
+      if (shift.staffStatus === 'accepted' && !shift.clockedIn) {
+        issues.push(`❌ ${shift.staffName} (${shift.siteName}): ABSENT - Accepted but did not clock in.`);
+        continue;
+      }
+
+      // Check 2: Late Clock In
+      if (shift.clockedIn && shift.clockInTime) {
+        const scheduledStart = new Date(`${shift.date}T${shift.startTime}:00`);
+        const actualStart = new Date(shift.clockInTime);
+        const diffMinutes = (actualStart.getTime() - scheduledStart.getTime()) / 60000;
+
+        if (diffMinutes > 15) {
+          issues.push(`⚠️ ${shift.staffName} (${shift.siteName}): LATE - Clocked in ${Math.round(diffMinutes)} mins late.`);
+        }
+      }
+
+      // Check 3: Missing Clock Out (if shift should have ended)
+      // Assume shift ends same day or next morning. If "now" is 7:30AM next day, shift should be done.
+      if (shift.clockedIn && !shift.clockedOut) {
+        issues.push(`❓ ${shift.staffName} (${shift.siteName}): STUCK - Still clocked in (Missing Clock-out).`);
+      }
+
+      // Check 4: Duration Discrepancy (if clocked out)
+      if (shift.clockedOut && shift.clockInTime && shift.clockOutTime) {
+        const actualDuration = (new Date(shift.clockOutTime).getTime() - new Date(shift.clockInTime).getTime()) / 3600000;
+        const scheduledDuration = shift.duration || 12; // fallback
+        if (Math.abs(actualDuration - scheduledDuration) > 1.0) {
+          issues.push(`📉 ${shift.staffName} (${shift.siteName}): HOURS - Worked ${actualDuration.toFixed(1)}h vs Scheduled ${scheduledDuration.toFixed(1)}h.`);
+        }
+      }
+    }
+
+    if (issues.length > 0) {
+      discrepancyText = "\n🚨 **OPERATIONAL DISCREPANCIES:**\n" + issues.join("\n") + "\n";
+    } else {
+      discrepancyText = "\n✅ **OPERATIONS:** No discrepancies found.\n";
+    }
+
+
+    if (staffCount > 0 || issues.length > 0) {
+      // Append discrepancies to breakdownText or send as separate field?
+      // sendPayrollReport takes an object with breakdownText. Let's append it.
+
+      const fullReportText = breakdownText + "\n" + discrepancyText;
+
       const reportData = {
         date: yesterdayStr,
         staffCount,
         totalHours,
         totalCost: totalCost.toFixed(2),
-        breakdownText
+        breakdownText: fullReportText
       };
 
-      // Try Email (might fail if auth invalid)
-      try {
-        await sendDailyPayrollReport(REPORT_EMAIL, reportData);
-        console.log(`✅ Daily payroll report EMAIL sent for ${yesterdayStr}`);
-      } catch (emailErr) {
-        console.error(`⚠️ Email failed (using Telegram fallback):`, emailErr);
-      }
-
-      // Send Telegram (Backup/Primary)
+      // Send Telegram (Primary)
       try {
         await sendPayrollReport(reportData);
-        console.log(`✅ Daily payroll report TELEGRAM sent for ${yesterdayStr}`);
+        console.log(`✅ Daily payroll & audit report TELEGRAM sent for ${yesterdayStr}`);
       } catch (tgErr) {
         console.error(`❌ Telegram failed:`, tgErr);
       }
 
+      // Email (Optional backup)
+      try {
+        // Modify reportData for email slightly if needed, or re-use
+        await sendDailyPayrollReport(REPORT_EMAIL, reportData);
+      } catch (e) { /* ignore */ }
+
     } else {
-      console.log(`ℹ️ No shifts found for yesterday (${yesterdayStr}), skipping report.`);
+      console.log(`ℹ️ No activity found for yesterday (${yesterdayStr}), skipping report.`);
     }
 
   } catch (error) {
     console.error('❌ Error in sendDailyPayrollOverview:', error);
+    await sendSystemAlert(`Daily Report Generation Failed: ${error}`);
   }
 }
 
