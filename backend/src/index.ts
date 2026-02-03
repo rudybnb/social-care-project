@@ -4,15 +4,15 @@ import dotenv from 'dotenv';
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { users, staff, sites, shifts, approvalRequests } from './schema.js';
+import { users, staff, sites, shifts, approvalRequests } from './schema';
 import { eq, and, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
-import authRoutes from './routes/auth.js';
-import adminRoutes from './routes/admin.js';
-import { calculatePayForPeriod } from './services/payrollAuditService.js';
-import { sendDailyPayrollReport } from './services/emailService.js';
-import { getWeekDeadline } from './jobs/autoAcceptShifts.js';
-import { initAuditLog, logActivity } from './services/auditLogService.js';
+import authRoutes from './routes/auth';
+import adminRoutes from './routes/admin';
+import { calculatePayForPeriod } from './services/payrollAuditService';
+import { sendDailyPayrollReport } from './services/emailService';
+import { getWeekDeadline } from './jobs/autoAcceptShifts';
+import { initAuditLog, logActivity } from './services/auditLogService';
 
 dotenv.config();
 

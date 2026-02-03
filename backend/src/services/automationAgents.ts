@@ -640,7 +640,7 @@ async function sendDailyPayrollOverview() {
       // Send Telegram (Primary)
       try {
         await sendPayrollReport(reportData);
-        console.log(`✅ Daily payroll & audit report TELEGRAM sent for ${yesterdayStr}`);
+        console.log(`✅ Sent Daily Report with Times for ${yesterdayStr}`);
       } catch (tgErr) {
         console.error(`❌ Telegram failed:`, tgErr);
       }

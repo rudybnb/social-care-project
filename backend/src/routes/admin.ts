@@ -1,7 +1,7 @@
 import express, { Request, Response, Router } from 'express';
-import { db } from '../index.js';
-import { shifts, staff } from '../schema.js';
-import { eq, and } from 'drizzle-orm';
+import { db } from '../index';
+import { shifts, staff } from '../schema';
+import { eq, and, sql } from 'drizzle-orm';
 
 const router: Router = express.Router();
 
@@ -159,6 +159,41 @@ router.post('/backfill-csv', async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Error in backfill-csv:', error);
         res.status(500).json({ error: 'Failed to process CSV', details: error.message });
+    }
+});
+
+// Bulk Accept Shifts (Temporary Admin Tool) - GET for easy browser trigger
+router.get('/bulk-accept-now', async (req: Request, res: Response) => {
+    try {
+        if (!db) return res.status(500).json({ error: 'Database not configured' });
+
+        // Hardcoded logic for the specific user request
+        const startDate = '2026-02-02';
+        const endDate = '2026-02-08';
+
+        console.log(` Bulk accepting shifts via GET: ${startDate} to ${endDate}, Erith/Thamesmead, !Singita`);
+
+        const updateResult = await db.update(shifts)
+            .set({ staffStatus: 'accepted' })
+            .where(and(
+                sql`${shifts.date} >= ${startDate}`,
+                sql`${shifts.date} <= ${endDate}`,
+                sql`(${shifts.siteName} ILIKE '%Erith%' OR ${shifts.siteName} ILIKE '%Thamesmead%')`,
+                sql`${shifts.staffName} NOT ILIKE '%Singita%'`
+            ))
+            .returning();
+
+        console.log(`✅ Bulk Accepted ${updateResult.length} shifts.`);
+        res.json({
+            success: true,
+            message: `Processed Bulk Accept: Erith/Thamesmead (No Singita) for ${startDate} to ${endDate}`,
+            count: updateResult.length,
+            updated: updateResult.map(s => `${s.date}: ${s.staffName} @ ${s.siteName}`)
+        });
+
+    } catch (error: any) {
+        console.error('Error in bulk-accept:', error);
+        res.status(500).json({ error: 'Failed' });
     }
 });
 

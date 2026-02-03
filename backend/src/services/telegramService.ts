@@ -139,7 +139,8 @@ export function initTelegramBot() {
                 let targetDate = dateStr;
                 if (dateStr.includes('/')) {
                     const [d, m, y] = dateStr.split('/');
-                    const year = y && y.length === 4 ? y : `20${y || '25'}`; // Guess year 2025/2026? Warning: unsafe.
+                    const currentYear = new Date().getFullYear();
+                    const year = y && y.length === 4 ? y : (y ? `20${y}` : currentYear.toString());
                     // Ideally force YYYY-MM-DD or use specific Logic
                     // Let's rely on standard ISO for now if possible, or try to format.
                     // Actually, db stores date as YYYY-MM-DD string.
@@ -264,7 +265,8 @@ export function initTelegramBot() {
                     let targetDate = dateStr;
                     if (dateStr.includes('/')) {
                         const [d, m, y] = dateStr.split('/');
-                        const year = y && y.length === 4 ? y : `20${y || '25'}`;
+                        const currentYear = new Date().getFullYear();
+                        const year = y && y.length === 4 ? y : (y ? `20${y}` : currentYear.toString());
                         targetDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
                     }
 
@@ -368,7 +370,8 @@ export function initTelegramBot() {
                     // Handle DD/MM or YYYY-MM-DD format
                     if (dateArg.includes('/')) {
                         const [d, m, y] = dateArg.split('/');
-                        const year = y && y.length === 4 ? y : `20${y || '25'}`;
+                        const currentYear = new Date().getFullYear();
+                        const year = y && y.length === 4 ? y : (y ? `20${y}` : currentYear.toString());
                         targetDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
                     } else {
                         targetDate = dateArg;
