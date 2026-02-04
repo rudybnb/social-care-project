@@ -9,6 +9,8 @@ import { eq, and } from 'drizzle-orm';
 // Telegram Bot Token - set this in environment variables
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const ADMIN_CHAT_ID = process.env.ADMIN_TELEGRAM_CHAT_ID || '';
+const PRUDENCE_CHAT_ID = '8385880441';
+const ADMIN_IDS = [ADMIN_CHAT_ID, PRUDENCE_CHAT_ID].filter(id => id && id.trim() !== '');
 
 // Initialize bot (polling mode for receiving messages, webhook mode for production)
 let bot: TelegramBot | null = null;
@@ -87,8 +89,8 @@ export function initTelegramBot() {
         // Example: /fix Lauren 14/01 08:00 20:00
         bot.onText(/\/fix (.+)/, async (msg: TelegramBot.Message, match: RegExpExecArray | null) => {
             const chatId = msg.chat.id;
-            // Security: Only allow admin chat
-            if (ADMIN_CHAT_ID && chatId.toString() !== ADMIN_CHAT_ID) {
+            // Security: Only allow admin IDs
+            if (ADMIN_IDS.length > 0 && !ADMIN_IDS.includes(chatId.toString())) {
                 return;
             }
 
@@ -204,8 +206,8 @@ export function initTelegramBot() {
         //          16/12 08:00 16:00
         bot.onText(/\/fixbatch (.+)/s, async (msg: TelegramBot.Message, match: RegExpExecArray | null) => {
             const chatId = msg.chat.id;
-            // Security: Only allow admin chat
-            if (ADMIN_CHAT_ID && chatId.toString() !== ADMIN_CHAT_ID) {
+            // Security: Only allow admin IDs
+            if (ADMIN_IDS.length > 0 && !ADMIN_IDS.includes(chatId.toString())) {
                 return;
             }
 
@@ -351,8 +353,8 @@ export function initTelegramBot() {
         // Usage: /report or /report YYYY-MM-DD
         bot.onText(/\/report(?: (.+))?/, async (msg: TelegramBot.Message, match: RegExpExecArray | null) => {
             const chatId = msg.chat.id;
-            // Security: Only allow admin chat
-            if (ADMIN_CHAT_ID && chatId.toString() !== ADMIN_CHAT_ID) {
+            // Security: Only allow admin IDs
+            if (ADMIN_IDS.length > 0 && !ADMIN_IDS.includes(chatId.toString())) {
                 return;
             }
 
@@ -472,7 +474,8 @@ export function initTelegramBot() {
                     `<b>Breakdown:</b>\n` +
                     `<pre>${breakdown || 'No clocked shifts'}</pre>`;
 
-                bot?.sendMessage(chatId, message, { parse_mode: 'HTML' });
+                // Broadcast report to all admins
+                await sendAdminTelegram(message);
 
             } catch (err: any) {
                 console.error(err);
@@ -512,19 +515,22 @@ export async function sendTelegramMessage(staffId: string, message: string): Pro
 
 // Send a message to admin
 export async function sendAdminTelegram(message: string): Promise<boolean> {
-    if (!bot || !ADMIN_CHAT_ID) {
-        console.warn('⚠️  Cannot send admin Telegram - bot or ADMIN_CHAT_ID not configured');
+    if (!bot || ADMIN_IDS.length === 0) {
+        console.warn('⚠️  Cannot send admin Telegram - bot or no ADMIN_IDS configured');
         return false;
     }
 
-    try {
-        await bot.sendMessage(ADMIN_CHAT_ID, message, { parse_mode: 'HTML' });
-        console.log(`📱 Admin Telegram sent: ${message.substring(0, 50)}...`);
-        return true;
-    } catch (error) {
-        console.error('❌ Failed to send admin Telegram:', error);
-        return false;
+    let success = false;
+    for (const chatId of ADMIN_IDS) {
+        try {
+            await bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+            console.log(`📱 Admin Telegram sent to ${chatId}: ${message.substring(0, 50)}...`);
+            success = true;
+        } catch (error) {
+            console.error(`❌ Failed to send admin Telegram to ${chatId}:`, error);
+        }
     }
+    return success;
 }
 
 // Send clock-in reminder to staff
@@ -623,10 +629,12 @@ export { bot };
 
 // Send generic system alert to Admin
 export async function sendSystemAlert(message: string) {
-    if (!bot || !ADMIN_CHAT_ID) return;
-    try {
-        await bot.sendMessage(ADMIN_CHAT_ID, `🚨 <b>SYSTEM ALERT</b>\n\n${message}`, { parse_mode: 'HTML' });
-    } catch (error) {
-        console.error('Error sending system alert:', error);
+    if (!bot || ADMIN_IDS.length === 0) return;
+    for (const chatId of ADMIN_IDS) {
+        try {
+            await bot.sendMessage(chatId, `🚨 <b>SYSTEM ALERT</b>\n\n${message}`, { parse_mode: 'HTML' });
+        } catch (error) {
+            console.error(`Error sending system alert to ${chatId}:`, error);
+        }
     }
 }
