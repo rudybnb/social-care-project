@@ -796,8 +796,8 @@ const Rota: React.FC = () => {
               staffId: shiftToDelete.type === 'Day' ? '' : oppositeShift.staffId,
               hours: 12,
               minutes: 0,
-              startTime: shiftToDelete.type === 'Day' ? '19:00' : '07:00',
-              endTime: shiftToDelete.type === 'Day' ? '07:00' : '19:00'
+              startTime: shiftToDelete.type === 'Day' ? '07:00' : '19:00',
+              endTime: shiftToDelete.type === 'Day' ? '19:00' : '07:00'
             }
           ],
           notes: `Replacement for removed shift`
