@@ -8,12 +8,13 @@ dotenv.config();
 const runMigrations = async () => {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
   });
 
   const db = drizzle(pool);
 
   console.log('Running migrations...');
-  
+
   try {
     await migrate(db, { migrationsFolder: './drizzle' });
     console.log('Migrations completed successfully!');

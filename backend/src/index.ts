@@ -607,12 +607,72 @@ app.get('/api/staff/:staffId/shifts', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Staff ID required' });
     }
 
-    // Get all shifts for this staff member
-    const staffShifts = await db.select().from(shifts).where(eq(shifts.staffId, staffId));
+    // Get all published shifts for this staff member
+    // Using sql to handle potential NULLs for legacy data (though we should migrate them)
+    // We treat NULL as published=true for backward compatibility initially, OR we can strict filter.
+    // Let's go strict: published = true.
+    const staffShifts = await db.select().from(shifts).where(
+      and(
+        eq(shifts.staffId, staffId),
+        eq(shifts.published, true)
+      )
+    );
     res.json(staffShifts);
   } catch (error) {
     console.error('Error fetching staff shifts:', error);
     res.status(500).json({ error: 'Failed to fetch shifts' });
+  }
+});
+
+// Publish shifts (convert draft to published)
+app.post('/api/shifts/publish', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+
+    // Optional filters: siteId, date range
+    const { siteId, startDate, endDate, shiftIds } = req.body;
+
+    console.log('Publishing shifts:', { siteId, startDate, endDate, shiftCount: shiftIds?.length });
+
+    let updated;
+
+    if (shiftIds && Array.isArray(shiftIds) && shiftIds.length > 0) {
+      // Publish specific shifts
+      updated = await db.update(shifts)
+        .set({ published: true, updatedAt: new Date() })
+        .where(sql`${shifts.id} IN ${shiftIds}`)
+        .returning();
+    } else if (siteId && startDate && endDate) {
+      // Publish by range
+      updated = await db.update(shifts)
+        .set({ published: true, updatedAt: new Date() })
+        .where(
+          and(
+            eq(shifts.siteId, siteId),
+            sql`${shifts.date} >= ${startDate}`,
+            sql`${shifts.date} <= ${endDate}`,
+            eq(shifts.published, false)
+          )
+        )
+        .returning();
+    } else {
+      return res.status(400).json({ error: 'Please provide shiftIds or (siteId, startDate, endDate)' });
+    }
+
+    console.log(`Published ${updated.length} shifts.`);
+
+    // Notify staff (Future: Send Telegram/Email notifications here)
+    // const staffIds = [...new Set(updated.map(s => s.staffId))];
+    // staffIds.forEach(id => sendNotification(id, 'New shifts published!'));
+
+    res.json({
+      success: true,
+      count: updated.length,
+      message: `Successfully published ${updated.length} shifts.`
+    });
+  } catch (error) {
+    console.error('Error publishing shifts:', error);
+    res.status(500).json({ error: 'Failed to publish shifts' });
   }
 });
 

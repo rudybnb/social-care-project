@@ -71,6 +71,7 @@ export const shifts = pgTable('shifts', {
   autoAccepted: boolean('auto_accepted').default(false), // True if shift was auto-accepted after deadline
   responseLocked: boolean('response_locked').default(false), // True if past deadline and cannot be changed without admin approval
   weekDeadline: timestamp('week_deadline'), // The Saturday midnight deadline for this shift's week
+  published: boolean('published').default(false), // Controls if the shift is visible to staff (true) or draft (false)
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

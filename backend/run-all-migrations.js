@@ -106,6 +106,32 @@ async function runAllMigrations() {
       console.log(`⚠️  Migration 6 skipped: ${error.message}\n`);
     }
 
+    // Migration 7: Add published column to shifts
+    console.log('📝 Migration 7: Adding published column to shifts...');
+    try {
+      // 1. Add column (initially NULL)
+      await pool.query(`
+        ALTER TABLE shifts 
+        ADD COLUMN IF NOT EXISTS published BOOLEAN;
+      `);
+
+      // 2. Backfill existing shifts to TRUE (Published)
+      // We check if it was just added (so mostly NULL) or already exists
+      // Safe to just update all NULLs to TRUE
+      await pool.query(`
+        UPDATE shifts SET published = TRUE WHERE published IS NULL;
+      `);
+
+      // 3. Set default to FALSE (Draft) for future inserts
+      await pool.query(`
+        ALTER TABLE shifts ALTER COLUMN published SET DEFAULT FALSE;
+      `);
+
+      console.log('✅ Migration 7 complete\n');
+    } catch (error) {
+      console.log(`⚠️  Migration 7 skipped: ${error.message}\n`);
+    }
+
     // Verify tables exist
     console.log('🔍 Verifying database schema...\n');
 

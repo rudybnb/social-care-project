@@ -1087,6 +1087,63 @@ const Rota: React.FC = () => {
     }
   };
 
+  const handlePublishWeek = async () => {
+    // Check if there are unpublished shifts for this week
+    const weekStart = weekDates[0];
+    const weekEnd = weekDates[6];
+
+    // Filter shifts for this week that are NOT published
+    // Note: We treat undefined/null as published: true for legacy compatibility locally,
+    // but strict check !s.published is safer if we trust data is migrated.
+    // Let's assume migration sets published=true, so !s.published captures false/null effectively if new shifts are false.
+    // However, legacy shifts might be null.
+    // We should treat explicitly false as draft.
+    const unpublishedShifts = shifts.filter(s =>
+      s.date >= weekStart &&
+      s.date <= weekEnd &&
+      s.published === false
+    );
+
+    if (unpublishedShifts.length === 0) {
+      alert('No draft shifts found to publish for this week.');
+      return;
+    }
+
+    const sitesWithDrafts = [...new Set(unpublishedShifts.map(s => s.siteName))];
+    const siteNames = sitesWithDrafts.length > 3
+      ? sitesWithDrafts.slice(0, 3).join(', ') + ` +${sitesWithDrafts.length - 3} more`
+      : sitesWithDrafts.join(', ');
+
+    if (!window.confirm(
+      `📢 PUBLISH SHIFTS\n\n` +
+      `You are about to publish ${unpublishedShifts.length} draft shift(s) for:\n` +
+      `${siteNames}\n\n` +
+      `Dates: ${new Date(weekStart).toLocaleDateString('en-GB')} - ${new Date(weekEnd).toLocaleDateString('en-GB')}\n\n` +
+      `Staff will be notified and these shifts will appear in their app.\n` +
+      `Proceed?`
+    )) {
+      return;
+    }
+
+    try {
+      // Use API to publish by date range
+      await shiftsAPI.publish({
+        startDate: weekStart,
+        endDate: weekEnd
+      });
+
+      alert(`✅ ${unpublishedShifts.length} shifts published successfully!`);
+
+      // Refresh shifts
+      const freshShifts = await shiftsAPI.getAll();
+      setShifts(freshShifts);
+
+    } catch (error: any) {
+      console.error('Failed to publish shifts:', error);
+      alert('❌ Failed to publish shifts. Please try again.');
+    }
+  };
+
   const handleExport = async () => {
     // 1. Prepare Shifts Data
     // Filter out "Bank Management" and placeholder records from export
@@ -1203,6 +1260,26 @@ const Rota: React.FC = () => {
               }}
             >
               📥 Export Excel
+            </button>
+            <button
+              onClick={handlePublishWeek}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                touchAction: 'manipulation',
+                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <span>📢</span> Publish Roles
             </button>
             <button
               onClick={() => setShowAssignShift(true)}
@@ -1511,8 +1588,11 @@ const Rota: React.FC = () => {
                                   backgroundColor: shift.staffStatus === 'accepted' ? '#10b98120' : shift.staffStatus === 'declined' ? '#ef444420' : `${site.color}20`,
                                   padding: '6px 8px',
                                   borderRadius: '6px',
-                                  border: shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
-                                  marginBottom: '6px'
+                                  border: shift.published === false
+                                    ? '2px dashed #fbbf24' // Draft style
+                                    : shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
+                                  marginBottom: '6px',
+                                  opacity: shift.published === false ? 0.8 : 1
                                 }}>
                                   <div style={{
                                     color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'),
@@ -1521,6 +1601,21 @@ const Rota: React.FC = () => {
                                     marginBottom: '2px'
                                   }}>
                                     {shift.isBank ? '🏦 ' : ''}{shift.staffName}
+                                    {shift.published === false && (
+                                      <span style={{
+                                        marginLeft: '4px',
+                                        padding: '1px 4px',
+                                        backgroundColor: '#fbbf2420',
+                                        border: '1px solid #fbbf24',
+                                        borderRadius: '3px',
+                                        fontSize: '9px',
+                                        fontWeight: '700',
+                                        letterSpacing: '0.3px',
+                                        color: '#fbbf24'
+                                      }}>
+                                        DRAFT
+                                      </span>
+                                    )}
                                     {shift.isBank && (() => {
                                       const shiftDate = new Date(shift.date);
                                       const tomorrow = new Date();

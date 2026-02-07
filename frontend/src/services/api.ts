@@ -133,6 +133,7 @@ export interface Shift {
   responseLocked?: boolean;
   autoAccepted?: boolean;
   weekDeadline?: string;
+  published?: boolean;
 }
 
 export const shiftsAPI = {
@@ -178,6 +179,17 @@ export const shiftsAPI = {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete shift');
+  },
+
+  // Publish shifts (convert draft to published)
+  async publish(data: { siteId?: string; startDate?: string; endDate?: string; shiftIds?: string[] }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/shifts/publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to publish shifts');
+    return response.json();
   },
 };
 
