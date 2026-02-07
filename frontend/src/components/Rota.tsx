@@ -1109,7 +1109,7 @@ const Rota: React.FC = () => {
       return;
     }
 
-    const sitesWithDrafts = [...new Set(unpublishedShifts.map(s => s.siteName))];
+    const sitesWithDrafts = Array.from(new Set(unpublishedShifts.map(s => s.siteName)));
     const siteNames = sitesWithDrafts.length > 3
       ? sitesWithDrafts.slice(0, 3).join(', ') + ` +${sitesWithDrafts.length - 3} more`
       : sitesWithDrafts.join(', ');
