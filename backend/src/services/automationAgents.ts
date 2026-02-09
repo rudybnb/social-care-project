@@ -20,6 +20,7 @@ const ACCOUNTS_EMAIL = process.env.ACCOUNTS_EMAIL || ADMIN_EMAIL; // Use same if
 const REPORT_EMAIL = 'laurenalecia@eclesia.co.uk';
 
 import { initTelegramBot, sendClockInReminder, sendLateClockInAlert as sendTelegramLateAlert, sendClockOutReminder, sendForgotClockOutAlert, sendShiftSummary, sendPayrollReport, sendSystemAlert } from './telegramService.js';
+import { removeDuplicateShifts } from '../routes/admin.js';
 
 // ... (existing imports)
 
@@ -222,6 +223,12 @@ export async function initializeAgents() {
   });
 
 
+  // Agent 12: Weekly Duplicate Cleanup (Sundays 11:00 PM)
+  cron.schedule('0 23 * * 0', async () => {
+    console.log('🧹 Running: Weekly Duplicate Shift Cleanup');
+    await removeDuplicateShifts();
+  });
+
   console.log('✅ All automation agents initialized');
   console.log('📋 Active agents:');
   console.log('   - Daily Email Reminders (7:00 AM)');
@@ -234,6 +241,8 @@ export async function initializeAgents() {
   console.log('   - Shift Summaries (08:30 & 20:30)');
   console.log('   - Shift Verification (30 min)');
   console.log('   - Daily Payroll Report (07:30)');
+  console.log('   - System Sentinel (Hourly)');
+  console.log('   - Weekly Duplicate Cleanup (Sun 11PM)');
 }
 
 // Agent 1: Send daily shift reminders

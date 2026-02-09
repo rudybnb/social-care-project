@@ -198,63 +198,71 @@ router.get('/bulk-accept-now', async (req: Request, res: Response) => {
     }
 });
 
+// Exported function for automation
+export async function removeDuplicateShifts() {
+    if (!db) return { deletedCount: 0, details: [] };
+
+    const allShifts = await db.select().from(shifts);
+    const staffMap = new Map<string, any[]>();
+
+    // Group by Staff|Date|StartTime
+    for (const shift of allShifts) {
+        const sig = `${shift.staffId}|${shift.date}|${shift.startTime}`;
+        if (!staffMap.has(sig)) {
+            staffMap.set(sig, []);
+        }
+        staffMap.get(sig)?.push(shift);
+    }
+
+    let deletedCount = 0;
+    const deletedIds: string[] = [];
+    const details: string[] = [];
+
+    console.log(`Analyzing ${allShifts.length} shifts for duplicates...`);
+
+    for (const [sig, group] of staffMap.entries()) {
+        if (group.length > 1) {
+            // Sort by createdAt DESC (try to keep newest)
+            group.sort((a, b) => {
+                const tA = new Date(a.createdAt || 0).getTime();
+                const tB = new Date(b.createdAt || 0).getTime();
+                return tB - tA; // Descending
+            });
+
+            // Keep group[0], delete rest
+            const toDelete = group.slice(1);
+
+            console.log(`Found duplicate group for ${sig} with ${group.length} shifts. Removing ${toDelete.length} older entries.`);
+
+            for (const d of toDelete) {
+                await db.delete(shifts).where(eq(shifts.id, d.id));
+                deletedCount++;
+                deletedIds.push(d.id);
+                details.push(`${d.staffName} ${d.date} ${d.startTime} (ID: ${d.id}, Created: ${d.createdAt})`);
+            }
+        }
+    }
+
+    if (deletedCount > 0) {
+        const alertMessage = `🧹 <b>Duplicate Shifts Removed</b>\n\n` +
+            `Found and removed ${deletedCount} duplicate shift(s).\n\n` +
+            `<b>Details:</b>\n` +
+            details.slice(0, 5).join('\n') +
+            (details.length > 5 ? `\n...and ${details.length - 5} more` : '');
+
+        // Send to Telegram asynchronously
+        sendSystemAlert(alertMessage).catch(err => console.error('Failed to send Telegram alert:', err));
+    }
+
+    return { deletedCount, details };
+}
+
 // Remove Duplicate Shifts (Same Staff, Date, StartTime) - Keep Newest
 router.get('/remove-duplicates', async (req: Request, res: Response) => {
     try {
         if (!db) return res.status(500).json({ error: 'Database not configured' });
 
-        const allShifts = await db.select().from(shifts);
-        const staffMap = new Map<string, any[]>();
-
-        // Group by Staff|Date|StartTime
-        for (const shift of allShifts) {
-            const sig = `${shift.staffId}|${shift.date}|${shift.startTime}`;
-            if (!staffMap.has(sig)) {
-                staffMap.set(sig, []);
-            }
-            staffMap.get(sig)?.push(shift);
-        }
-
-        let deletedCount = 0;
-        const deletedIds: string[] = [];
-        const details: string[] = [];
-
-        console.log(`Analyzing ${allShifts.length} shifts for duplicates...`);
-
-        for (const [sig, group] of staffMap.entries()) {
-            if (group.length > 1) {
-                // Sort by createdAt DESC (try to keep newest)
-                group.sort((a, b) => {
-                    const tA = new Date(a.createdAt || 0).getTime();
-                    const tB = new Date(b.createdAt || 0).getTime();
-                    return tB - tA; // Descending
-                });
-
-                // Keep group[0], delete rest
-                const toDelete = group.slice(1);
-
-                console.log(`Found duplicate group for ${sig} with ${group.length} shifts. Removing ${toDelete.length} older entries.`);
-
-                for (const d of toDelete) {
-                    await db.delete(shifts).where(eq(shifts.id, d.id));
-                    deletedCount++;
-                    deletedIds.push(d.id);
-                    details.push(`${d.staffName} ${d.date} ${d.startTime} (ID: ${d.id}, Created: ${d.createdAt})`);
-                }
-            }
-        }
-
-
-        if (deletedCount > 0) {
-            const alertMessage = `🧹 <b>Duplicate Shifts Removed</b>\n\n` +
-                `Found and removed ${deletedCount} duplicate shift(s).\n\n` +
-                `<b>Details:</b>\n` +
-                details.slice(0, 5).join('\n') +
-                (details.length > 5 ? `\n...and ${details.length - 5} more` : '');
-
-            // Send to Telegram asynchronously
-            sendSystemAlert(alertMessage).catch(err => console.error('Failed to send Telegram alert:', err));
-        }
+        const { deletedCount, details } = await removeDuplicateShifts();
 
         res.json({
             success: true,
