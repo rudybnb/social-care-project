@@ -390,6 +390,10 @@ export const updateShift = async (id: string, updates: Partial<Shift>): Promise<
   }
 };
 
+
+
+
+
 export const removeShift = async (id: string): Promise<void> => {
   try {
     // Delete from backend database
@@ -397,11 +401,10 @@ export const removeShift = async (id: string): Promise<void> => {
     // Update local cache
     shifts = shifts.filter(s => s.id !== id);
     notifyDataChanged();
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to delete shift:', error);
-    // Fallback: delete from local cache only
-    shifts = shifts.filter(s => s.id !== id);
-    notifyDataChanged();
+    alert(`Failed to delete shift from server: ${error.message || 'Unknown error'}`);
+    throw error;
   }
 };
 
