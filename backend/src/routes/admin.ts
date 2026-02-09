@@ -2,6 +2,7 @@ import express, { Request, Response, Router } from 'express';
 import { db } from '../index.js';
 import { shifts, staff } from '../schema.js';
 import { eq, and, sql } from 'drizzle-orm';
+import { sendSystemAlert } from '../services/telegramService.js';
 
 const router: Router = express.Router();
 
@@ -241,6 +242,18 @@ router.get('/remove-duplicates', async (req: Request, res: Response) => {
                     details.push(`${d.staffName} ${d.date} ${d.startTime} (ID: ${d.id}, Created: ${d.createdAt})`);
                 }
             }
+        }
+
+
+        if (deletedCount > 0) {
+            const alertMessage = `🧹 <b>Duplicate Shifts Removed</b>\n\n` +
+                `Found and removed ${deletedCount} duplicate shift(s).\n\n` +
+                `<b>Details:</b>\n` +
+                details.slice(0, 5).join('\n') +
+                (details.length > 5 ? `\n...and ${details.length - 5} more` : '');
+
+            // Send to Telegram asynchronously
+            sendSystemAlert(alertMessage).catch(err => console.error('Failed to send Telegram alert:', err));
         }
 
         res.json({
