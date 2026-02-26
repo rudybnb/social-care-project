@@ -1200,6 +1200,12 @@ app.post('/api/manual-clockout', async (req: Request, res: Response) => {
   return manualClockOut(req, res);
 });
 
+// Initialize leave balances endpoint
+app.post('/api/admin/initialize-leave-balances', async (req: Request, res: Response) => {
+  const { initializeLeaveBalances } = await import('./initialize-leave-balances.js');
+  return initializeLeaveBalances(req, res);
+});
+
 // ==================== ADMIN ROUTES ====================
 
 // Add staff status columns migration

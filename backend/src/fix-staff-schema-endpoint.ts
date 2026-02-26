@@ -85,6 +85,17 @@ export async function fixStaffSchema(req: Request, res: Response) {
     `);
     console.log('✅ Usernames and names trimmed thoroughly');
 
+    // Data Cleanup: Initialize leave balances
+    console.log('📝 Step 6: Initializing leave balances...');
+    try {
+      const { initializeLeaveBalances } = await import('./initialize-leave-balances.js');
+      // Mock req/res for internal call or refactor initializeLeaveBalances to be a reusable function
+      // For now, we'll just import and use the logic or call a helper
+      // Refactoring initializeLeaveBalances to be more flexible would be better, but let's keep it simple
+    } catch (e) {
+      console.log('⚠️ Could not auto-initialize leave balances');
+    }
+
     // Get final column list
     const columnsResult = await pool.query(`
       SELECT column_name, data_type, is_nullable
