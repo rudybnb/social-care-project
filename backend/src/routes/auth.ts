@@ -40,8 +40,8 @@ router.post('/login', async (req: Request, res: Response) => {
       .from(staff)
       .where(
         or(
-          sql`LOWER(${staff.username}) = LOWER(${trimmedUsername})`,
-          sql`LOWER(${staff.name}) = LOWER(${trimmedUsername})`
+          sql`TRIM(LOWER(${staff.username})) = LOWER(${trimmedUsername})`,
+          sql`TRIM(LOWER(${staff.name})) = LOWER(${trimmedUsername})`
         )
       );
 

@@ -525,8 +525,8 @@ app.post('/api/auth/staff/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Username and password required' });
     }
 
-    // Find staff by username (case-insensitive for better UX)
-    const staffMember = await db.select().from(staff).where(sql`LOWER(${staff.username}) = LOWER(${username})`);
+    // Find staff by username (case-insensitive and trimmed for maximum robustness)
+    const staffMember = await db.select().from(staff).where(sql`TRIM(LOWER(${staff.username})) = LOWER(${username})`);
 
     if (staffMember.length === 0) {
       return res.status(401).json({ error: 'Invalid credentials' });

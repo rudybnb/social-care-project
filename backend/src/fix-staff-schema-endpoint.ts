@@ -73,17 +73,17 @@ export async function fixStaffSchema(req: Request, res: Response) {
       console.log(`⚠️  Constraints skipped: ${error.message}`);
     }
 
-    // Data Cleanup: Trim whitespace from usernames and names
-    console.log('📝 Step 5: Trimming whitespace from usernames and names...');
+    // Data Cleanup: Trim all whitespace from usernames and names (including non-standard spaces)
+    console.log('📝 Step 5: Trimming all whitespace from usernames and names...');
     await pool.query(`
       UPDATE staff 
       SET 
-        username = TRIM(username),
-        name = TRIM(name),
+        username = REGEXP_REPLACE(username, '^\\s+|\\s+$', '', 'g'),
+        name = REGEXP_REPLACE(name, '^\\s+|\\s+$', '', 'g'),
         updated_at = NOW()
-      WHERE username != TRIM(username) OR name != TRIM(name);
+      WHERE username ~ '^\\s+|\\s+$' OR name ~ '^\\s+|\\s+$';
     `);
-    console.log('✅ Usernames and names trimmed');
+    console.log('✅ Usernames and names trimmed thoroughly');
 
     // Get final column list
     const columnsResult = await pool.query(`
