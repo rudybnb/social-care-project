@@ -1444,7 +1444,20 @@ const runStartupMigration = async () => {
       CREATE INDEX IF NOT EXISTS idx_approval_requests_status 
       ON approval_requests(status);
     `);
-    console.log('✅ Migration 7 complete');
+    // Migration 8: Create leave_days table
+    console.log('📝 Migration 8: Creating leave_days table...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS leave_days (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        request_id UUID NOT NULL,
+        staff_id TEXT NOT NULL,
+        staff_name TEXT NOT NULL,
+        date TEXT NOT NULL,
+        hours INTEGER NOT NULL DEFAULT 8,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+    `);
+    console.log('✅ Migration 8 complete');
 
     console.log('✅ All migrations completed successfully!');
   } catch (error: any) {

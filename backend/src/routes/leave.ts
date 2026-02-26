@@ -344,22 +344,28 @@ router.put('/requests/:id/approve', async (req, res) => {
     `);
 
     // Create leave days entries
-    const start = new Date(request.startDate);
-    const end = new Date(request.endDate);
-    const leaveDaysData = [];
+    try {
+      const start = new Date(request.startDate);
+      const end = new Date(request.endDate);
+      const leaveDaysData = [];
 
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      leaveDaysData.push({
-        requestId: request.id,
-        staffId: request.staffId,
-        staffName: request.staffName,
-        date: d.toISOString().split('T')[0],
-        hours: 8
-      });
-    }
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        leaveDaysData.push({
+          requestId: request.id,
+          staffId: request.staffId,
+          staffName: request.staffName,
+          date: d.toISOString().split('T')[0],
+          hours: 8
+        });
+      }
 
-    if (leaveDaysData.length > 0) {
-      await db.insert(leaveDays).values(leaveDaysData);
+      if (leaveDaysData.length > 0) {
+        await db.insert(leaveDays).values(leaveDaysData);
+      }
+    } catch (daysError) {
+      console.error('Error creating leave days entries (continuing anyway):', daysError);
+      // We don't fail the entire approval if this fails, 
+      // as the main request and balance are already updated.
     }
 
     res.json(updatedRequest);
