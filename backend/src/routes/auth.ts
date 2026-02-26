@@ -33,14 +33,15 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Database not configured' });
     }
 
-    // Query database for staff member by username (case-insensitive)
+    // Query database for staff member by username (case-insensitive and trimmed)
+    const trimmedUsername = username.trim();
     const staffMembers = await db
       .select()
       .from(staff)
       .where(
         or(
-          sql`LOWER(${staff.username}) = LOWER(${username})`,
-          sql`LOWER(${staff.name}) = LOWER(${username})`
+          sql`LOWER(${staff.username}) = LOWER(${trimmedUsername})`,
+          sql`LOWER(${staff.name}) = LOWER(${trimmedUsername})`
         )
       );
 

@@ -206,9 +206,9 @@ app.post('/api/staff', async (req: Request, res: Response) => {
     const passwordToHash = req.body.password || `temp_${Math.random().toString(36).substring(7)}`;
 
     const staffData: any = {
-      name: req.body.name,
-      email: req.body.email || null,
-      username: autoUsername,
+      name: req.body.name?.trim(),
+      email: req.body.email?.trim() || null,
+      username: (req.body.username?.trim()) || autoUsername,
       password: await bcrypt.hash(passwordToHash, 10), // Always hash a password
       role: req.body.role,
       site: req.body.site,
@@ -249,6 +249,12 @@ app.put('/api/staff/:id', async (req: Request, res: Response) => {
 
     // Hash password if it's being updated and is not already hashed
     const updateData = { ...req.body, updatedAt: new Date() };
+
+    // Trim string fields if present
+    if (updateData.name) updateData.name = updateData.name.trim();
+    if (updateData.username) updateData.username = updateData.username.trim();
+    if (updateData.email) updateData.email = updateData.email.trim();
+
     if (updateData.password && !updateData.password.startsWith('$2b$')) {
       updateData.password = await bcrypt.hash(updateData.password, 10);
     }
@@ -512,14 +518,15 @@ app.delete('/api/shifts/clear/:siteId/:date', async (req: Request, res: Response
 app.post('/api/auth/staff/login', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const { username, password } = req.body;
+    const { username: rawUsername, password } = req.body;
+    const username = rawUsername?.trim();
 
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
     }
 
-    // Find staff by username
-    const staffMember = await db.select().from(staff).where(eq(staff.username, username));
+    // Find staff by username (case-insensitive for better UX)
+    const staffMember = await db.select().from(staff).where(sql`LOWER(${staff.username}) = LOWER(${username})`);
 
     if (staffMember.length === 0) {
       return res.status(401).json({ error: 'Invalid credentials' });

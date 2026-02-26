@@ -11,7 +11,7 @@ export async function fixStaffSchema(req: Request, res: Response) {
 
   try {
     console.log('🔧 Fixing staff table schema...');
-    
+
     // Rename full_name to name if it exists
     console.log('📝 Step 1: Renaming full_name to name...');
     try {
@@ -20,7 +20,7 @@ export async function fixStaffSchema(req: Request, res: Response) {
     } catch (error: any) {
       console.log(`⚠️  Column rename skipped: ${error.message}`);
     }
-    
+
     // Add all missing columns
     console.log('📝 Step 2: Adding missing columns...');
     await pool.query(`
@@ -38,7 +38,7 @@ export async function fixStaffSchema(req: Request, res: Response) {
       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
     `);
     console.log('✅ All missing columns added');
-    
+
     // Update NULL values in required columns
     console.log('📝 Step 3: Updating NULL values in required columns...');
     await pool.query(`
@@ -53,7 +53,7 @@ export async function fixStaffSchema(req: Request, res: Response) {
       WHERE name IS NULL OR site IS NULL OR status IS NULL OR rates IS NULL;
     `);
     console.log('✅ NULL values updated');
-    
+
     // Set NOT NULL constraints
     console.log('📝 Step 4: Setting NOT NULL constraints...');
     try {
@@ -72,7 +72,19 @@ export async function fixStaffSchema(req: Request, res: Response) {
     } catch (error: any) {
       console.log(`⚠️  Constraints skipped: ${error.message}`);
     }
-    
+
+    // Data Cleanup: Trim whitespace from usernames and names
+    console.log('📝 Step 5: Trimming whitespace from usernames and names...');
+    await pool.query(`
+      UPDATE staff 
+      SET 
+        username = TRIM(username),
+        name = TRIM(name),
+        updated_at = NOW()
+      WHERE username != TRIM(username) OR name != TRIM(name);
+    `);
+    console.log('✅ Usernames and names trimmed');
+
     // Get final column list
     const columnsResult = await pool.query(`
       SELECT column_name, data_type, is_nullable
@@ -80,9 +92,9 @@ export async function fixStaffSchema(req: Request, res: Response) {
       WHERE table_name = 'staff'
       ORDER BY ordinal_position;
     `);
-    
+
     console.log('✅ Staff table schema fixed!');
-    
+
     res.json({
       success: true,
       message: 'Staff table schema fixed successfully',
