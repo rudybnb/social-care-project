@@ -38,10 +38,10 @@ export async function initializeLeaveBalances(req: Request, res: Response) {
                     staffId: member.id,
                     staffName: member.name,
                     year: currentYear,
-                    totalEntitlement: 112,
+                    totalEntitlement: 224,
                     hoursAccrued: hoursAccrued,
                     hoursUsed: 0,
-                    hoursRemaining: 112 - 0,
+                    hoursRemaining: 224 - 0,
                     carryOverFromPrevious: 0,
                     carryOverToNext: 0
                 });

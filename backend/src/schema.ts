@@ -82,10 +82,10 @@ export const leaveBalances = pgTable('leave_balances', {
   staffId: text('staff_id').notNull(),
   staffName: text('staff_name').notNull(),
   year: integer('year').notNull(),
-  totalEntitlement: integer('total_entitlement').notNull().default(112),
+  totalEntitlement: integer('total_entitlement').notNull().default(224),
   hoursAccrued: integer('hours_accrued').notNull().default(0), // Hours earned so far based on months worked
   hoursUsed: integer('hours_used').notNull().default(0),
-  hoursRemaining: integer('hours_remaining').notNull().default(112),
+  hoursRemaining: integer('hours_remaining').notNull().default(224),
   carryOverFromPrevious: integer('carry_over_from_previous').default(0),
   carryOverToNext: integer('carry_over_to_next').default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),

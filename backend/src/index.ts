@@ -1206,6 +1206,12 @@ app.post('/api/admin/initialize-leave-balances', async (req: Request, res: Respo
   return initializeLeaveBalances(req, res);
 });
 
+// Migrate leave entitlement endpoint
+app.post('/api/admin/migrate-leave-entitlement', async (req: Request, res: Response) => {
+  const { migrateLeaveEntitlement } = await import('./migrate-leave-entitlement.js');
+  return migrateLeaveEntitlement(req, res);
+});
+
 // ==================== ADMIN ROUTES ====================
 
 // Add staff status columns migration

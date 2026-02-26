@@ -44,10 +44,10 @@ router.get('/balance/:staffId/:year', async (req, res) => {
             staffId,
             staffName: staffMember.name,
             year: currentYear,
-            totalEntitlement: 112,
+            totalEntitlement: 224,
             hoursAccrued: staffMember.startDate ? calculateAccruedLeave(staffMember.startDate) : 0,
             hoursUsed: 0,
-            hoursRemaining: 112,
+            hoursRemaining: 224,
             carryOverFromPrevious: 0,
             carryOverToNext: 0
           })
@@ -172,10 +172,10 @@ router.post('/balances', async (req, res) => {
         staffId,
         staffName,
         year,
-        totalEntitlement: totalEntitlement || 112,
+        totalEntitlement: totalEntitlement || 224,
         hoursAccrued: hoursAccrued || 0,
         hoursUsed: hoursUsed || 0,
-        hoursRemaining: hoursRemaining || totalEntitlement || 112,
+        hoursRemaining: hoursRemaining || totalEntitlement || 224,
         carryOverFromPrevious: 0,
         carryOverToNext: 0
       })
