@@ -461,7 +461,8 @@ const Rota: React.FC = () => {
         is24Hour: false,
         isBank: worker.staffId === 'BANK',
         notes: shiftForm.notes,
-        staffStatus: 'pending'
+        staffStatus: 'pending',
+        published: false
       };
 
       shiftsToCreate.push(shift);
