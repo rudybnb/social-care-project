@@ -19,7 +19,7 @@ const ClockInOut: React.FC = () => {
   const [isUnscheduled, setIsUnscheduled] = useState(false);
   const [approvalRequested, setApprovalRequested] = useState(false);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
 
   const fetchShifts = async () => {
     if (!phoneDigits || phoneDigits.length !== 4) {

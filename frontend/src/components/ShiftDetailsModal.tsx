@@ -146,7 +146,7 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
     }
   };
 
-  const isToday = shift.date === new Date().toISOString().split('T')[0];
+  const isToday = shift.date === new Date().toLocaleDateString('en-CA');
   const isPending = !shift.staffStatus || shift.staffStatus === 'pending';
 
   return (

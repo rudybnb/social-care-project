@@ -76,8 +76,8 @@ export const calculateWeeklyHours = (
     enhancedHours,
     totalHours,
     currentRate: totalHours >= 20 ? 'enhanced' : 'standard',
-    weekStart: start.toISOString().split('T')[0],
-    weekEnd: end.toISOString().split('T')[0]
+    weekStart: start.toLocaleDateString('en-CA'),
+    weekEnd: end.toLocaleDateString('en-CA')
   };
 };
 

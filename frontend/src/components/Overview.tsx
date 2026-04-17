@@ -27,7 +27,7 @@ const Overview: React.FC = () => {
 
 
   // Get today's date for filtering
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
   const todayDate = new Date(today);
   const todayShifts = shifts.filter(s => s.date === today);
   
@@ -566,7 +566,7 @@ const Overview: React.FC = () => {
             for (let i = 0; i < 35; i++) {
               const date = new Date(startDate);
               date.setDate(startDate.getDate() + i);
-              const dateStr = date.toISOString().split('T')[0];
+              const dateStr = date.toLocaleDateString('en-CA');
               const dateNum = date.getDate();
               const isToday = dateStr === today;
               const isPast = date < todayDate;

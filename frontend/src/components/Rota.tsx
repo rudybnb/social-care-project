@@ -165,13 +165,13 @@ const Rota: React.FC = () => {
     return Array.from({ length: 7 }, (_, i) => {
       const date = new Date(monday);
       date.setDate(monday.getDate() + i);
-      return date.toISOString().split('T')[0];
+      return date.toLocaleDateString('en-CA');
     });
   };
 
   const weekDates = getWeekDates(selectedWeek);
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
 
   // Check if a date is today
   const isToday = (date: string) => date === today;
@@ -1219,7 +1219,7 @@ const Rota: React.FC = () => {
     exportToExcel([
       { name: 'Rota Shifts', data: shiftsData },
       { name: 'Clocking Records', data: clockingData }
-    ], `Rota_Export_${new Date().toISOString().split('T')[0]}`);
+    ], `Rota_Export_${new Date().toLocaleDateString('en-CA')}`);
   };
 
   return (

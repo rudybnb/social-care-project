@@ -21,8 +21,8 @@ const Payroll: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportDateRange, setExportDateRange] = useState({
-    start: new Date().toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
+    start: new Date().toLocaleDateString('en-CA'),
+    end: new Date().toLocaleDateString('en-CA')
   });
 
   // Subscribe to shift changes
@@ -543,8 +543,8 @@ const Payroll: React.FC = () => {
           <button
             onClick={() => {
               setExportDateRange({
-                start: currentPeriod.start.toISOString().split('T')[0],
-                end: currentPeriod.end.toISOString().split('T')[0]
+                start: currentPeriod.start.toLocaleDateString('en-CA'),
+                end: currentPeriod.end.toLocaleDateString('en-CA')
               });
               setShowExportModal(true);
             }}

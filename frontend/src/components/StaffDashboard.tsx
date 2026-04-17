@@ -62,7 +62,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
   }, [staffId]);
 
   // Filter shifts
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
   const upcomingShifts = shifts
     .filter(s => s.date >= today && !s.isBank)
     .sort((a, b) => a.date.localeCompare(b.date))

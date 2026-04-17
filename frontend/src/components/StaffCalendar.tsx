@@ -57,7 +57,7 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onDayCli
 
   // Get my shifts for a specific date
   const getMyShiftsForDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = date.toLocaleDateString('en-CA');
     return shifts.filter(s => s.date === dateStr && !s.isBank);
   };
 
@@ -65,7 +65,7 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onDayCli
     return date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   };
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
 
   return (
     <div style={{ padding: '16px' }}>
@@ -149,7 +149,7 @@ const StaffCalendar: React.FC<StaffCalendarProps> = ({ staffId, shifts, onDayCli
         }}>
           {monthDates.map(({ date, isCurrentMonth }, index) => {
             const myShifts = getMyShiftsForDate(date);
-            const dateStr = date.toISOString().split('T')[0];
+            const dateStr = date.toLocaleDateString('en-CA');
             const isToday = dateStr === today;
             const hasShifts = myShifts.length > 0;
 

@@ -5,7 +5,7 @@ import { Shift } from '../data/sharedData';
 const Attendance: React.FC = () => {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [selectedSite, setSelectedSite] = useState('all');
   const [sites, setSites] = useState<any[]>([]);
 
@@ -55,7 +55,7 @@ const Attendance: React.FC = () => {
     : todayShifts.filter(s => s.siteId === selectedSite);
 
   // Check if selected date is today or in the future
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
   const isToday = selectedDate === today;
   const isFuture = selectedDate > today;
   const isPast = selectedDate < today;
