@@ -9,6 +9,7 @@ import AnnualLeave from '../components/AnnualLeave';
 import Attendance from '../components/Attendance';
 import ApprovalRequests from '../components/ApprovalRequests';
 import UnscheduledPunches from '../components/UnscheduledPunches';
+import Quotes from '../components/Quotes';
 
 const AdminDashboard: React.FC = () => {
   const { logout, user } = useAuth();
@@ -78,6 +79,7 @@ const AdminDashboard: React.FC = () => {
   const adminItems = [
     { id: 'directory', label: 'Directory' },
     { id: 'sites', label: 'Sites' },
+    { id: 'quotes', label: 'Quotes' },
     { id: 'settings', label: 'Settings' }
   ];
 
@@ -101,6 +103,8 @@ const AdminDashboard: React.FC = () => {
         return <ApprovalRequests />;
       case 'unscheduled':
         return <UnscheduledPunches />;
+      case 'quotes':
+        return <Quotes />;
       default:
         return <div style={{ padding: '20px', color: 'white' }}>
           <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '12px' }}>
