@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { users, staff, sites, shifts, approvalRequests } from './schema.js';
+import { users, staff, sites, shifts, approvalRequests, quotes } from './schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import authRoutes from './routes/auth.js';
@@ -509,6 +509,83 @@ app.delete('/api/shifts/clear/:siteId/:date', async (req: Request, res: Response
   } catch (error) {
     console.error('Error clearing shifts:', error);
     res.status(500).json({ error: 'Failed to clear shifts' });
+  }
+});
+
+// ==================== QUOTES ROUTES ====================
+
+// Get all quotes
+app.get('/api/quotes', async (_req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const allQuotes = await db.select().from(quotes);
+    res.json(allQuotes);
+  } catch (error) {
+    console.error('Error fetching quotes:', error);
+    res.status(500).json({ error: 'Failed to fetch quotes' });
+  }
+});
+
+// Create or update quote
+app.post('/api/quotes', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const { childInitials, quoteStatus, providerName, placementType, date, stateData } = req.body;
+
+    if (!childInitials) {
+      return res.status(400).json({ error: 'childInitials is required' });
+    }
+
+    // Check if quote for this child exists
+    const existing = await db.select().from(quotes).where(eq(quotes.childInitials, childInitials));
+
+    if (existing.length > 0) {
+      // Update
+      const updated = await db.update(quotes)
+        .set({
+          quoteStatus,
+          providerName,
+          placementType,
+          createdDate: date,
+          stateData: JSON.stringify(stateData),
+          updatedAt: new Date()
+        })
+        .where(eq(quotes.childInitials, childInitials))
+        .returning();
+      return res.json(updated[0]);
+    } else {
+      // Insert
+      const newQuote = await db.insert(quotes)
+        .values({
+          childInitials,
+          quoteStatus,
+          providerName,
+          placementType,
+          createdDate: date,
+          stateData: JSON.stringify(stateData)
+        })
+        .returning();
+      return res.status(201).json(newQuote[0]);
+    }
+  } catch (error) {
+    console.error('Error saving quote:', error);
+    res.status(500).json({ error: 'Failed to save quote' });
+  }
+});
+
+// Delete quote
+app.delete('/api/quotes/:id', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const id = req.params.id as string;
+    const deleted = await db.delete(quotes).where(eq(quotes.id, id)).returning();
+    if (deleted.length === 0) {
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+    res.json({ message: 'Quote deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting quote:', error);
+    res.status(500).json({ error: 'Failed to delete quote' });
   }
 });
 

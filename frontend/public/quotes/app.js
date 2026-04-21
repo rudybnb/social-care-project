@@ -82,6 +82,7 @@ const PLACEMENT_TYPES = [
   'Supported Accommodation',
   'Residential School',
   'Secure Unit',
+  'Community',
   'Other',
 ];
 
@@ -426,7 +427,25 @@ function bindInputs() {
   bindField('unitTown', 'unitTown');
   bindField('unitCounty', 'unitCounty');
   bindField('unitPostCode', 'unitPostCode');
-  bindField('placementType', 'placementType');
+  const ptEl = document.getElementById('placementType');
+  if (ptEl) {
+    ptEl.addEventListener('change', (e) => {
+      state.placementType = e.target.value;
+      if (e.target.value === 'Community') {
+        const nameNo = prompt("Enter Name/House No. for Community placement:");
+        const street = prompt("Enter Street:");
+        const town = prompt("Enter Town:");
+        const post = prompt("Enter Postcode:");
+        setVal('unitHouseNo', nameNo || ''); state.unitHouseNo = nameNo || '';
+        setVal('unitStreet', street || ''); state.unitStreet = street || '';
+        setVal('unitTown', town || ''); state.unitTown = town || '';
+        setVal('unitCounty', 'Temp Info'); state.unitCounty = 'Temp Info';
+        setVal('unitPostCode', post || ''); state.unitPostCode = post || '';
+        const presetSelect = document.getElementById('presetAddressSelect');
+        if(presetSelect) presetSelect.value = '';
+      }
+    });
+  }
   bindField('invoiceSchedule', 'invoiceSchedule');
 
   const presetSelect = document.getElementById('presetAddressSelect');
@@ -656,32 +675,82 @@ function buildOneoffRows(count) {
   return html;
 }
 
-// ---- Local Storage ----
-function saveToLocalStorage() {
+// ---- API Config ----
+const API_URL = window.location.origin.includes('localhost') ? 'http://localhost:4000/api/quotes' : '/api/quotes';
+
+function getAuthHeaders() {
+  let authHeader = {};
+  try {
+    if (window.parent && window.parent.localStorage) {
+      const auth = JSON.parse(window.parent.localStorage.getItem('auth') || '{}');
+      if (auth.token) authHeader = { 'Authorization': `Bearer ${auth.token}` };
+    }
+  } catch (e) {}
+  return authHeader;
+}
+
+// ---- Storage & Sync ----
+async function saveToLocalStorage() {
   gatherInputState();
   if (!state.childInitials || state.childInitials.trim() === '') {
     alert("Please enter the Child's Initials in the Head Office Details before saving to create a profile.");
     return;
   }
   
+  // Backup locally
   let profiles = {};
   const stored = localStorage.getItem('eclesia_profiles');
   if (stored) {
     try { profiles = JSON.parse(stored); } catch(e){}
   }
-  
   profiles[state.childInitials.trim()] = state;
   localStorage.setItem('eclesia_profiles', JSON.stringify(profiles));
-  
-  // also save as current active state
   localStorage.setItem('quoteSheetState', JSON.stringify(state));
   
+  // Sync to Backend
+  try {
+    await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({
+        childInitials: state.childInitials.trim(),
+        quoteStatus: state.quoteStatus,
+        providerName: state.providerName,
+        placementType: state.placementType,
+        date: state.date,
+        stateData: state
+      })
+    });
+    showToast('✓ Patient Profile saved securely to database');
+  } catch(e) {
+    console.error('Failed to save to database, saved locally.', e);
+    showToast('✓ Patient Profile saved locally (offline)');
+  }
+  
   populateProfileLoader();
-  showToast('✓ Patient Profile saved successfully');
 }
 
-function loadProfile(initials) {
+async function loadProfile(initials) {
   if (!initials) return;
+  try {
+    const response = await fetch(API_URL, { headers: getAuthHeaders() });
+    if (response.ok) {
+      const quotes = await response.json();
+      const target = quotes.find(q => q.childInitials === initials);
+      if (target && target.stateData) {
+        const parsedState = typeof target.stateData === 'string' ? JSON.parse(target.stateData) : target.stateData;
+        state = { ...state, ...parsedState };
+        restoreInputState();
+        updateDisplay();
+        showToast('✓ Profile loaded from database');
+        return;
+      }
+    }
+  } catch (e) {
+    console.error('Failed fetching profile from DB. Trying local fallback', e);
+  }
+
+  // Fallback to local
   const stored = localStorage.getItem('eclesia_profiles');
   if (stored) {
     try {
@@ -690,28 +759,45 @@ function loadProfile(initials) {
         state = { ...state, ...profiles[initials] };
         restoreInputState();
         updateDisplay();
-        showToast('✓ Profile loaded');
+        showToast('✓ Profile loaded (local fallback)');
       }
     } catch(e){}
   }
 }
 
-function populateProfileLoader() {
+async function populateProfileLoader() {
   const loader = document.getElementById('profileLoader');
   if (!loader) return;
   
   loader.innerHTML = '<option value="">-- Load Patient Profile --</option>';
   
-  const stored = localStorage.getItem('eclesia_profiles');
-  if (stored) {
-    try {
-      const profiles = JSON.parse(stored);
-      Object.keys(profiles).forEach(key => {
-        loader.innerHTML += `<option value="${key}">${key} (${profiles[key].quoteStatus || 'Draft'})</option>`;
+  let remoteLoaded = false;
+  try {
+    const response = await fetch(API_URL, { headers: getAuthHeaders() });
+    if (response.ok) {
+      const quotes = await response.json();
+      quotes.forEach(q => {
+        loader.innerHTML += `<option value="${q.childInitials}">${q.childInitials} (${q.quoteStatus || 'Draft'})</option>`;
       });
-    } catch(e){}
+      remoteLoaded = true;
+    }
+  } catch(e) {
+    console.log('Using local fallback for profiles');
+  }
+
+  if (!remoteLoaded) {
+    const stored = localStorage.getItem('eclesia_profiles');
+    if (stored) {
+      try {
+        const profiles = JSON.parse(stored);
+        Object.keys(profiles).forEach(key => {
+          loader.innerHTML += `<option value="${key}">${key} (${profiles[key].quoteStatus || 'Draft'}) - Local</option>`;
+        });
+      } catch(e){}
+    }
   }
 }
+
 
 function loadFromLocalStorage() {
   const saved = localStorage.getItem('quoteSheetState');
@@ -849,7 +935,7 @@ function exportInvoice() {
 }
 
 // ---- Initialization ----
-function init() {
+async function init() {
   const loaded = loadFromLocalStorage();
 
   // Build dynamic HTML
@@ -858,7 +944,7 @@ function init() {
   // Bind all inputs
   bindInputs();
   
-  populateProfileLoader();
+  await populateProfileLoader();
   document.getElementById('profileLoader')?.addEventListener('change', (e) => {
     loadProfile(e.target.value);
   });
@@ -1075,7 +1161,7 @@ function buildPage() {
         </div>
 
         <div class="form-group" style="margin-bottom: 20px;" id="presetAddressGroup">
-          <select class="form-select" id="presetAddressSelect" style="border-color: var(--primary-500); background-color: rgba(16, 185, 129, 0.05);">
+          <select class="form-select" id="presetAddressSelect" style="border-color: var(--primary-500); background-color: rgba(16, 185, 129, 0.05); color: #000;">
             ${PRESET_ADDRESSES.map((a, i) => `<option value="${i}">${a.label}</option>`).join('')}
           </select>
         </div>

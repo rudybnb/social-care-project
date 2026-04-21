@@ -141,6 +141,19 @@ export const approvalRequests = pgTable('approval_requests', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Social Quotes Profiles
+export const quotes = pgTable('quotes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  childInitials: text('child_initials').notNull().unique(),
+  quoteStatus: text('quote_status').default('Draft Quote'),
+  providerName: text('provider_name'),
+  placementType: text('placement_type'),
+  createdDate: text('created_date'),
+  stateData: text('state_data').notNull(), // JSON string representing the entire 'state' object
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Legacy tables (keep for compatibility)
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),

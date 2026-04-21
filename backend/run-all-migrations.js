@@ -132,6 +132,27 @@ async function runAllMigrations() {
       console.log(`⚠️  Migration 7 skipped: ${error.message}\n`);
     }
 
+    // Migration 8: Add Quotes table
+    console.log('📝 Migration 8: Creating quotes table...');
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS quotes (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          child_initials TEXT NOT NULL UNIQUE,
+          quote_status TEXT DEFAULT 'Draft Quote',
+          provider_name TEXT,
+          placement_type TEXT,
+          created_date TEXT,
+          state_data TEXT NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        );
+      `);
+      console.log('✅ Migration 8 complete\n');
+    } catch (error) {
+      console.log(`⚠️  Migration 8 skipped: ${error.message}\n`);
+    }
+
     // Verify tables exist
     console.log('🔍 Verifying database schema...\n');
 

@@ -29,6 +29,13 @@
       "when": 1770460981280,
       "tag": "0003_glossy_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776766261690,
+      "tag": "0004_clear_wilson_fisk",
+      "breakpoints": true
     }
   ]
 }
