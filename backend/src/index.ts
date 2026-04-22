@@ -13,8 +13,10 @@ import { calculatePayForPeriod } from './services/payrollAuditService.js';
 import { sendDailyPayrollReport } from './services/emailService.js';
 import { getWeekDeadline } from './jobs/autoAcceptShifts.js';
 import { initAuditLog, logActivity } from './services/auditLogService.js';
+import { sendAdminTelegram } from './services/telegramService.js';
 
 dotenv.config();
+process.env.TZ = 'Europe/London'; // Force UK time zone for all dates
 
 const app = express();
 app.use(cors({
@@ -916,6 +918,11 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
 
     console.log(`[ClockIn] Success for shift ${shiftId}`);
     await logActivity('CLOCK_IN_SUCCESS', 'SUCCESS', staffId, shift.staffName, shift.siteName, 'Clocked in via App', { qrCode });
+
+    // Send real-time notification
+    const clockInTimeFormatted = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
+    sendAdminTelegram(`🟢 <b>LIVE: Staff Clocked In</b>\n\n👤 ${shift.staffName}\n📍 ${shift.siteName}\n🕒 Time: ${clockInTimeFormatted}`).catch(err => console.error('Telegram notification error:', err));
+
     res.json({ message: 'Clocked in successfully', shift: updated[0] });
   } catch (error) {
     console.error('[ClockIn] Critical Error:', error);
@@ -996,6 +1003,10 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
 
     console.log(`[ClockOut] ${shift[0].staffName} clocked out. Duration: ${actualDuration} hours`);
     await logActivity('CLOCK_OUT_SUCCESS', 'SUCCESS', staffId, shift[0].staffName, site[0].name, `Clocked out via App. Duration: ${actualDuration}h`, { qrCode, actualDuration });
+
+    // Send real-time notification
+    const clockOutTimeFormatted = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
+    sendAdminTelegram(`🔴 <b>LIVE: Staff Clocked Out</b>\n\n👤 ${shift[0].staffName}\n📍 ${site[0].name}\n🕒 Time: ${clockOutTimeFormatted}\n⏱ Duration: ${actualDuration}h`).catch(err => console.error('Telegram notification error:', err));
 
     res.json({ message: 'Clocked out successfully', shift: updated[0] });
   } catch (error) {

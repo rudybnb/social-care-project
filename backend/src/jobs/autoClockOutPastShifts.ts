@@ -43,9 +43,8 @@ export async function autoClockOutPastShifts() {
       // Parse end time (format: "HH:MM")
       const [hours, minutes] = endTime.split(':').map(Number);
       
-      // Create clock-out timestamp at the scheduled end time
-      let clockOutDate = new Date(shiftDate);
-      clockOutDate.setHours(hours, minutes, 0, 0);
+      // Create clock-out timestamp at the scheduled end time using local time directly
+      let clockOutDate = new Date(`${shiftDate}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`);
       
       // If it's a night shift that ends the next day (e.g., 20:00 - 08:00)
       if (shift.type === 'Night' && hours < 12) {

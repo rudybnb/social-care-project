@@ -64,7 +64,8 @@ const ClockInOut: React.FC = () => {
         const todayLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
 
         const todayShifts = data.filter((s: Shift) =>
-          s.date === todayLocal && s.siteId === siteId
+          s.siteId === siteId && 
+          (s.date === todayLocal || (s.clockedIn && !s.clockedOut))
         );
         setShifts(todayShifts);
 
