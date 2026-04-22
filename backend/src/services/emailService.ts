@@ -309,5 +309,115 @@ export async function sendDailyPayrollReport(to: string, reportData: any) {
   }
 }
 
+// Send Remittance Advice
+export async function sendRemittanceAdvice(to: string, data: any) {
+  const mailOptions = {
+    from: process.env.SMTP_FROM || '"Social Care System" <noreply@socialcare.com>',
+    to,
+    subject: `Remittance Advice - ${data.paymentNo}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #333;">
+        <!-- Header -->
+        <div style="margin-bottom: 40px;">
+          <!-- Since we don't have the exact logo image URL hosted, we'll use a styled text header matching the brand -->
+          <h1 style="color: #0b4a7d; font-size: 28px; margin-bottom: 5px; font-weight: bold;">ECLESIA <span style="font-weight: normal; font-size: 16px; color: #555; letter-spacing: 2px;">FAMILY CENTRE</span></h1>
+        </div>
 
+        <h2 style="color: #2b74b8; margin-bottom: 30px;">REMITTANCE ADVICE</h2>
 
+        <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
+          <!-- From Section -->
+          <div style="flex: 1;">
+            <h3 style="color: #2b74b8; margin: 0 0 10px 0;">From:</h3>
+            <p style="margin: 0; line-height: 1.5; color: #2b74b8; font-weight: bold;">
+              Eclesia Family Centre Ltd<br>
+              65 Nickelby Close<br>
+              London<br>
+              SE28 8LY
+            </p>
+          </div>
+          
+          <!-- Payment Summary Box -->
+          <div style="border: 2px solid #ef4444; padding: 20px; width: 300px;">
+            <p style="margin: 0 0 15px 0; color: #2b74b8; font-weight: bold;">Payment Total: £${data.paymentTotal}</p>
+            <table style="width: 100%; font-size: 14px;">
+              <tr><td style="padding-bottom: 5px;">Payment No:</td><td>${data.paymentNo}</td></tr>
+              <tr><td style="padding-bottom: 5px;">Payment Date:</td><td>${data.paymentDate}</td></tr>
+              <tr><td style="padding-bottom: 5px;">Vendor:</td><td>${data.vendorId || ''}</td></tr>
+              <tr><td>Site Name:</td><td>${data.siteName || ''}</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- To Section -->
+        <div style="border: 2px solid #ef4444; padding: 20px; width: 300px; margin-bottom: 30px;">
+          <h3 style="color: #2b74b8; margin: 0 0 10px 0;">To:</h3>
+          <p style="margin: 0; line-height: 1.5;">
+            ${data.payeeName}<br>
+            ${data.payeeAddress.replace(/\\n/g, '<br>')}
+          </p>
+        </div>
+
+        <!-- Payment Details Table -->
+        <h3 style="color: #2b74b8; margin: 0 0 10px 0;">Payment Details</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 2px solid #ef4444;">
+          <tr>
+            <td style="border: 1px solid #ccc; padding: 10px;">Payment Date</td>
+            <td style="border: 1px solid #ccc; padding: 10px;">${data.paymentDate}</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #ccc; padding: 10px;">Payment Method</td>
+            <td style="border: 1px solid #ccc; padding: 10px;">Bank Transfer</td>
+          </tr>
+        </table>
+
+        <!-- Bank Details -->
+        <div style="margin-bottom: 30px;">
+          <p style="margin: 0 0 10px 0;">Bank Details (Payee):</p>
+          <p style="margin: 0; line-height: 1.5;">
+            ${data.payeeName}<br>
+            ${data.bankName}<br>
+            Account Number: ${data.accountNumber}<br>
+            Sort Code: ${data.sortCode}
+          </p>
+        </div>
+
+        <!-- Work Summary Table -->
+        <h3 style="color: #2b74b8; margin: 0 0 10px 0;">Work Summary</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 1px solid #ccc;">
+          <tr style="background-color: #f9f9f9;">
+            <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">Description of Work</th>
+            <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">Dates Covered</th>
+            <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">Hours Worked</th>
+            <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">Hourly Rate (£)</th>
+            <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">Total (£)</th>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #ccc; padding: 10px;">${data.description}</td>
+            <td style="border: 1px solid #ccc; padding: 10px;">${data.datesCovered}</td>
+            <td style="border: 1px solid #ccc; padding: 10px;">${data.hoursWorked}</td>
+            <td style="border: 1px solid #ccc; padding: 10px;">£${data.hourlyRate}</td>
+            <td style="border: 1px solid #ccc; padding: 10px;">£${data.paymentTotal}</td>
+          </tr>
+        </table>
+
+        <p style="margin: 0 0 40px 0;">Payment Total: £${data.paymentTotal}</p>
+
+        <!-- Footer -->
+        <div style="border-top: 1px solid #ccc; padding-top: 20px; font-size: 12px; line-height: 1.5;">
+          1<br>
+          Eclesia Family Center 65 Nickelby Clise SE28 8LY For general payment queries, please call 02035092366, quoting your Payment Reference Number from this remittance advice. If you have not received your payment within 3 working days from the date of this remittance, please contact the Payments Team For general payment queries, please call 02035092366, quoting your Payment Reference number from this remittance advice.
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Remittance Advice sent to ${to}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Failed to send Remittance Advice to ${to}:`, error);
+    return false;
+  }
+}

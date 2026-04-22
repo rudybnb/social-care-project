@@ -10,7 +10,7 @@ import * as OTPAuth from 'otpauth';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import { calculatePayForPeriod } from './services/payrollAuditService.js';
-import { sendDailyPayrollReport } from './services/emailService.js';
+import { sendDailyPayrollReport, sendRemittanceAdvice } from './services/emailService.js';
 import { getWeekDeadline } from './jobs/autoAcceptShifts.js';
 import { initAuditLog, logActivity } from './services/auditLogService.js';
 import { sendAdminTelegram } from './services/telegramService.js';
@@ -55,6 +55,26 @@ app.get('/api/health', async (_req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
       error: 'Database connection failed'
     });
+  }
+});
+
+// Remittance Advice API
+app.post('/api/payroll/remittance', async (req: Request, res: Response) => {
+  try {
+    const { emailTo, remittanceData } = req.body;
+    if (!emailTo || !remittanceData) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const success = await sendRemittanceAdvice(emailTo, remittanceData);
+    if (success) {
+      res.json({ message: 'Remittance advice sent successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to send remittance advice' });
+    }
+  } catch (error) {
+    console.error('Error sending remittance:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

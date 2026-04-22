@@ -3,9 +3,11 @@ import Modal from './Modal';
 import { getShifts, getStaff, subscribeToDataChange, getAllWorkers, forceRefreshShifts } from '../data/sharedData';
 import { calculateWeeklyHours } from '../utils/hoursCalculator';
 import { leaveAPI } from '../services/leaveAPI';
+import RemittanceForm from './RemittanceForm';
 
 const Payroll: React.FC = () => {
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [selectedRemittanceStaff, setSelectedRemittanceStaff] = useState<any>(null);
   const [passwordInput, setPasswordInput] = useState('');
   const [shifts, setShifts] = useState(getShifts());
   const staff = getAllWorkers().filter(s =>
@@ -736,7 +738,7 @@ const Payroll: React.FC = () => {
       }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '2fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 1.2fr',
+          gridTemplateColumns: '2fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 1.2fr 1fr',
           padding: '16px',
           backgroundColor: '#252525',
           borderBottom: '1px solid #3a3a3a',
@@ -754,6 +756,7 @@ const Payroll: React.FC = () => {
           <div style={{ textAlign: 'right' }}>Night Pay</div>
           <div style={{ textAlign: 'right' }}>Leave Pay</div>
           <div style={{ textAlign: 'right' }}>Total Pay</div>
+          <div style={{ textAlign: 'center' }}>Action</div>
         </div>
 
         {payrollData.length === 0 ? (
@@ -776,7 +779,7 @@ const Payroll: React.FC = () => {
               key={index}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 1.2fr',
+                gridTemplateColumns: '2fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 1.2fr 1fr',
                 padding: '16px',
                 borderBottom: index < payrollData.length - 1 ? '1px solid #2a2a2a' : 'none',
                 fontSize: '13px',
@@ -832,6 +835,22 @@ const Payroll: React.FC = () => {
               </div>
               <div style={{ textAlign: 'right', color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
                 £{staff.totalPay.toFixed(2)}
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  onClick={() => setSelectedRemittanceStaff(staff)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: '1px solid #8b5cf6',
+                    color: '#8b5cf6',
+                    borderRadius: '4px',
+                    padding: '4px 8px',
+                    fontSize: '11px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Remittance
+                </button>
               </div>
             </div>
           ))
@@ -982,6 +1001,21 @@ const Payroll: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Remittance Modal */}
+      {selectedRemittanceStaff && (
+        <Modal
+          isOpen={!!selectedRemittanceStaff}
+          onClose={() => setSelectedRemittanceStaff(null)}
+          title="Send Remittance Advice"
+        >
+          <RemittanceForm
+            staffData={selectedRemittanceStaff}
+            periodLabel={currentPeriod.label}
+            onClose={() => setSelectedRemittanceStaff(null)}
+          />
+        </Modal>
+      )}
     </div>
   );
 };
