@@ -570,6 +570,28 @@ const Payroll: React.FC = () => {
             <span style={{ fontSize: '18px' }}>📊</span>
             Export to Excel
           </button>
+          <button
+            onClick={() => setSelectedRemittanceStaff({ custom: true, name: '', isAgency: false, totalHours: 0, totalPay: 0 })}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: 'transparent',
+              color: '#8b5cf6',
+              border: '1px solid #8b5cf6',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#8b5cf620'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <span style={{ fontSize: '18px' }}>📝</span>
+            Custom Remittance
+          </button>
         </div>
 
         {/* Period Navigation */}

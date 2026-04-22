@@ -20,18 +20,18 @@ const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData, periodLabel,
     emailTo: '',
     paymentNo: generatedPaymentNo,
     paymentDate: today,
-    vendorId: staffData.isAgency ? staffData.agencyName : staffData.name,
+    vendorId: staffData.isAgency ? staffData.agencyName : (staffData.name || ''),
     siteName: 'Multiple Sites',
-    payeeName: staffData.isAgency ? staffData.agencyName : staffData.name,
+    payeeName: staffData.isAgency ? staffData.agencyName : (staffData.name || ''),
     payeeAddress: '',
     bankName: '',
     accountNumber: '',
     sortCode: '',
-    description: `Staffing Services - ${staffData.isAgency ? 'Agency' : 'Permanent'} Worker`,
+    description: staffData.custom ? 'Maintenance / Custom Service' : `Staffing Services - ${staffData.isAgency ? 'Agency' : 'Permanent'} Worker`,
     datesCovered: periodLabel,
-    hoursWorked: staffData.totalHours.toFixed(2),
+    hoursWorked: staffData.totalHours > 0 ? staffData.totalHours.toFixed(2) : '1',
     hourlyRate: staffData.totalHours > 0 ? (staffData.totalPay / staffData.totalHours).toFixed(2) : '0.00',
-    paymentTotal: staffData.totalPay.toFixed(2),
+    paymentTotal: staffData.totalPay > 0 ? staffData.totalPay.toFixed(2) : '0.00',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -188,16 +188,16 @@ const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData, periodLabel,
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
               <div>
-                <label style={labelStyle}>Hours Worked</label>
-                <input type="text" name="hoursWorked" value={formData.hoursWorked} readOnly style={{ ...inputStyle, backgroundColor: '#2a2a2a', color: '#9ca3af' }} />
+                <label style={labelStyle}>Hours / Quantity</label>
+                <input type="text" name="hoursWorked" value={formData.hoursWorked} onChange={handleChange} style={inputStyle} />
               </div>
               <div>
-                <label style={labelStyle}>Avg Hourly Rate (£)</label>
-                <input type="text" name="hourlyRate" value={formData.hourlyRate} readOnly style={{ ...inputStyle, backgroundColor: '#2a2a2a', color: '#9ca3af' }} />
+                <label style={labelStyle}>Rate (£)</label>
+                <input type="text" name="hourlyRate" value={formData.hourlyRate} onChange={handleChange} style={inputStyle} />
               </div>
               <div>
                 <label style={labelStyle}>Total Payment (£)</label>
-                <input type="text" name="paymentTotal" value={formData.paymentTotal} readOnly style={{ ...inputStyle, backgroundColor: '#10b98120', color: '#10b981', fontWeight: 'bold', border: '1px solid #10b981' }} />
+                <input type="text" name="paymentTotal" value={formData.paymentTotal} onChange={handleChange} style={{ ...inputStyle, backgroundColor: '#10b98120', color: '#10b981', fontWeight: 'bold', border: '1px solid #10b981' }} />
               </div>
             </div>
           </div>
