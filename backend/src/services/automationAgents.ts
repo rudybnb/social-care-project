@@ -62,9 +62,11 @@ async function checkMissingClockOuts() {
 
         // Auto-fix: Close at 12h
         const fixedEndTime = new Date(clockIn.getTime() + 12 * 60 * 60 * 1000);
+        const actualEndTime = `${String(fixedEndTime.getHours()).padStart(2, '0')}:${String(fixedEndTime.getMinutes()).padStart(2, '0')}`;
         await db.update(shifts).set({
           clockedOut: true,
           clockOutTime: fixedEndTime,
+          endTime: actualEndTime,
           duration: 12.0,
           notes: (shift.notes || '') + ' [Auto-closed by Sentinel: >20h active]'
         }).where(eq(shifts.id, shift.id));

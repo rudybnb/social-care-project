@@ -100,6 +100,24 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
                     continue;
                 }
 
+                // SKIP PENDING SHIFTS (unless they somehow clocked in)
+                if (shift.staffStatus === 'pending' && !shift.clockedIn) {
+                    logEntries.push(`  - [%] ${shift.date}: (${shift.id.substring(0, 8)}...) PENDING (Unaccepted) -> 0h`);
+                    continue;
+                }
+
+                // SKIP PAST ACCEPTED SHIFTS if they never clocked in (No-Shows)
+                const today = new Date(); 
+                const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+                if (shift.date < todayStr && !shift.clockedIn) {
+                    // Exception: Paid Leave
+                    const isPaidLeave = shift.type?.toLowerCase().includes('leave');
+                    if (!isPaidLeave) {
+                        logEntries.push(`  - [%] ${shift.date}: (${shift.id.substring(0, 8)}...) NO-SHOW (Not Clocked In) -> 0h`);
+                        continue;
+                    }
+                }
+
                 if (processedShifts.length === 0) {
                     processedShifts.push(shift);
                     continue;
@@ -176,11 +194,17 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
                 let timeStr = "Invalid Time";
 
                 try {
-                    const start = new Date(`${shift.date}T${shift.startTime}:00`);
+                    let start = new Date(`${shift.date}T${shift.startTime}:00`);
                     let end = new Date(`${shift.date}T${shift.endTime}:00`);
 
-                    // Handle overnight shifts (if end < start, assume next day)
-                    if (end < start) {
+                    if (shift.clockInTime) {
+                        start = new Date(shift.clockInTime);
+                    }
+                    
+                    if (shift.clockOutTime) {
+                        end = new Date(shift.clockOutTime);
+                    } else if (end < start) {
+                        // Handle overnight shifts (if end < start, assume next day)
                         end.setDate(end.getDate() + 1);
                     }
 
@@ -191,8 +215,15 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
                     if (hours < 0) hours = 0;
 
                     // Formatting for report
-                    const formatTime = (t: string) => t.substring(0, 5); // HH:MM
-                    timeStr = `[${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}]`;
+                    const formatTime = (d: Date | string) => {
+                        if (typeof d === 'string') return d.substring(0, 5);
+                        return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
+                    };
+                    
+                    const startDisp = shift.clockInTime ? new Date(shift.clockInTime) : shift.startTime;
+                    const endDisp = shift.clockOutTime ? new Date(shift.clockOutTime) : shift.endTime;
+
+                    timeStr = `[${formatTime(startDisp)} - ${formatTime(endDisp)}]`;
 
                 } catch (e) {
                     timeStr = "Error parsing time";
@@ -318,12 +349,35 @@ export async function auditSingleShift(shiftId: string) {
 
     // Re-run simulation
     for (const s of weekShifts) {
+        // SKIP DECLINED/CANCELLED
+        if (s.staffStatus === 'declined' || s.staffStatus === 'cancelled') continue;
+
+        // SKIP PENDING
+        if (s.staffStatus === 'pending' && !s.clockedIn) continue;
+
+        // SKIP PAST NO-SHOWS
+        const today = new Date(); 
+        const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+        if (s.date < todayStr && !s.clockedIn) {
+            const isPaidLeave = s.type?.toLowerCase().includes('leave');
+            if (!isPaidLeave) continue;
+        }
+
         // Calculate duration from Scheduled Times for ACCURACY with new rule
         let hours = 0;
         try {
-            const start = new Date(`${s.date}T${s.startTime}:00`);
+            let start = new Date(`${s.date}T${s.startTime}:00`);
             let end = new Date(`${s.date}T${s.endTime}:00`);
-            if (end < start) end.setDate(end.getDate() + 1);
+            
+            if (s.clockInTime) {
+                start = new Date(s.clockInTime);
+            }
+            if (s.clockOutTime) {
+                end = new Date(s.clockOutTime);
+            } else if (end < start) {
+                end.setDate(end.getDate() + 1);
+            }
+            
             hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
             if (hours < 0) hours = 0;
         } catch (e) {

@@ -28,6 +28,8 @@ router.post('/manual-clock', async (req: Request, res: Response) => {
         const durationMs = end.getTime() - start.getTime();
         const durationHours = durationMs / (1000 * 60 * 60);
 
+        const actualEndTime = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+
         // Update the shift
         const updated = await db.update(shifts)
             .set({
@@ -35,6 +37,7 @@ router.post('/manual-clock', async (req: Request, res: Response) => {
                 clockInTime: start,
                 clockedOut: true,
                 clockOutTime: end,
+                endTime: actualEndTime,
                 duration: parseFloat(durationHours.toFixed(2)),
                 notes: notes ? notes : undefined, // Only update if provided? Or append? Let's overwrite/set for now.
                 updatedAt: new Date()

@@ -8,14 +8,23 @@
  * - Accrual: 18.66 hours per month OR 56 hours per quarter
  */
 
+function getMonthsWorked(start: Date, now: Date): number {
+  let months = (now.getFullYear() - start.getFullYear()) * 12;
+  months -= start.getMonth();
+  months += now.getMonth();
+  // If the current day of month is less than start day, full month hasn't passed
+  if (now.getDate() < start.getDate()) {
+    months--;
+  }
+  return Math.max(0, months);
+}
+
 export function calculateAccruedLeave(startDate: string, asOfDate?: Date): number {
   const start = new Date(startDate);
   const now = asOfDate || new Date();
 
-  // Calculate months worked
-  const monthsWorked = Math.floor(
-    (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44) // Average days per month
-  );
+  // Calculate months worked using precise calendar math
+  const monthsWorked = getMonthsWorked(start, now);
 
   // Must work 3 months before qualifying
   if (monthsWorked < 3) {
@@ -37,9 +46,7 @@ export function getNextAccrualDate(startDate: string): Date {
   const now = new Date();
 
   // Calculate months since start
-  const monthsWorked = Math.floor(
-    (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
-  );
+  const monthsWorked = getMonthsWorked(start, now);
 
   // Next accrual is at the next quarter boundary
   const nextQuarterMonth = Math.ceil((monthsWorked + 1) / 3) * 3;
@@ -60,9 +67,7 @@ export function getAccrualBreakdown(startDate: string): {
   const start = new Date(startDate);
   const now = new Date();
 
-  const monthsWorked = Math.floor(
-    (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
-  );
+  const monthsWorked = getMonthsWorked(start, now);
 
   const quartersCompleted = Math.floor(monthsWorked / 3);
   const hoursAccrued = Math.min(quartersCompleted * 56, 224);

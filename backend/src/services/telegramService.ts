@@ -177,12 +177,15 @@ export function initTelegramBot() {
                 const durationMs = clockOut.getTime() - clockIn.getTime();
                 const durationHours = durationMs / (1000 * 60 * 60);
 
+                const actualEndTime = `${String(clockOut.getHours()).padStart(2, '0')}:${String(clockOut.getMinutes()).padStart(2, '0')}`;
+
                 await db.update(shifts)
                     .set({
                         clockedIn: true,
                         clockInTime: clockIn,
                         clockedOut: true,
                         clockOutTime: clockOut,
+                        endTime: actualEndTime,
                         duration: parseFloat(durationHours.toFixed(2)),
                         notes: (targetShift.notes || '') + ' [Manual /fix]',
                         updatedAt: new Date()
@@ -314,12 +317,15 @@ export function initTelegramBot() {
                     const durationHours = durationMs / (1000 * 60 * 60);
 
                     try {
+                        const actualEndTime = `${String(clockOut.getHours()).padStart(2, '0')}:${String(clockOut.getMinutes()).padStart(2, '0')}`;
+
                         await db.update(shifts)
                             .set({
                                 clockedIn: true,
                                 clockInTime: clockIn,
                                 clockedOut: true,
                                 clockOutTime: clockOut,
+                                endTime: actualEndTime,
                                 duration: parseFloat(durationHours.toFixed(2)),
                                 notes: (targetShift.notes || '') + ' [Manual /fixbatch]',
                                 updatedAt: new Date()

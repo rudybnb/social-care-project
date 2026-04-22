@@ -51,10 +51,18 @@ export async function autoClockOutPastShifts() {
         clockOutDate.setDate(clockOutDate.getDate() + 1);
       }
 
+      let actualDuration = shift.duration || 0;
+      if (shift.clockInTime) {
+        const clockInDate = new Date(shift.clockInTime);
+        const diffMs = clockOutDate.getTime() - clockInDate.getTime();
+        actualDuration = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
+      }
+
       await db.update(shifts)
         .set({
           clockedOut: true,
           clockOutTime: clockOutDate,
+          duration: actualDuration,
           updatedAt: new Date()
         })
         .where(eq(shifts.id, shift.id));

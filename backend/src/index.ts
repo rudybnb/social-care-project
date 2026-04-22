@@ -421,7 +421,27 @@ app.post('/api/shifts', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
 
-    // Calculate week deadline for the shift
+    // Prevent double-clicking from creating duplicate shifts
+    if (req.body.staffId && req.body.date && req.body.siteId && req.body.startTime && req.body.endTime) {
+      const existing = await db.select()
+        .from(shifts)
+        .where(
+          and(
+            eq(shifts.staffId, req.body.staffId),
+            eq(shifts.date, req.body.date),
+            eq(shifts.siteId, req.body.siteId),
+            eq(shifts.startTime, req.body.startTime),
+            eq(shifts.endTime, req.body.endTime)
+          )
+        );
+
+      if (existing.length > 0) {
+        console.log(`[Shift] Prevented duplicate shift creation for ${req.body.staffName} on ${req.body.date}`);
+        // Return existing gracefully so frontend handles it as success
+        return res.status(201).json(existing[0]);
+      }
+    }
+
     // Calculate week deadline for the shift
     // const { getWeekDeadline } = await import('./jobs/autoAcceptShifts.js'); // Moved to static import
     const shiftDate = new Date(req.body.date);
@@ -892,12 +912,26 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
 
       for (const activeShift of activeShifts) {
         console.log(`[ClockIn] Auto-clocking out previous shift ${activeShift.id} at ${activeShift.siteName}`);
+        
+        const autoNow = new Date();
+        const autoClockInTime = activeShift.clockInTime ? new Date(activeShift.clockInTime) : null;
+        let autoDuration = activeShift.duration || 0;
+
+        if (autoClockInTime) {
+          const autoDiffMs = autoNow.getTime() - autoClockInTime.getTime();
+          autoDuration = Math.round((autoDiffMs / (1000 * 60 * 60)) * 100) / 100;
+        }
+
+        const autoEndTime = `${String(autoNow.getHours()).padStart(2, '0')}:${String(autoNow.getMinutes()).padStart(2, '0')}`;
+
         await db.update(shifts)
           .set({
             clockedOut: true,
-            clockOutTime: new Date(),
+            clockOutTime: autoNow,
+            endTime: autoEndTime,
+            duration: autoDuration,
             notes: (activeShift.notes || '') + ' [Auto-closed for site transition]',
-            updatedAt: new Date()
+            updatedAt: autoNow
           })
           .where(eq(shifts.id, activeShift.id));
       }
