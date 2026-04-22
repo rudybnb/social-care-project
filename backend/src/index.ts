@@ -1,10 +1,12 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+dotenv.config();
+
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { users, staff, sites, shifts, approvalRequests, quotes } from './schema.js';
+import { users, staff, sites, shifts, approvalRequests, quotes, remittances } from './schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import authRoutes from './routes/auth.js';
@@ -14,8 +16,6 @@ import { sendDailyPayrollReport, sendRemittanceAdvice } from './services/emailSe
 import { getWeekDeadline } from './jobs/autoAcceptShifts.js';
 import { initAuditLog, logActivity } from './services/auditLogService.js';
 import { sendAdminTelegram } from './services/telegramService.js';
-
-dotenv.config();
 process.env.TZ = 'Europe/London'; // Force UK time zone for all dates
 
 const app = express();
@@ -31,8 +31,37 @@ const PORT = process.env.PORT || 4000;
 const DATABASE_URL = process.env.DATABASE_URL || '';
 
 // Initialize Postgres pool and Drizzle ORM
-const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL }) : undefined;
-export const db = pool ? drizzle(pool) : undefined;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+export const db = drizzle(pool);
+
+// Ensure remittances table exists
+pool.query(`
+  CREATE TABLE IF NOT EXISTS remittances (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    payment_no TEXT NOT NULL,
+    payment_date TEXT NOT NULL,
+    vendor_id TEXT,
+    site_name TEXT,
+    payee_name TEXT NOT NULL,
+    payee_address TEXT,
+    bank_name TEXT,
+    account_number TEXT,
+    sort_code TEXT,
+    description TEXT NOT NULL,
+    dates_covered TEXT NOT NULL,
+    hours_worked TEXT NOT NULL,
+    hourly_rate TEXT NOT NULL,
+    payment_total TEXT NOT NULL,
+    email_to TEXT,
+    status TEXT NOT NULL DEFAULT 'sent',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+`).catch(console.error);
 
 // Auth routes
 app.use('/api/auth', authRoutes);
@@ -61,19 +90,56 @@ app.get('/api/health', async (_req: Request, res: Response) => {
 // Remittance Advice API
 app.post('/api/payroll/remittance', async (req: Request, res: Response) => {
   try {
-    const { emailTo, remittanceData } = req.body;
-    if (!emailTo || !remittanceData) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    const { emailTo, remittanceData, action } = req.body;
+    if (!remittanceData) {
+      return res.status(400).json({ error: 'Missing remittanceData' });
     }
 
-    const success = await sendRemittanceAdvice(emailTo, remittanceData);
-    if (success) {
-      res.json({ message: 'Remittance advice sent successfully' });
-    } else {
-      res.status(500).json({ error: 'Failed to send remittance advice' });
+    let emailSent = false;
+    if (action !== 'save_only' && emailTo) {
+      emailSent = await sendRemittanceAdvice(emailTo, remittanceData);
     }
+
+    if (db) {
+      await db.insert(remittances).values({
+        paymentNo: remittanceData.paymentNo,
+        paymentDate: remittanceData.paymentDate,
+        vendorId: remittanceData.vendorId,
+        siteName: remittanceData.siteName,
+        payeeName: remittanceData.payeeName,
+        payeeAddress: remittanceData.payeeAddress,
+        bankName: remittanceData.bankName,
+        accountNumber: remittanceData.accountNumber,
+        sortCode: remittanceData.sortCode,
+        description: remittanceData.description,
+        datesCovered: remittanceData.datesCovered,
+        hoursWorked: remittanceData.hoursWorked,
+        hourlyRate: remittanceData.hourlyRate,
+        paymentTotal: remittanceData.paymentTotal,
+        emailTo: emailTo || '',
+        status: action === 'save_only' ? 'saved_only' : (emailSent ? 'sent' : 'failed')
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: emailSent ? 'Remittance advice sent and saved successfully' : 'Remittance advice saved successfully',
+      emailSent
+    });
   } catch (error) {
-    console.error('Error sending remittance:', error);
+    console.error('Error handling remittance:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/payroll/remittances', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    
+    const allRemittances = await db.select().from(remittances).orderBy(sql`${remittances.createdAt} DESC`);
+    res.json(allRemittances);
+  } catch (error) {
+    console.error('Error fetching remittances:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -215,3 +215,26 @@ export const queryMessages = pgTable('query_messages', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+
+// Remittances
+export const remittances = pgTable('remittances', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  paymentNo: text('payment_no').notNull(),
+  paymentDate: text('payment_date').notNull(),
+  vendorId: text('vendor_id'),
+  siteName: text('site_name'),
+  payeeName: text('payee_name').notNull(),
+  payeeAddress: text('payee_address'),
+  bankName: text('bank_name'),
+  accountNumber: text('account_number'),
+  sortCode: text('sort_code'),
+  description: text('description').notNull(),
+  datesCovered: text('dates_covered').notNull(),
+  hoursWorked: text('hours_worked').notNull(),
+  hourlyRate: text('hourly_rate').notNull(),
+  paymentTotal: text('payment_total').notNull(),
+  emailTo: text('email_to'),
+  status: text('status').notNull().default('sent'), // 'sent' | 'saved'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});

@@ -38,7 +38,7 @@ const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData, periodLabel,
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, action: 'send' | 'save_only' = 'send') => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -50,12 +50,13 @@ const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData, periodLabel,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           emailTo: formData.emailTo,
-          remittanceData: formData
+          remittanceData: formData,
+          action
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send remittance advice');
+        throw new Error('Failed to process remittance advice');
       }
 
       setSuccess(true);
@@ -74,59 +75,62 @@ const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData, periodLabel,
         <head>
           <title>Remittance Advice - ${data.paymentNo}</title>
           <style>
-            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #333; padding: 20px; }
+            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #333; padding: 20px; font-size: 14px; }
+            .box { border: 1px solid #ccc; background-color: #f9fafb; padding: 15px; border-radius: 6px; }
             @media print {
-              body { padding: 0; }
-              @page { margin: 20mm; }
+              body { padding: 0; font-size: 12px; }
+              @page { margin: 15mm; }
+              .page-container { page-break-inside: avoid; }
             }
           </style>
         </head>
         <body>
-          <div style="margin-bottom: 40px;">
-            <h1 style="color: #0b4a7d; font-size: 28px; margin-bottom: 5px; font-weight: bold;">ECLESIA <span style="font-weight: normal; font-size: 16px; color: #555; letter-spacing: 2px;">FAMILY CENTRE</span></h1>
-          </div>
+          <div class="page-container">
+            <div style="margin-bottom: 30px;">
+              <h1 style="color: #0b4a7d; font-size: 24px; margin-bottom: 5px; font-weight: bold;">ECLESIA <span style="font-weight: normal; font-size: 14px; color: #555; letter-spacing: 2px;">FAMILY CENTRE</span></h1>
+            </div>
 
-          <h2 style="color: #2b74b8; margin-bottom: 30px;">REMITTANCE ADVICE</h2>
+            <h2 style="color: #2b74b8; margin-bottom: 20px; font-size: 20px;">REMITTANCE ADVICE</h2>
 
-          <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
-            <div style="flex: 1;">
-              <h3 style="color: #2b74b8; margin: 0 0 10px 0;">From:</h3>
-              <p style="margin: 0; line-height: 1.5; color: #2b74b8; font-weight: bold;">
-                Eclesia Family Centre Ltd<br>
-                65 Nickelby Close<br>
-                London<br>
-                SE28 8LY
+            <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+              <div style="flex: 1;">
+                <h3 style="color: #2b74b8; margin: 0 0 10px 0; font-size: 16px;">From:</h3>
+                <p style="margin: 0; line-height: 1.5; color: #2b74b8; font-weight: bold;">
+                  Eclesia Family Centre Ltd<br>
+                  65 Nickelby Close<br>
+                  London<br>
+                  SE28 8LY
+                </p>
+              </div>
+              
+              <div class="box" style="width: 280px;">
+                <p style="margin: 0 0 10px 0; color: #2b74b8; font-weight: bold;">Payment Total: £${data.paymentTotal}</p>
+                <table style="width: 100%; font-size: 13px;">
+                  <tr><td style="padding-bottom: 4px;">Payment No:</td><td>${data.paymentNo}</td></tr>
+                  <tr><td style="padding-bottom: 4px;">Payment Date:</td><td>${data.paymentDate}</td></tr>
+                  <tr><td style="padding-bottom: 4px;">Vendor:</td><td>${data.vendorId || ''}</td></tr>
+                  <tr><td>Site Name:</td><td>${data.siteName || ''}</td></tr>
+                </table>
+              </div>
+            </div>
+
+            <div class="box" style="width: 280px; margin-bottom: 30px;">
+              <h3 style="color: #2b74b8; margin: 0 0 10px 0; font-size: 16px;">To:</h3>
+              <p style="margin: 0; line-height: 1.5;">
+                ${data.payeeName}<br>
+                ${(data.payeeAddress || '').replace(/\n/g, '<br>')}
               </p>
             </div>
-            
-            <div style="border: 2px solid #ef4444; padding: 20px; width: 300px;">
-              <p style="margin: 0 0 15px 0; color: #2b74b8; font-weight: bold;">Payment Total: £${data.paymentTotal}</p>
-              <table style="width: 100%; font-size: 14px;">
-                <tr><td style="padding-bottom: 5px;">Payment No:</td><td>${data.paymentNo}</td></tr>
-                <tr><td style="padding-bottom: 5px;">Payment Date:</td><td>${data.paymentDate}</td></tr>
-                <tr><td style="padding-bottom: 5px;">Vendor:</td><td>${data.vendorId || ''}</td></tr>
-                <tr><td>Site Name:</td><td>${data.siteName || ''}</td></tr>
-              </table>
-            </div>
-          </div>
 
-          <div style="border: 2px solid #ef4444; padding: 20px; width: 300px; margin-bottom: 30px;">
-            <h3 style="color: #2b74b8; margin: 0 0 10px 0;">To:</h3>
-            <p style="margin: 0; line-height: 1.5;">
-              ${data.payeeName}<br>
-              ${(data.payeeAddress || '').replace(/\n/g, '<br>')}
-            </p>
-          </div>
+            <h3 style="color: #2b74b8; margin: 0 0 10px 0; font-size: 16px;">Payment Details</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #ccc;">
+              <tr><td style="border: 1px solid #ccc; padding: 8px;">Payment Date</td><td style="border: 1px solid #ccc; padding: 8px;">${data.paymentDate}</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 8px;">Payment Method</td><td style="border: 1px solid #ccc; padding: 8px;">Bank Transfer</td></tr>
+            </table>
 
-          <h3 style="color: #2b74b8; margin: 0 0 10px 0;">Payment Details</h3>
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 2px solid #ef4444;">
-            <tr><td style="border: 1px solid #ccc; padding: 10px;">Payment Date</td><td style="border: 1px solid #ccc; padding: 10px;">${data.paymentDate}</td></tr>
-            <tr><td style="border: 1px solid #ccc; padding: 10px;">Payment Method</td><td style="border: 1px solid #ccc; padding: 10px;">Bank Transfer</td></tr>
-          </table>
-
-          <div style="margin-bottom: 30px;">
-            <p style="margin: 0 0 10px 0;">Bank Details (Payee):</p>
-            <p style="margin: 0; line-height: 1.5;">
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0 0 5px 0; font-size: 13px;">Bank Details (Payee):</p>
+            <p style="margin: 0; line-height: 1.5; font-size: 13px;">
               ${data.payeeName}<br>
               ${data.bankName}<br>
               Account Number: ${data.accountNumber}<br>
@@ -134,29 +138,30 @@ const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData, periodLabel,
             </p>
           </div>
 
-          <h3 style="color: #2b74b8; margin: 0 0 10px 0;">Work Summary</h3>
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 1px solid #ccc;">
+          <h3 style="color: #2b74b8; margin: 0 0 10px 0; font-size: 16px;">Work Summary</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #ccc;">
             <tr style="background-color: #f9f9f9;">
-              <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">Description of Work</th>
-              <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">Dates Covered</th>
-              <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">Hours / Qty</th>
-              <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">Rate (£)</th>
-              <th style="border: 1px solid #ccc; padding: 10px; text-align: left;">Total (£)</th>
+              <th style="border: 1px solid #ccc; padding: 8px; text-align: left;">Description of Work</th>
+              <th style="border: 1px solid #ccc; padding: 8px; text-align: left;">Dates Covered</th>
+              <th style="border: 1px solid #ccc; padding: 8px; text-align: left;">Hours / Qty</th>
+              <th style="border: 1px solid #ccc; padding: 8px; text-align: left;">Rate (£)</th>
+              <th style="border: 1px solid #ccc; padding: 8px; text-align: left;">Total (£)</th>
             </tr>
             <tr>
-              <td style="border: 1px solid #ccc; padding: 10px;">${data.description}</td>
-              <td style="border: 1px solid #ccc; padding: 10px;">${data.datesCovered}</td>
-              <td style="border: 1px solid #ccc; padding: 10px;">${data.hoursWorked}</td>
-              <td style="border: 1px solid #ccc; padding: 10px;">£${data.hourlyRate}</td>
-              <td style="border: 1px solid #ccc; padding: 10px;">£${data.paymentTotal}</td>
+              <td style="border: 1px solid #ccc; padding: 8px;">${data.description}</td>
+              <td style="border: 1px solid #ccc; padding: 8px;">${data.datesCovered}</td>
+              <td style="border: 1px solid #ccc; padding: 8px;">${data.hoursWorked}</td>
+              <td style="border: 1px solid #ccc; padding: 8px;">£${data.hourlyRate}</td>
+              <td style="border: 1px solid #ccc; padding: 8px;">£${data.paymentTotal}</td>
             </tr>
           </table>
 
-          <p style="margin: 0 0 40px 0;">Payment Total: £${data.paymentTotal}</p>
+          <p style="margin: 0 0 30px 0; font-weight: bold; font-size: 16px;">Payment Total: £${data.paymentTotal}</p>
 
-          <div style="border-top: 1px solid #ccc; padding-top: 20px; font-size: 12px; line-height: 1.5;">
+          <div style="border-top: 1px solid #ccc; padding-top: 15px; font-size: 11px; line-height: 1.4; color: #666;">
             1<br>
             Eclesia Family Center 65 Nickelby Clise SE28 8LY For general payment queries, please call 02035092366, quoting your Payment Reference Number from this remittance advice.
+          </div>
           </div>
         </body>
       </html>
@@ -346,7 +351,27 @@ const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData, periodLabel,
             🖨️ Export to PDF
           </button>
           <button
-            type="submit"
+            type="button"
+            onClick={(e) => handleSubmit(e, 'save_only')}
+            disabled={loading}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            {loading ? 'Saving...' : '💾 Save Only'}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => handleSubmit(e, 'send')}
             disabled={loading}
             style={{
               padding: '10px 20px',
@@ -361,7 +386,7 @@ const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData, periodLabel,
               gap: '8px'
             }}
           >
-            {loading ? 'Sending...' : '📧 Send Remittance Advice'}
+            {loading ? 'Sending...' : '📧 Send & Save'}
           </button>
         </div>
       </form>
