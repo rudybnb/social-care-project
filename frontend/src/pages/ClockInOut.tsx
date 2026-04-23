@@ -122,7 +122,7 @@ const ClockInOut: React.FC = () => {
   };
 
   const handleClockAction = async (shift: Shift, action: 'in' | 'out') => {
-    setLoading(true);
+    setLoadingId(shift.id);
     setMessage('');
 
     try {
@@ -161,7 +161,7 @@ const ClockInOut: React.FC = () => {
   const handleRequestApproval = async () => {
     if (!staffId || !staffName || !siteId) return;
 
-    setLoading(true);
+    setLoadingId('approval');
     try {
       // Get site name
       const sitesResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/sites`);
