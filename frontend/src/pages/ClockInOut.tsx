@@ -48,7 +48,7 @@ const ClockInOut: React.FC = () => {
           setMessage('Error looking up staff details. Please try again.');
         }
         setMessageType('error');
-        setLoading(false);
+        setIsFetching(false);
         return;
       }
 
