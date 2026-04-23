@@ -615,8 +615,8 @@ async function sendDailyPayrollOverview() {
       if (shift.clockedIn && !shift.clockedOut) {
         const scheduledStart = new Date(`${shift.date}T${shift.startTime}:00`);
         let scheduledEnd = new Date(`${shift.date}T${shift.endTime}:00`);
-        // Handle overnight shifts
-        if (scheduledEnd < scheduledStart) {
+        // Handle overnight shifts or 24-hour shifts
+        if (scheduledEnd < scheduledStart || shift.is24Hour) {
           scheduledEnd.setDate(scheduledEnd.getDate() + 1);
         }
         
