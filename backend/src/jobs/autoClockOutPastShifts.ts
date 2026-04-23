@@ -51,6 +51,12 @@ export async function autoClockOutPastShifts() {
         clockOutDate.setDate(clockOutDate.getDate() + 1);
       }
 
+      // Skip if the shift's scheduled end time hasn't happened yet
+      if (clockOutDate > new Date()) {
+        console.log(`[Auto Clock-Out] Skipping ${shift.id} - scheduled end time is in the future`);
+        continue;
+      }
+
       let actualDuration = shift.duration || 0;
       if (shift.clockInTime) {
         const clockInDate = new Date(shift.clockInTime);
