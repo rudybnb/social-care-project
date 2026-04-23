@@ -318,9 +318,8 @@ export async function sendRemittanceAdvice(to: string, data: any) {
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #333;">
         <!-- Header -->
-        <div style="margin-bottom: 40px;">
-          <!-- Since we don't have the exact logo image URL hosted, we'll use a styled text header matching the brand -->
-          <h1 style="color: #0b4a7d; font-size: 28px; margin-bottom: 5px; font-weight: bold;">ECLESIA <span style="font-weight: normal; font-size: 16px; color: #555; letter-spacing: 2px;">FAMILY CENTRE</span></h1>
+        <div style="margin-bottom: 30px; display: flex; align-items: center;">
+          <img src="https://social-care-frontend.onrender.com/quotes/logo.png" alt="Eclesia Family Centre Logo" style="height: 60px; object-fit: contain;" />
         </div>
 
         <h2 style="color: #2b74b8; margin-bottom: 30px;">REMITTANCE ADVICE</h2>

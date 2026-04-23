@@ -38,8 +38,8 @@ const RemittancesList: React.FC = () => {
         </head>
         <body>
           <div class="page-container">
-            <div style="margin-bottom: 30px;">
-              <h1 style="color: #0b4a7d; font-size: 24px; margin-bottom: 5px; font-weight: bold;">ECLESIA <span style="font-weight: normal; font-size: 14px; color: #555; letter-spacing: 2px;">FAMILY CENTRE</span></h1>
+            <div style="margin-bottom: 30px; display: flex; align-items: center;">
+              <img src="https://social-care-frontend.onrender.com/quotes/logo.png" alt="Eclesia Family Centre Logo" style="height: 60px; object-fit: contain;" />
             </div>
 
             <h2 style="color: #2b74b8; margin-bottom: 20px; font-size: 20px;">REMITTANCE ADVICE</h2>

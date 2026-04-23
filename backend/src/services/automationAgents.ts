@@ -612,9 +612,20 @@ async function sendDailyPayrollOverview() {
       }
 
       // Check 3: Missing Clock Out (if shift should have ended)
-      // Assume shift ends same day or next morning. If "now" is 7:30AM next day, shift should be done.
       if (shift.clockedIn && !shift.clockedOut) {
-        issues.push(`❓ ${shift.staffName} (${shift.siteName}): STUCK - Still clocked in (Missing Clock-out).`);
+        const scheduledStart = new Date(`${shift.date}T${shift.startTime}:00`);
+        let scheduledEnd = new Date(`${shift.date}T${shift.endTime}:00`);
+        // Handle overnight shifts
+        if (scheduledEnd < scheduledStart) {
+          scheduledEnd.setDate(scheduledEnd.getDate() + 1);
+        }
+        
+        // Add a 30-minute grace period after scheduled end time before flagging
+        const gracePeriodEnd = new Date(scheduledEnd.getTime() + 30 * 60000);
+        
+        if (new Date() > gracePeriodEnd) {
+          issues.push(`❓ ${shift.staffName} (${shift.siteName}): STUCK - Still clocked in (Missing Clock-out).`);
+        }
       }
 
       // Check 4: Duration Discrepancy (if clocked out)

@@ -1666,6 +1666,14 @@ const runStartupMigration = async () => {
       );
     `);
     console.log('✅ Migration 8 complete');
+    
+    // Migration 9: Change duration column from integer to real (float)
+    console.log('🔄 Migration 9: Ensuring duration column is real type...');
+    await pool.query(`
+      ALTER TABLE shifts 
+      ALTER COLUMN duration TYPE real USING duration::real;
+    `);
+    console.log('✅ Migration 9 complete');
 
     console.log('✅ All migrations completed successfully!');
   } catch (error: any) {

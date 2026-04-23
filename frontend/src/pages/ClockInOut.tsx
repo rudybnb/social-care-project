@@ -13,7 +13,8 @@ const ClockInOut: React.FC = () => {
   const [staffId, setStaffId] = useState('');
   const [staffName, setStaffName] = useState('');
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
   const [isUnscheduled, setIsUnscheduled] = useState(false);
@@ -28,7 +29,7 @@ const ClockInOut: React.FC = () => {
       return;
     }
 
-    setLoading(true);
+    setIsFetching(true);
     setMessage('');
     setMessageType('');
 
@@ -116,7 +117,7 @@ const ClockInOut: React.FC = () => {
       setMessage('Network error. Please try again.');
       setMessageType('error');
     } finally {
-      setLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -153,7 +154,7 @@ const ClockInOut: React.FC = () => {
       setMessage('Network error. Please try again.');
       setMessageType('error');
     } finally {
-      setLoading(false);
+      setLoadingId(null);
     }
   };
 
@@ -183,7 +184,7 @@ const ClockInOut: React.FC = () => {
       setMessage('Failed to send approval request. Please try again.');
       setMessageType('error');
     } finally {
-      setLoading(false);
+      setLoadingId(null);
     }
   };
 
@@ -286,21 +287,21 @@ const ClockInOut: React.FC = () => {
             />
             <button
               onClick={fetchShifts}
-              disabled={phoneDigits.length !== 4 || loading}
+              disabled={phoneDigits.length !== 4 || isFetching}
               style={{
                 width: '100%',
-                backgroundColor: phoneDigits.length === 4 && !loading ? '#3b82f6' : '#3a3a3a',
+                backgroundColor: phoneDigits.length === 4 && !isFetching ? '#3b82f6' : '#3a3a3a',
                 color: 'white',
                 border: 'none',
                 borderRadius: '12px',
                 padding: '16px',
                 fontSize: '16px',
                 fontWeight: 'bold',
-                cursor: phoneDigits.length === 4 && !loading ? 'pointer' : 'not-allowed',
-                opacity: phoneDigits.length === 4 && !loading ? 1 : 0.5
+                cursor: phoneDigits.length === 4 && !isFetching ? 'pointer' : 'not-allowed',
+                opacity: phoneDigits.length === 4 && !isFetching ? 1 : 0.5
               }}
             >
-              {loading ? 'Loading...' : 'Find My Shifts'}
+              {isFetching ? 'Loading...' : 'Find My Shifts'}
             </button>
           </div>
         )}
@@ -393,7 +394,7 @@ const ClockInOut: React.FC = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       <button
                         onClick={() => handleClockAction(shift, 'in')}
-                        disabled={!canClockIn || loading}
+                        disabled={!canClockIn || loadingId !== null}
                         style={{
                           backgroundColor: canClockIn ? '#10b981' : '#3a3a3a',
                           color: 'white',
@@ -402,15 +403,15 @@ const ClockInOut: React.FC = () => {
                           padding: '16px',
                           fontSize: '16px',
                           fontWeight: 'bold',
-                          cursor: canClockIn && !loading ? 'pointer' : 'not-allowed',
-                          opacity: canClockIn && !loading ? 1 : 0.5
+                          cursor: canClockIn && loadingId === null ? 'pointer' : 'not-allowed',
+                          opacity: canClockIn && loadingId === null ? 1 : 0.5
                         }}
                       >
-                        {loading ? '...' : '✓ Clock In'}
+                        {loadingId === shift.id && canClockIn ? '...' : '✓ Clock In'}
                       </button>
                       <button
                         onClick={() => handleClockAction(shift, 'out')}
-                        disabled={!canClockOut || loading}
+                        disabled={!canClockOut || loadingId !== null}
                         style={{
                           backgroundColor: canClockOut ? '#ef4444' : '#3a3a3a',
                           color: 'white',
@@ -419,11 +420,11 @@ const ClockInOut: React.FC = () => {
                           padding: '16px',
                           fontSize: '16px',
                           fontWeight: 'bold',
-                          cursor: canClockOut && !loading ? 'pointer' : 'not-allowed',
-                          opacity: canClockOut && !loading ? 1 : 0.5
+                          cursor: canClockOut && loadingId === null ? 'pointer' : 'not-allowed',
+                          opacity: canClockOut && loadingId === null ? 1 : 0.5
                         }}
                       >
-                        {loading ? '...' : '✗ Clock Out'}
+                        {loadingId === shift.id && canClockOut ? '...' : '✗ Clock Out'}
                       </button>
                     </div>
                   )}
@@ -485,21 +486,21 @@ const ClockInOut: React.FC = () => {
 
               <button
                 onClick={handleRequestApproval}
-                disabled={loading || approvalRequested}
+                disabled={loadingId === 'unscheduled' || approvalRequested}
                 style={{
                   width: '100%',
-                  backgroundColor: !approvalRequested && !loading ? '#f59e0b' : '#3a3a3a',
+                  backgroundColor: !approvalRequested && loadingId !== 'unscheduled' ? '#f59e0b' : '#3a3a3a',
                   color: 'white',
                   border: 'none',
                   borderRadius: '12px',
                   padding: '16px',
                   fontSize: '16px',
                   fontWeight: 'bold',
-                  cursor: !approvalRequested && !loading ? 'pointer' : 'not-allowed',
-                  opacity: !approvalRequested && !loading ? 1 : 0.5
+                  cursor: !approvalRequested && loadingId !== 'unscheduled' ? 'pointer' : 'not-allowed',
+                  opacity: !approvalRequested && loadingId !== 'unscheduled' ? 1 : 0.5
                 }}
               >
-                {loading ? 'Sending Request...' : approvalRequested ? '✓ Request Sent' : '📋 Request Admin Approval'}
+                {loadingId === 'unscheduled' ? 'Sending Request...' : approvalRequested ? '✓ Request Sent' : '📋 Request Admin Approval'}
               </button>
             </div>
 
