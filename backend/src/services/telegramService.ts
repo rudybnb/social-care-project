@@ -426,7 +426,7 @@ export function initTelegramBot() {
                     const pay = hours * rate;
 
                     // Format Time: 08:00-20:00 (Actual if clocked in, else Scheduled)
-                    const formatT = (d: Date) => d.toISOString().substring(11, 16);
+                    const formatT = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
                     let start = shift.startTime;
                     let end = shift.endTime;
                     if (shift.clockInTime) start = formatT(new Date(shift.clockInTime));

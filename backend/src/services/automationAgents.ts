@@ -551,7 +551,7 @@ async function sendDailyPayrollOverview() {
     const timeMap: Record<string, string> = {};
     yesterdayShifts.forEach(s => {
       if (!s.staffName) return;
-      const formatT = (d: Date) => d.toISOString().substring(11, 16);
+      const formatT = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
       let start = s.startTime;
       let end = s.endTime;
 
