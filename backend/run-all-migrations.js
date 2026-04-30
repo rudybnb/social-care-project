@@ -153,6 +153,20 @@ async function runAllMigrations() {
       console.log(`⚠️  Migration 8 skipped: ${error.message}\n`);
     }
 
+    // Migration 9: Add shift swapping columns
+    console.log('Migration 9: Adding shift swap columns...');
+    try {
+      await pool.query(`
+        ALTER TABLE shifts 
+        ADD COLUMN IF NOT EXISTS is_offered_for_swap BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS is_swapped BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS original_staff_id VARCHAR(50);
+      `);
+      console.log('Migration 9 complete\n');
+    } catch (error) {
+      console.log(`Migration 9 skipped: ${error.message}\n`);
+    }
+
     // Verify tables exist
     console.log('🔍 Verifying database schema...\n');
 
