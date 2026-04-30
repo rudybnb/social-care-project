@@ -26,11 +26,13 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
   const [modalShift, setModalShift] = useState<Shift | null>(null);
   const [allShifts, setAllShifts] = useState<any[]>([]);
   const [showAttendance, setShowAttendance] = useState(false);
+  const [availableSwaps, setAvailableSwaps] = useState<any[]>([]);
+  const [showSwaps, setShowSwaps] = useState(false);
 
   // Fetch staff shifts
-  const fetchShifts = async () => {
+  const fetchShifts = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await fetch(`https://social-care-backend.onrender.com/api/staff/${staffId}/shifts`);
       if (response.ok) {
         const data = await response.json();
@@ -39,7 +41,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
     } catch (error) {
       console.error('Error fetching shifts:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -56,9 +58,32 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
     }
   };
 
+  const fetchSwaps = async () => {
+    try {
+      const response = await fetch(`https://social-care-backend.onrender.com/api/shifts/available-swaps`);
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableSwaps(data.filter((s: any) => s.staffId !== staffId));
+      }
+    } catch (error) {
+      console.error('Error fetching available swaps:', error);
+    }
+  };
+
   useEffect(() => {
     fetchShifts();
     fetchAllShifts();
+    fetchSwaps();
+
+    // Implement robust silent background polling every 30 seconds
+    // This ensures perfect synchronization with the Admin Rota without needing an agent
+    const interval = setInterval(() => {
+      fetchShifts(true);
+      fetchAllShifts();
+      fetchSwaps();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, [staffId]);
 
   // Filter shifts
@@ -175,6 +200,106 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
   // Render attendance view if active
   if (showAttendance) {
     return <StaffAttendance staffId={staffId} onBack={() => setShowAttendance(false)} />;
+  }
+
+  const handleOfferSwap = async (shiftId: string) => {
+    if (window.confirm('Are you sure you want to offer this shift for a swap?')) {
+      try {
+        const response = await fetch(`https://social-care-backend.onrender.com/api/shifts/${shiftId}/offer-swap`, {
+          method: 'POST',
+        });
+        if (response.ok) {
+          setToast({ show: true, message: 'Shift offered for swap successfully.', color: 'success' });
+          fetchShifts();
+        } else {
+          setToast({ show: true, message: 'Failed to offer shift for swap.', color: 'danger' });
+        }
+      } catch (error) {
+        setToast({ show: true, message: 'Error offering swap.', color: 'danger' });
+      }
+    }
+  };
+
+  const handleAcceptSwap = async (shiftId: string) => {
+    if (window.confirm('Are you sure you want to pick up this shift?')) {
+      try {
+        const response = await fetch(`https://social-care-backend.onrender.com/api/shifts/${shiftId}/accept-swap`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newStaffId: staffId, newStaffName: staffName })
+        });
+        if (response.ok) {
+          setToast({ show: true, message: 'Shift picked up successfully!', color: 'success' });
+          setShowSwaps(false);
+          fetchShifts();
+          fetchSwaps();
+        } else {
+          setToast({ show: true, message: 'Failed to pick up shift.', color: 'danger' });
+        }
+      } catch (error) {
+        setToast({ show: true, message: 'Error picking up swap.', color: 'danger' });
+      }
+    }
+  };
+
+  if (showSwaps) {
+    return (
+      <IonPage>
+        <IonHeader>
+          <IonToolbar style={{ '--background': '#f59e0b', '--color': 'white' }}>
+            <IonButton slot="start" fill="clear" onClick={() => setShowSwaps(false)} style={{ '--color': 'white' }}>
+              ← Back
+            </IonButton>
+            <IonTitle>Available Swaps</IonTitle>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent style={{ '--background': '#1a1a1a', padding: '16px' }}>
+          <div style={{ padding: '16px' }}>
+            {availableSwaps.length > 0 ? (
+              availableSwaps.map((shift, idx) => (
+                <div key={idx} style={{
+                  backgroundColor: '#2a2a2a',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  marginBottom: '16px',
+                  border: '1px solid #3a3a3a'
+                }}>
+                  <div style={{ marginBottom: '8px', fontSize: '16px', fontWeight: 'bold', color: 'white' }}>
+                    {new Date(shift.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })} • {shift.startTime} - {shift.endTime}
+                  </div>
+                  <div style={{ marginBottom: '8px', fontSize: '14px', color: '#9ca3af' }}>
+                    <strong>Site:</strong> {shift.siteName}
+                  </div>
+                  <div style={{ marginBottom: '16px', fontSize: '14px', color: '#9ca3af' }}>
+                    <strong>Offered by:</strong> {shift.staffName}
+                  </div>
+                  <button
+                    onClick={() => handleAcceptSwap(shift.id)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      backgroundColor: '#f59e0b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: 'bold',
+                      fontSize: '16px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Pick Up Shift
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#6b7280' }}>
+                No shifts are currently available to pick up.
+              </div>
+            )}
+          </div>
+        </IonContent>
+      </IonPage>
+    );
   }
 
   return (
@@ -375,6 +500,26 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
             >
               🔔 Connect Telegram
             </button>
+            <button
+              onClick={() => setShowSwaps(true)}
+              style={{
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '16px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
+              }}
+            >
+              🔄 Available Swaps
+            </button>
           </div>
         </div>
 
@@ -478,9 +623,28 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
                     <div style={{ color: 'white', fontSize: '14px', fontWeight: '500' }}>
                       {shift.startTime} - {shift.endTime}
                     </div>
-                    <div style={{ color: '#6b7280', fontSize: '12px' }}>
+                    <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '8px' }}>
                       {shift.duration} hours
                     </div>
+                    {(shift as any).isOfferedForSwap ? (
+                      <span style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 'bold' }}>Offered for Swap</span>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleOfferSwap(shift.id); }}
+                        style={{
+                          padding: '4px 8px',
+                          backgroundColor: 'transparent',
+                          border: '1px solid #8b5cf6',
+                          color: '#8b5cf6',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Offer Swap
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

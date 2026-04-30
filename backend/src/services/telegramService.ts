@@ -581,6 +581,19 @@ export async function sendForgotClockOutAlert(staffId: string, siteName: string,
     return sendTelegramMessage(staffId, message);
 }
 
+// Send shift swapped alert to Admin
+export async function sendShiftSwappedAlert(oldStaffName: string, newStaffName: string, date: string, siteName: string): Promise<boolean> {
+    const message =
+        `🔄 <b>Shift Swap Alert</b>\n\n` +
+        `A shift has been swapped!\n\n` +
+        `📅 Date: ${date}\n` +
+        `📍 Site: ${siteName}\n` +
+        `👤 From: ${oldStaffName}\n` +
+        `👤 To: ${newStaffName}`;
+
+    return sendAdminTelegram(message);
+}
+
 // Send shift summary to admin
 export async function sendShiftSummary(
     shiftType: 'Day' | 'Night',

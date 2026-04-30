@@ -17,3 +17,9 @@ export const pool = DATABASE_URL ? new Pool({
 }) : undefined;
 
 export const db = pool ? drizzle(pool) : undefined;
+
+if (pool) {
+  pool.on('error', (err) => {
+    console.error('Unexpected error on idle client', err);
+  });
+}

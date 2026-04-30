@@ -134,6 +134,9 @@ export interface Shift {
   autoAccepted?: boolean;
   weekDeadline?: string;
   published?: boolean;
+  isOfferedForSwap?: boolean;
+  isSwapped?: boolean;
+  originalStaffId?: string;
 }
 
 export const shiftsAPI = {
@@ -189,6 +192,34 @@ export const shiftsAPI = {
       body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to publish shifts');
+    return response.json();
+  },
+
+  // Get available shift swaps
+  async getAvailableSwaps(): Promise<Shift[]> {
+    const response = await fetch(`${API_BASE_URL}/api/shifts/available-swaps`);
+    if (!response.ok) throw new Error('Failed to fetch available swaps');
+    return response.json();
+  },
+
+  // Offer a shift for swap
+  async offerSwap(id: string): Promise<Shift> {
+    const response = await fetch(`${API_BASE_URL}/api/shifts/${id}/offer-swap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) throw new Error('Failed to offer shift for swap');
+    return response.json();
+  },
+
+  // Accept a shift swap
+  async acceptSwap(id: string, newStaffId: string, newStaffName: string): Promise<Shift> {
+    const response = await fetch(`${API_BASE_URL}/api/shifts/${id}/accept-swap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newStaffId, newStaffName })
+    });
+    if (!response.ok) throw new Error('Failed to accept shift swap');
     return response.json();
   },
 };

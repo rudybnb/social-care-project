@@ -6,8 +6,9 @@ import WorkerLeave from '../components/WorkerLeave';
 const WorkerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'leave'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'leave' | 'swaps'>('dashboard');
   const [shifts, setShifts] = useState<any[]>([]);
+  const [availableSwaps, setAvailableSwaps] = useState<any[]>([]);
   const [loadingShifts, setLoadingShifts] = useState(true);
 
   // Fetch shifts for the logged-in staff member
@@ -28,7 +29,21 @@ const WorkerDashboard: React.FC = () => {
       }
     };
 
+    const fetchSwaps = async () => {
+      try {
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts/available-swaps`);
+        if (response.ok) {
+          const data = await response.json();
+          // Filter out shifts that the current user offered
+          setAvailableSwaps(data.filter((s: any) => s.staffId !== user?.id));
+        }
+      } catch (error) {
+        console.error('Error fetching available swaps:', error);
+      }
+    };
+
     fetchShifts();
+    fetchSwaps();
   }, [user]);
 
   // Find today's shift to get siteId
@@ -66,6 +81,47 @@ const WorkerDashboard: React.FC = () => {
     }
   };
 
+  const handleOfferSwap = async (shiftId: string) => {
+    if (window.confirm('Are you sure you want to offer this shift for a swap?')) {
+      try {
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts/${shiftId}/offer-swap`, {
+          method: 'POST',
+        });
+        if (response.ok) {
+          alert('Shift offered for swap successfully.');
+          // Update local state
+          setShifts(shifts.map(s => s.id === shiftId ? { ...s, isOfferedForSwap: true } : s));
+        } else {
+          alert('Failed to offer shift for swap.');
+        }
+      } catch (error) {
+        console.error('Error offering swap:', error);
+      }
+    }
+  };
+
+  const handleAcceptSwap = async (shiftId: string) => {
+    if (window.confirm('Are you sure you want to pick up this shift?')) {
+      try {
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/shifts/${shiftId}/accept-swap`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newStaffId: user?.id, newStaffName: user?.name })
+        });
+        if (response.ok) {
+          alert('Shift picked up successfully! It is now assigned to you.');
+          // Switch back to dashboard and refresh
+          setCurrentView('dashboard');
+          window.location.reload();
+        } else {
+          alert('Failed to pick up shift.');
+        }
+      } catch (error) {
+        console.error('Error picking up swap:', error);
+      }
+    }
+  };
+
   // Show Annual Leave view
   if (currentView === 'leave') {
     return (
@@ -93,6 +149,80 @@ const WorkerDashboard: React.FC = () => {
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Annual Leave</h1>
         </div>
         <WorkerLeave staffId={user?.id || ''} staffName={user?.name || ''} />
+      </div>
+    );
+  }
+
+  // Show Available Swaps view
+  if (currentView === 'swaps') {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+        <div style={{
+          backgroundColor: '#8b5cf6',
+          color: 'white',
+          padding: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '15px'
+        }}>
+          <button
+            onClick={() => setCurrentView('dashboard')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'white',
+              fontSize: '24px',
+              cursor: 'pointer'
+            }}
+          >
+            ←
+          </button>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Available Shifts</h1>
+        </div>
+        
+        <div style={{ padding: '20px' }}>
+          {availableSwaps.length > 0 ? (
+            availableSwaps.map((shift, idx) => (
+              <div key={idx} style={{
+                backgroundColor: 'white',
+                padding: '20px',
+                borderRadius: '12px',
+                marginBottom: '15px',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.05)'
+              }}>
+                <div style={{ marginBottom: '10px', fontSize: '16px', fontWeight: 'bold', color: '#333' }}>
+                  {shift.date} • {shift.startTime} - {shift.endTime}
+                </div>
+                <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
+                  <strong>Site:</strong> {shift.siteName}
+                </div>
+                <div style={{ marginBottom: '15px', fontSize: '14px', color: '#666' }}>
+                  <strong>Offered by:</strong> {shift.staffName}
+                </div>
+                <button
+                  onClick={() => handleAcceptSwap(shift.id)}
+                  style={{
+                    width: '100%',
+                    padding: '15px',
+                    backgroundColor: '#8b5cf6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
+                    fontSize: '16px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Pick Up Shift
+                </button>
+              </div>
+            ))
+          ) : (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#666' }}>
+              No shifts are currently available to pick up.
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -169,6 +299,52 @@ const WorkerDashboard: React.FC = () => {
             No shift scheduled for today.
           </div>
         ) : null}
+
+        {/* Show all upcoming shifts that aren't today */}
+        {!loadingShifts && shifts.filter(s => s.date > todayDate).length > 0 && (
+          <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px', color: '#333' }}>Upcoming Shifts</h3>
+            {shifts
+              .filter(s => s.date > todayDate)
+              .sort((a, b) => a.date.localeCompare(b.date))
+              .map((shift, idx) => (
+              <div key={idx} style={{
+                backgroundColor: '#f9fafb',
+                padding: '12px',
+                borderRadius: '8px',
+                marginBottom: '10px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#4b5563' }}>{shift.date}</div>
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>{shift.siteName} • {shift.startTime}-{shift.endTime}</div>
+                  {shift.isOfferedForSwap && (
+                    <span style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 'bold' }}>Offered for Swap</span>
+                  )}
+                </div>
+                {!shift.isOfferedForSwap && (
+                  <button 
+                    onClick={() => handleOfferSwap(shift.id)}
+                    style={{
+                      padding: '6px 10px',
+                      backgroundColor: 'transparent',
+                      border: '1px solid #8b5cf6',
+                      color: '#8b5cf6',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Offer Swap
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Clock In/Out Buttons */}
         <div style={{
@@ -251,8 +427,8 @@ const WorkerDashboard: React.FC = () => {
           {[
             { label: 'Attendance', color: '#3880ff', action: () => handleQuickLink('Attendance') },
             { label: 'Annual Leave', color: '#ec4899', action: () => setCurrentView('leave') },
-            { label: 'Queries', color: '#f59e0b', action: () => handleQuickLink('Queries') },
-            { label: 'My Shifts', color: '#8b5cf6', action: () => handleQuickLink('My Shifts') }
+            { label: 'Available Swaps', color: '#8b5cf6', action: () => setCurrentView('swaps') },
+            { label: 'Queries', color: '#f59e0b', action: () => handleQuickLink('Queries') }
           ].map((item, index) => (
             <button
               key={index}

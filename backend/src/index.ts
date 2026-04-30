@@ -460,6 +460,83 @@ app.delete('/api/sites/:id', async (req: Request, res: Response) => {
 
 // ==================== SHIFTS ROUTES ====================
 
+// Get available shift swaps
+app.get('/api/shifts/available-swaps', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const availableSwaps = await db.select().from(shifts).where(eq(shifts.isOfferedForSwap, true));
+    res.json(availableSwaps);
+  } catch (error) {
+    console.error('Error fetching available swaps:', error);
+    res.status(500).json({ error: 'Failed to fetch available swaps' });
+  }
+});
+
+// Offer a shift for swap
+app.post('/api/shifts/:id/offer-swap', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const id = req.params.id as string;
+    
+    const updated = await db.update(shifts)
+      .set({ isOfferedForSwap: true, updatedAt: new Date() })
+      .where(eq(shifts.id, id))
+      .returning();
+      
+    if (updated.length === 0) {
+      return res.status(404).json({ error: 'Shift not found' });
+    }
+    res.json(updated[0]);
+  } catch (error) {
+    console.error('Error offering shift for swap:', error);
+    res.status(500).json({ error: 'Failed to offer shift for swap' });
+  }
+});
+
+// Accept a shift swap
+app.post('/api/shifts/:id/accept-swap', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const id = req.params.id as string;
+    const { newStaffId, newStaffName } = req.body;
+    
+    if (!newStaffId || !newStaffName) {
+      return res.status(400).json({ error: 'newStaffId and newStaffName are required' });
+    }
+    
+    const shift = await db.select().from(shifts).where(eq(shifts.id, id));
+    if (shift.length === 0) {
+      return res.status(404).json({ error: 'Shift not found' });
+    }
+    
+    const oldStaffId = shift[0].staffId;
+    const oldStaffName = shift[0].staffName;
+    
+    const updated = await db.update(shifts)
+      .set({ 
+        staffId: newStaffId,
+        staffName: newStaffName,
+        isOfferedForSwap: false,
+        isSwapped: true,
+        originalStaffId: oldStaffId,
+        updatedAt: new Date() 
+      })
+      .where(eq(shifts.id, id))
+      .returning();
+      
+    // Send telegram notification
+    const { sendShiftSwappedAlert } = await import('./services/telegramService.js');
+    if (sendShiftSwappedAlert) {
+      await sendShiftSwappedAlert(oldStaffName, newStaffName, shift[0].date, shift[0].siteName);
+    }
+      
+    res.json(updated[0]);
+  } catch (error) {
+    console.error('Error accepting shift swap:', error);
+    res.status(500).json({ error: 'Failed to accept shift swap' });
+  }
+});
+
 // Get all shifts
 app.get('/api/shifts', async (_req: Request, res: Response) => {
   try {

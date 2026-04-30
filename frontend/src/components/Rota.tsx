@@ -1586,15 +1586,17 @@ const Rota: React.FC = () => {
                             return shift ? (
                               <div>
                                 <div style={{
-                                  backgroundColor: shift.staffStatus === 'accepted' ? '#10b98120' : shift.staffStatus === 'declined' ? '#ef444420' : `${site.color}20`,
+                                  backgroundColor: shift.isSwapped ? '#f9731620' : shift.staffStatus === 'accepted' ? '#10b98120' : shift.staffStatus === 'declined' ? '#ef444420' : `${site.color}20`,
                                   padding: '6px 8px',
                                   borderRadius: '6px',
                                   border: shift.published === false
                                     ? '2px dashed #fbbf24' // Draft style
-                                    : shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
+                                    : shift.isSwapped ? '2px solid #f97316' : shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
                                   marginBottom: '6px',
                                   opacity: shift.published === false ? 0.8 : 1
-                                }}>
+                                }}
+                                title={shift.isSwapped ? `Swapped shift. Originally assigned to: ${shift.originalStaffId || 'Another worker'}` : undefined}
+                                >
                                   <div style={{
                                     color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'),
                                     fontSize: '12px',
@@ -1602,6 +1604,21 @@ const Rota: React.FC = () => {
                                     marginBottom: '2px'
                                   }}>
                                     {shift.isBank ? '🏦 ' : ''}{shift.staffName}
+                                    {shift.isSwapped && (
+                                      <span style={{
+                                        marginLeft: '4px',
+                                        padding: '1px 4px',
+                                        backgroundColor: '#f9731630',
+                                        border: '1px solid #f97316',
+                                        borderRadius: '3px',
+                                        fontSize: '9px',
+                                        fontWeight: '700',
+                                        letterSpacing: '0.3px',
+                                        color: '#f97316'
+                                      }}>
+                                        🔄 SWAPPED
+                                      </span>
+                                    )}
                                     {shift.published === false && (
                                       <span style={{
                                         marginLeft: '4px',
@@ -1826,12 +1843,14 @@ const Rota: React.FC = () => {
                             return shift ? (
                               <div>
                                 <div style={{
-                                  backgroundColor: shift.staffStatus === 'accepted' ? '#10b98120' : shift.staffStatus === 'declined' ? '#ef444420' : `${site.color}20`,
+                                  backgroundColor: shift.isSwapped ? '#f9731620' : shift.staffStatus === 'accepted' ? '#10b98120' : shift.staffStatus === 'declined' ? '#ef444420' : `${site.color}20`,
                                   padding: '6px 8px',
                                   borderRadius: '6px',
-                                  border: shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
+                                  border: shift.isSwapped ? '2px solid #f97316' : shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
                                   marginBottom: '6px'
-                                }}>
+                                }}
+                                title={shift.isSwapped ? `Swapped shift. Originally assigned to: ${shift.originalStaffId || 'Another worker'}` : undefined}
+                                >
                                   <div style={{
                                     color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'),
                                     fontSize: '12px',
@@ -1839,6 +1858,21 @@ const Rota: React.FC = () => {
                                     marginBottom: '2px'
                                   }}>
                                     {shift.isBank ? '🏦 ' : ''}{shift.staffName}
+                                    {shift.isSwapped && (
+                                      <span style={{
+                                        marginLeft: '4px',
+                                        padding: '1px 4px',
+                                        backgroundColor: '#f9731630',
+                                        border: '1px solid #f97316',
+                                        borderRadius: '3px',
+                                        fontSize: '9px',
+                                        fontWeight: '700',
+                                        letterSpacing: '0.3px',
+                                        color: '#f97316'
+                                      }}>
+                                        🔄 SWAPPED
+                                      </span>
+                                    )}
                                     {shift.isBank && (() => {
                                       const shiftDate = new Date(shift.date);
                                       const tomorrow = new Date();

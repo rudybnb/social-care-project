@@ -72,6 +72,9 @@ export const shifts = pgTable('shifts', {
   responseLocked: boolean('response_locked').default(false), // True if past deadline and cannot be changed without admin approval
   weekDeadline: timestamp('week_deadline'), // The Saturday midnight deadline for this shift's week
   published: boolean('published').default(false), // Controls if the shift is visible to staff (true) or draft (false)
+  isOfferedForSwap: boolean('is_offered_for_swap').default(false),
+  isSwapped: boolean('is_swapped').default(false),
+  originalStaffId: text('original_staff_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
