@@ -1,37 +1,38 @@
 import React, { useState } from 'react';
 
 interface RemittanceFormProps {
-  staffData: any;
-  periodLabel: string;
+  staffData?: any;
+  periodLabel?: string;
   onClose: () => void;
+  initialData?: any;
 }
 
-const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData, periodLabel, onClose }) => {
+const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData = {}, periodLabel = '', onClose, initialData }) => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // Auto-generate payment number
-  const generatedPaymentNo = `PAY-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+  // Auto-generate payment number only if not editing
+  const generatedPaymentNo = initialData ? initialData.paymentNo : `PAY-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
   
   const today = new Date().toLocaleDateString('en-GB');
 
   const [formData, setFormData] = useState({
-    emailTo: '',
-    paymentNo: generatedPaymentNo,
-    paymentDate: today,
-    vendorId: staffData.isAgency ? staffData.agencyName : (staffData.name || ''),
-    siteName: 'Multiple Sites',
-    payeeName: staffData.isAgency ? staffData.agencyName : (staffData.name || ''),
-    payeeAddress: '',
-    bankName: '',
-    accountNumber: '',
-    sortCode: '',
-    description: staffData.custom ? 'Maintenance / Custom Service' : `Staffing Services - ${staffData.isAgency ? 'Agency' : 'Permanent'} Worker`,
-    datesCovered: periodLabel,
-    hoursWorked: staffData.totalHours > 0 ? staffData.totalHours.toFixed(2) : '1',
-    hourlyRate: staffData.totalHours > 0 ? (staffData.totalPay / staffData.totalHours).toFixed(2) : '0.00',
-    paymentTotal: staffData.totalPay > 0 ? staffData.totalPay.toFixed(2) : '0.00',
+    emailTo: initialData?.emailTo || '',
+    paymentNo: initialData?.paymentNo || generatedPaymentNo,
+    paymentDate: initialData?.paymentDate || today,
+    vendorId: initialData?.vendorId || (staffData.isAgency ? staffData.agencyName : (staffData.name || '')),
+    siteName: initialData?.siteName || 'Multiple Sites',
+    payeeName: initialData?.payeeName || (staffData.isAgency ? staffData.agencyName : (staffData.name || '')),
+    payeeAddress: initialData?.payeeAddress || '',
+    bankName: initialData?.bankName || '',
+    accountNumber: initialData?.accountNumber || '',
+    sortCode: initialData?.sortCode || '',
+    description: initialData?.description || (initialData?.custom || staffData.custom ? 'Maintenance / Custom Service' : `Staffing Services - ${staffData.isAgency ? 'Agency' : 'Permanent'} Worker`),
+    datesCovered: initialData?.datesCovered || periodLabel,
+    hoursWorked: initialData?.hoursWorked || (staffData.totalHours > 0 ? staffData.totalHours.toFixed(2) : '1'),
+    hourlyRate: initialData?.hourlyRate || (staffData.totalHours > 0 ? (staffData.totalPay / staffData.totalHours).toFixed(2) : '0.00'),
+    paymentTotal: initialData?.paymentTotal || (staffData.totalPay > 0 ? staffData.totalPay.toFixed(2) : '0.00'),
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -45,8 +46,15 @@ const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData, periodLabel,
 
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com';
-      const response = await fetch(`${API_URL}/api/payroll/remittance`, {
-        method: 'POST',
+      
+      const isEditing = !!initialData?.id;
+      const url = isEditing 
+        ? `${API_URL}/api/payroll/remittances/${initialData.id}`
+        : `${API_URL}/api/payroll/remittance`;
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           emailTo: formData.emailTo,
@@ -56,7 +64,7 @@ const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData, periodLabel,
       });
 
       if (!response.ok) {
-        throw new Error('Failed to process remittance advice');
+        throw new Error(`Failed to ${isEditing ? 'update' : 'process'} remittance advice`);
       }
 
       setSuccess(true);

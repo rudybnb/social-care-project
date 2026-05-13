@@ -144,6 +144,65 @@ app.get('/api/payroll/remittances', async (req: Request, res: Response) => {
   }
 });
 
+app.delete('/api/payroll/remittances/:id', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const id = req.params.id as string;
+    
+    const deleted = await db.delete(remittances).where(eq(remittances.id, id)).returning();
+    if (deleted.length === 0) {
+      return res.status(404).json({ error: 'Remittance not found' });
+    }
+    res.json({ message: 'Remittance deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting remittance:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/payroll/remittances/:id', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const id = req.params.id as string;
+    const { remittanceData } = req.body;
+
+    if (!remittanceData) {
+      return res.status(400).json({ error: 'Missing remittanceData' });
+    }
+
+    const updated = await db.update(remittances)
+      .set({
+        paymentNo: remittanceData.paymentNo,
+        paymentDate: remittanceData.paymentDate,
+        vendorId: remittanceData.vendorId,
+        siteName: remittanceData.siteName,
+        payeeName: remittanceData.payeeName,
+        payeeAddress: remittanceData.payeeAddress,
+        bankName: remittanceData.bankName,
+        accountNumber: remittanceData.accountNumber,
+        sortCode: remittanceData.sortCode,
+        description: remittanceData.description,
+        datesCovered: remittanceData.datesCovered,
+        hoursWorked: remittanceData.hoursWorked,
+        hourlyRate: remittanceData.hourlyRate,
+        paymentTotal: remittanceData.paymentTotal,
+        emailTo: remittanceData.emailTo || '',
+        updatedAt: new Date()
+      })
+      .where(eq(remittances.id, id))
+      .returning();
+
+    if (updated.length === 0) {
+      return res.status(404).json({ error: 'Remittance not found' });
+    }
+
+    res.json({ success: true, message: 'Remittance updated successfully', remittance: updated[0] });
+  } catch (error) {
+    console.error('Error updating remittance:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ==================== STAFF ROUTES ====================
 
 // Audit Payroll Route

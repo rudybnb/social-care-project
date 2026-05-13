@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import Modal from './Modal';
+import RemittanceForm from './RemittanceForm';
 
 const RemittancesList: React.FC = () => {
   const [remittances, setRemittances] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingRemittance, setEditingRemittance] = useState<any | null>(null);
 
   useEffect(() => {
     fetchRemittances();
@@ -18,6 +21,28 @@ const RemittancesList: React.FC = () => {
       console.error('Failed to fetch remittances:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this remittance? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com';
+      const response = await fetch(`${API_URL}/api/payroll/remittances/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setRemittances(remittances.filter(r => r.id !== id));
+      } else {
+        alert('Failed to delete remittance.');
+      }
+    } catch (error) {
+      console.error('Error deleting remittance:', error);
+      alert('Error deleting remittance.');
     }
   };
 
@@ -166,7 +191,26 @@ const RemittancesList: React.FC = () => {
 
   return (
     <div style={{ padding: '20px', color: 'white' }}>
-      <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px' }}>Saved Remittances</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Saved Remittances</h2>
+        <button
+          onClick={() => setEditingRemittance({ custom: true })}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#8b5cf6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          ➕ Create New Remittance
+        </button>
+      </div>
 
       {remittances.length === 0 ? (
         <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#2a2a2a', borderRadius: '8px' }}>
@@ -210,6 +254,7 @@ const RemittancesList: React.FC = () => {
                   <td style={{ padding: '12px', textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                     <button
                       onClick={() => handleViewPDF(rem)}
+                      title="Print PDF"
                       style={{
                         padding: '6px 12px',
                         backgroundColor: '#3b82f6',
@@ -224,6 +269,7 @@ const RemittancesList: React.FC = () => {
                     </button>
                     <button
                       onClick={() => handleResend(rem)}
+                      title="Resend Email"
                       style={{
                         padding: '6px 12px',
                         backgroundColor: '#2a2a2a',
@@ -236,12 +282,61 @@ const RemittancesList: React.FC = () => {
                     >
                       📧 Send
                     </button>
+                    <button
+                      onClick={() => setEditingRemittance(rem)}
+                      title="Edit Remittance"
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#8b5cf6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(rem.id)}
+                      title="Delete Remittance"
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {editingRemittance && (
+        <Modal
+          isOpen={!!editingRemittance}
+          onClose={() => {
+            setEditingRemittance(null);
+            fetchRemittances();
+          }}
+          title="Edit Remittance Advice"
+        >
+          <RemittanceForm
+            initialData={editingRemittance}
+            onClose={() => {
+              setEditingRemittance(null);
+              fetchRemittances();
+            }}
+          />
+        </Modal>
       )}
     </div>
   );
