@@ -9,7 +9,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: 20
+        value: 22
       - key: PORT
         value: 10000
       - key: DATABASE_URL
@@ -24,7 +24,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: 20
+        value: 22
       - key: GENERATE_SOURCEMAP
         value: false
       - key: REACT_APP_API_URL
