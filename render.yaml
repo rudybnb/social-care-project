@@ -3,7 +3,7 @@ services:
     name: social-care-backend
     runtime: node
     plan: free
-    buildCommand: cd backend && pnpm config set only-built-dependencies core-js,core-js-pure,bcrypt && pnpm install && pnpm run build
+    buildCommand: cd backend && chmod +x build.sh && ./build.sh
     startCommand: cd backend && pnpm start
     envVars:
       - key: NODE_ENV
@@ -18,7 +18,7 @@ services:
   - type: web
     name: social-care-frontend
     runtime: static
-    buildCommand: cd frontend && pnpm config set only-built-dependencies core-js,core-js-pure && pnpm install && pnpm run build
+    buildCommand: cd frontend && chmod +x build.sh && ./build.sh
     staticPublishPath: frontend/build
     envVars:
       - key: NODE_ENV
