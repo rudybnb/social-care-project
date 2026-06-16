@@ -154,7 +154,7 @@ const AnnualLeave: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#9ca3af', fontSize: '13px' }}>Total Entitlement:</span>
-                  <span style={{ color: 'white', fontSize: '13px', fontWeight: '600' }}>{balance.totalEntitlement}h</span>
+                  <span style={{ color: 'white', fontSize: '13px', fontWeight: '600' }}>{balance.totalEntitlement / 8} days ({balance.totalEntitlement}h)</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#9ca3af', fontSize: '13px' }}>Hours Accrued:</span>

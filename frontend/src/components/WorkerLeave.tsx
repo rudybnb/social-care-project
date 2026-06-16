@@ -137,7 +137,13 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
 
       {/* Leave Balance Card */}
       <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg shadow-lg p-6">
-        <h2 className="text-2xl font-semibold mb-4">Leave Balance</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-semibold">Leave Balance</h2>
+          <div className="text-right">
+            <div className="text-sm opacity-90">Total Annual Entitlement</div>
+            <div className="text-xl font-bold">{balance.totalEntitlement / 8} days ({balance.totalEntitlement}h)</div>
+          </div>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <div className="text-3xl font-bold">{balance.hoursAccrued}h</div>
