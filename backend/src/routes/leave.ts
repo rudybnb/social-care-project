@@ -38,16 +38,18 @@ router.get('/balance/:staffId/:year', async (req, res) => {
       // Auto-create balance for current year if missing
       const currentYear = new Date().getFullYear();
       if (parseInt(year) === currentYear) {
+        const daysPerWeek = staffMember.daysPerWeek ?? 5;
+        const maxAnnualHours = Math.round(daysPerWeek * 5.6 * 8);
         const [newBalance] = await db
           .insert(leaveBalances)
           .values({
             staffId,
             staffName: staffMember.name,
             year: currentYear,
-            totalEntitlement: 224,
-            hoursAccrued: staffMember.startDate ? calculateAccruedLeave(staffMember.startDate) : 0,
+            totalEntitlement: maxAnnualHours,
+            hoursAccrued: staffMember.startDate ? calculateAccruedLeave(staffMember.startDate, daysPerWeek) : 0,
             hoursUsed: 0,
-            hoursRemaining: 224,
+            hoursRemaining: maxAnnualHours,
             carryOverFromPrevious: 0,
             carryOverToNext: 0
           })
@@ -66,8 +68,9 @@ router.get('/balance/:staffId/:year', async (req, res) => {
     let accrualInfo = null;
 
     if (staffMember.startDate) {
-      hoursAccrued = calculateAccruedLeave(staffMember.startDate);
-      accrualInfo = getAccrualBreakdown(staffMember.startDate);
+      const daysPerWeek = staffMember.daysPerWeek ?? 5;
+      hoursAccrued = calculateAccruedLeave(staffMember.startDate, daysPerWeek);
+      accrualInfo = getAccrualBreakdown(staffMember.startDate, daysPerWeek);
 
       // Update balance with calculated accrued hours
       await db
@@ -244,7 +247,8 @@ router.post('/requests', async (req, res) => {
     // Calculate accrued hours
     let hoursAccrued = 0;
     if (staffMember.startDate) {
-      hoursAccrued = calculateAccruedLeave(staffMember.startDate);
+      const daysPerWeek = staffMember.daysPerWeek ?? 5;
+      hoursAccrued = calculateAccruedLeave(staffMember.startDate, daysPerWeek);
     }
 
     // Check if staff has completed 3-month probation

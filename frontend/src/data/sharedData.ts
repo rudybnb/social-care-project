@@ -52,8 +52,9 @@ export interface StaffMember {
   rates: string;
   pension: string;
   deductions: string;
-  tax: string;
+  tax?: string;
   weeklyHours?: number;
+  daysPerWeek?: number;
   startDate?: string;
 }
 
@@ -101,11 +102,12 @@ let staff: StaffMember[] = [
     standardRate: '12.50',
     enhancedRate: '—',
     nightRate: '—',
-    rates: '£/h — • Night — • OT —',
+    rates: 'Standard: £12.50/h (0-20h) • Enhanced: £15.00/h (20h+) • Night: £18.00/h',
     pension: '—',
     deductions: '£0.00',
     tax: '—',
-    weeklyHours: 0
+    weeklyHours: 0,
+    daysPerWeek: 5
   },
   {
     id: 2,

@@ -6,7 +6,7 @@ dotenv.config();
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { users, staff, sites, shifts, approvalRequests, quotes, remittances } from './schema.js';
+import { users, staff, sites, shifts, approvalRequests, quotes, remittances, remittanceWorkers } from './schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import authRoutes from './routes/auth.js';
@@ -58,6 +58,20 @@ pool.query(`
     payment_total TEXT NOT NULL,
     email_to TEXT,
     status TEXT NOT NULL DEFAULT 'sent',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  // Ensure remittance_workers table exists
+  CREATE TABLE IF NOT EXISTS remittance_workers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL UNIQUE,
+    address TEXT,
+    bank_name TEXT,
+    account_number TEXT,
+    sort_code TEXT,
+    email TEXT,
+    hourly_rate TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
   );
@@ -119,6 +133,9 @@ app.post('/api/payroll/remittance', async (req: Request, res: Response) => {
         emailTo: emailTo || '',
         status: action === 'save_only' ? 'saved_only' : (emailSent ? 'sent' : 'failed')
       });
+
+      // Save worker details for future auto-fill
+      await saveRemittanceWorker(remittanceData);
     }
 
     res.json({ 
@@ -197,11 +214,62 @@ app.put('/api/payroll/remittances/:id', async (req: Request, res: Response) => {
     }
 
     res.json({ success: true, message: 'Remittance updated successfully', remittance: updated[0] });
+
+    // Update worker details for future auto-fill
+    if (db) {
+      await saveRemittanceWorker(remittanceData);
+    }
   } catch (error) {
     console.error('Error updating remittance:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+app.get('/api/payroll/remittance-workers', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const workers = await db.select().from(remittanceWorkers).orderBy(remittanceWorkers.name);
+    res.json(workers);
+  } catch (error) {
+    console.error('Error fetching remittance workers:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Helper to save or update remittance worker details
+async function saveRemittanceWorker(data: any) {
+  if (!db || !data.payeeName) return;
+  
+  try {
+    const existing = await db.select().from(remittanceWorkers).where(eq(remittanceWorkers.name, data.payeeName)).limit(1);
+    
+    if (existing.length > 0) {
+      await db.update(remittanceWorkers)
+        .set({
+          address: data.payeeAddress,
+          bankName: data.bankName,
+          accountNumber: data.accountNumber,
+          sortCode: data.sortCode,
+          email: data.emailTo || data.email, // Handle both names
+          hourlyRate: data.hourlyRate,
+          updatedAt: new Date()
+        })
+        .where(eq(remittanceWorkers.name, data.payeeName));
+    } else {
+      await db.insert(remittanceWorkers).values({
+        name: data.payeeName,
+        address: data.payeeAddress,
+        bankName: data.bankName,
+        accountNumber: data.accountNumber,
+        sortCode: data.sortCode,
+        email: data.emailTo || data.email,
+        hourlyRate: data.hourlyRate
+      });
+    }
+  } catch (error) {
+    console.error('Error saving remittance worker:', error);
+  }
+}
 
 // ==================== STAFF ROUTES ====================
 

@@ -19,7 +19,7 @@ function getMonthsWorked(start: Date, now: Date): number {
   return Math.max(0, months);
 }
 
-export function calculateAccruedLeave(startDate: string, asOfDate?: Date): number {
+export function calculateAccruedLeave(startDate: string, daysPerWeek: number = 5, asOfDate?: Date): number {
   const start = new Date(startDate);
   const now = asOfDate || new Date();
 
@@ -34,11 +34,13 @@ export function calculateAccruedLeave(startDate: string, asOfDate?: Date): numbe
   // Calculate quarters completed (rounded down)
   const quartersCompleted = Math.floor(monthsWorked / 3);
 
-  // Each quarter = 7 days = 56 hours
-  // Maximum 4 quarters = 28 days = 224 hours
-  const accruedHours = Math.min(quartersCompleted * 56, 224);
+  // Calculate pro-rata max hours based on days per week (5.6 weeks statutory minimum)
+  const maxAnnualHours = daysPerWeek * 5.6 * 8;
+  const hoursPerQuarter = maxAnnualHours / 4;
 
-  return accruedHours;
+  const accruedHours = Math.min(quartersCompleted * hoursPerQuarter, maxAnnualHours);
+
+  return Math.round(accruedHours);
 }
 
 export function getNextAccrualDate(startDate: string): Date {
@@ -57,7 +59,7 @@ export function getNextAccrualDate(startDate: string): Date {
   return nextAccrual;
 }
 
-export function getAccrualBreakdown(startDate: string): {
+export function getAccrualBreakdown(startDate: string, daysPerWeek: number = 5): {
   monthsWorked: number;
   quartersCompleted: number;
   hoursAccrued: number;
@@ -69,17 +71,20 @@ export function getAccrualBreakdown(startDate: string): {
 
   const monthsWorked = getMonthsWorked(start, now);
 
+  const maxAnnualHours = daysPerWeek * 5.6 * 8;
+  const hoursPerQuarter = maxAnnualHours / 4;
+
   const quartersCompleted = Math.floor(monthsWorked / 3);
-  const hoursAccrued = Math.min(quartersCompleted * 56, 224);
+  const hoursAccrued = Math.min(quartersCompleted * hoursPerQuarter, maxAnnualHours);
   const nextAccrualDate = getNextAccrualDate(startDate);
-  const nextAccrualHours = quartersCompleted < 4 ? 56 : 0;
+  const nextAccrualHours = quartersCompleted < 4 ? hoursPerQuarter : 0;
 
   return {
     monthsWorked,
     quartersCompleted,
-    hoursAccrued,
+    hoursAccrued: Math.round(hoursAccrued),
     nextAccrualDate,
-    nextAccrualHours
+    nextAccrualHours: Math.round(nextAccrualHours)
   };
 }
 

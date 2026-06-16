@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface RemittanceFormProps {
   staffData?: any;
@@ -11,6 +11,37 @@ const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData = {}, periodL
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [workers, setWorkers] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchWorkers();
+  }, []);
+
+  const fetchWorkers = async () => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com';
+      const response = await fetch(`${API_URL}/api/payroll/remittance-workers`);
+      if (response.ok) {
+        const data = await response.json();
+        setWorkers(data);
+      }
+    } catch (err) {
+      console.error('Error fetching workers:', err);
+    }
+  };
+
+  const handleWorkerSelect = (worker: any) => {
+    setFormData({
+      ...formData,
+      payeeName: worker.name,
+      payeeAddress: worker.address || '',
+      bankName: worker.bankName || '',
+      accountNumber: worker.accountNumber || '',
+      sortCode: worker.sortCode || '',
+      emailTo: worker.email || formData.emailTo,
+      hourlyRate: worker.hourlyRate || formData.hourlyRate
+    });
+  };
 
   // Auto-generate payment number only if not editing
   const generatedPaymentNo = initialData ? initialData.paymentNo : `PAY-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
@@ -265,9 +296,38 @@ const RemittanceForm: React.FC<RemittanceFormProps> = ({ staffData = {}, periodL
           <div style={{ backgroundColor: '#1a1a1a', padding: '16px', borderRadius: '8px', border: '1px solid #3a3a3a' }}>
             <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', color: 'white' }}>Payee Address</h3>
             <div style={{ marginBottom: '12px' }}>
-              <label style={labelStyle}>Payee Name (To)</label>
-              <input required type="text" name="payeeName" value={formData.payeeName} onChange={handleChange} style={inputStyle} />
+              <label style={labelStyle}>Payee Name (To) {workers.length > 0 && <span style={{fontSize: '11px', color: '#8b5cf6', marginLeft: '10px'}}>(Suggestions available)</span>}</label>
+              <input 
+                required 
+                type="text" 
+                name="payeeName" 
+                value={formData.payeeName} 
+                onChange={handleChange} 
+                style={inputStyle} 
+                list="workers-list"
+              />
+              <datalist id="workers-list">
+                {workers.map(w => <option key={w.id} value={w.name} />)}
+              </datalist>
             </div>
+            {formData.payeeName && workers.find(w => w.name === formData.payeeName) && (
+              <button 
+                type="button"
+                onClick={() => handleWorkerSelect(workers.find(w => w.name === formData.payeeName))}
+                style={{
+                  fontSize: '11px',
+                  backgroundColor: '#8b5cf6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '4px 8px',
+                  marginBottom: '10px',
+                  cursor: 'pointer'
+                }}
+              >
+                Apply Saved Details for {formData.payeeName}
+              </button>
+            )}
             <div>
               <label style={labelStyle}>Address (Use \\n for new lines)</label>
               <textarea required name="payeeAddress" value={formData.payeeAddress} onChange={handleChange} style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }} placeholder="Company Name\nStreet Address\nCity\nPostcode" />

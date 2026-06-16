@@ -20,6 +20,7 @@ export const staff = pgTable('staff', {
   deductions: text('deductions').default('£0.00'),
   tax: text('tax').default('—'),
   weeklyHours: integer('weekly_hours').default(0),
+  daysPerWeek: integer('days_per_week').default(5),
   startDate: text('start_date'), // Employment start date for leave accrual calculation
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -238,6 +239,20 @@ export const remittances = pgTable('remittances', {
   paymentTotal: text('payment_total').notNull(),
   emailTo: text('email_to'),
   status: text('status').notNull().default('sent'), // 'sent' | 'saved'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Remittance Workers (to store details for auto-fill)
+export const remittanceWorkers = pgTable('remittance_workers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull().unique(),
+  address: text('address'),
+  bankName: text('bank_name'),
+  accountNumber: text('account_number'),
+  sortCode: text('sort_code'),
+  email: text('email'),
+  hourlyRate: text('hourly_rate'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

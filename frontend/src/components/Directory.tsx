@@ -28,7 +28,8 @@ const Directory: React.FC = () => {
     enhancedRate: '',
     nightRate: '',
     pension: '',
-    otherDeductions: ''
+    otherDeductions: '',
+    daysPerWeek: 5
   });
 
   const [shifts, setShifts] = useState(getShifts());
@@ -90,7 +91,8 @@ const Directory: React.FC = () => {
       pension: formData.pension ? `${formData.pension}%` : '—',
       deductions: formData.otherDeductions ? `£${formData.otherDeductions}` : '£0.00',
       tax: formData.taxCode || '—',
-      weeklyHours: 0
+      weeklyHours: 0,
+      daysPerWeek: formData.daysPerWeek
     };
 
     try {
@@ -112,7 +114,8 @@ const Directory: React.FC = () => {
         enhancedRate: '',
         nightRate: '',
         pension: '',
-        otherDeductions: ''
+        otherDeductions: '',
+        daysPerWeek: 5
       });
 
       alert(`✅ Staff member ${newStaff.name} added successfully!\n\nUsername: ${newStaff.username || 'Not set'}\nPassword: Set (hashed)`);
@@ -158,7 +161,8 @@ const Directory: React.FC = () => {
       enhancedRate: staff.enhancedRate || '',
       nightRate: staff.nightRate || '',
       pension: staff.pension || '',
-      otherDeductions: staff.deductions || ''
+      otherDeductions: staff.deductions || '',
+      daysPerWeek: staff.daysPerWeek ?? 5
     });
     setShowEditModal(true);
   };
@@ -184,7 +188,8 @@ const Directory: React.FC = () => {
       enhancedRate: formData.enhancedRate,
       nightRate: formData.nightRate,
       pension: formData.pension,
-      deductions: formData.otherDeductions
+      deductions: formData.otherDeductions,
+      daysPerWeek: formData.daysPerWeek
     };
 
     // Only include password if a new one was entered
@@ -211,7 +216,8 @@ const Directory: React.FC = () => {
       enhancedRate: '',
       nightRate: '',
       pension: '',
-      otherDeductions: ''
+      otherDeductions: '',
+      daysPerWeek: 5
     });
     alert(`${updatedStaff.name} updated successfully!`);
   };
@@ -699,6 +705,33 @@ const Directory: React.FC = () => {
                   type="date"
                   value={formData.startDate}
                   onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
+                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+                />
+              </div>
+
+              {/* Days Per Week */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Days Per Week
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="7"
+                  value={formData.daysPerWeek}
+                  onChange={(e) => setFormData({ ...formData, daysPerWeek: Number(e.target.value) })}
                   style={{
                     width: '100%',
                     padding: '12px',
@@ -1845,6 +1878,29 @@ const Directory: React.FC = () => {
                   type="date"
                   value={formData.startDate}
                   onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#1a1a1a',
+                    color: 'white',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+
+              {/* Days Per Week */}
+              <div>
+                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                  Days Per Week
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="7"
+                  value={formData.daysPerWeek}
+                  onChange={(e) => setFormData({ ...formData, daysPerWeek: Number(e.target.value) })}
                   style={{
                     width: '100%',
                     padding: '12px',

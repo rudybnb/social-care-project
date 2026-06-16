@@ -43,6 +43,13 @@
       "when": 1777536044432,
       "tag": "0005_loose_groot",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781597919435,
+      "tag": "0006_loose_silverclaw",
+      "breakpoints": true
     }
   ]
 }

@@ -15,6 +15,7 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
   // Form state
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [workingDays, setWorkingDays] = useState<number | ''>('');
   const [reason, setReason] = useState('');
   const [leaveType, setLeaveType] = useState<'annual' | 'sick' | 'personal'>('annual');
   const [submitting, setSubmitting] = useState(false);
@@ -63,7 +64,12 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
       return;
     }
 
-    const totalDays = calculateDays(startDate, endDate);
+    if (workingDays === '' || workingDays <= 0) {
+      alert('Please enter a valid number of working days');
+      return;
+    }
+
+    const totalDays = Number(workingDays);
     const totalHours = totalDays * 8;
 
     // Check if enough hours available
@@ -92,6 +98,7 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
       setShowRequestForm(false);
       setStartDate('');
       setEndDate('');
+      setWorkingDays('');
       setReason('');
       setLeaveType('annual');
       loadData();
@@ -219,10 +226,32 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
             {startDate && endDate && (
               <div className="bg-purple-50 p-3 rounded">
                 <p className="text-sm">
-                  <strong>Duration:</strong> {calculateDays(startDate, endDate)} days ({calculateDays(startDate, endDate) * 8} hours)
+                  <strong>Calendar Duration:</strong> {calculateDays(startDate, endDate)} days
+                </p>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-semibold mb-1">Working Days Requesting Off *</label>
+              <input
+                type="number"
+                min="0.5"
+                step="0.5"
+                value={workingDays}
+                onChange={(e) => setWorkingDays(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full border rounded px-3 py-2"
+                required
+                placeholder="How many shifts are you missing?"
+              />
+            </div>
+
+            {workingDays !== '' && Number(workingDays) > 0 && (
+              <div className="bg-purple-50 p-3 rounded mt-2">
+                <p className="text-sm">
+                  <strong>Leave Deducted:</strong> {Number(workingDays) * 8} hours
                 </p>
                 <p className="text-sm">
-                  <strong>Remaining after:</strong> {availableHours - (calculateDays(startDate, endDate) * 8)} hours
+                  <strong>Remaining after:</strong> {availableHours - (Number(workingDays) * 8)} hours
                 </p>
               </div>
             )}
