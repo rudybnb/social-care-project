@@ -238,7 +238,7 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
             )}
 
             <div>
-              <label className="block text-sm font-semibold mb-1">Working Days Requesting Off *</label>
+              <label className="block text-sm font-semibold mb-1">Number of Scheduled Shifts Missed *</label>
               <input
                 type="number"
                 min="0.5"
@@ -247,7 +247,7 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
                 onChange={(e) => setWorkingDays(e.target.value === '' ? '' : Number(e.target.value))}
                 className="w-full border rounded px-3 py-2"
                 required
-                placeholder="How many shifts are you missing?"
+                placeholder="How many of your shifts fall in this date range?"
               />
             </div>
 
