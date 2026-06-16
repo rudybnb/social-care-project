@@ -47,6 +47,7 @@ async function runAllMigrations() {
         ADD COLUMN IF NOT EXISTS enhanced_rate TEXT DEFAULT '—',
         ADD COLUMN IF NOT EXISTS night_rate TEXT DEFAULT '—',
         ADD COLUMN IF NOT EXISTS weekly_hours INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS days_per_week INTEGER DEFAULT 5,
         ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW(),
         ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
       `);
