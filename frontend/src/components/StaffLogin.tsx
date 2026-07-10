@@ -22,8 +22,8 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
 
       // QR data format: "STAFF_LOGIN:{staffId}"
       if (!qrData.startsWith('STAFF_LOGIN:')) {
-        if (qrData.startsWith('SITE_QR:')) {
-          setError('This looks like a site QR code. Please log in first to clock in.');
+        if (qrData.startsWith('SITE_QR:') || qrData.includes('site=') || qrData.includes('SITE_')) {
+          setError('This looks like a site QR code. Please log in first to clock in, or scan it with your phone\'s native camera to clock in directly.');
         } else {
           setError('Invalid QR code. Please scan a staff login QR code.');
         }

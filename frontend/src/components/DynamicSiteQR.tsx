@@ -12,11 +12,9 @@ const DynamicSiteQR: React.FC = () => {
   const [currentCode, setCurrentCode] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Generate static QR code for backend compatibility
+  // Generate clock-in URL for the site QR code
   const generateCode = () => {
-    // Backend expects 'SITE_{siteId}'
-    // See backend/src/index.ts around line 618
-    return `SITE_${siteId}`;
+    return `${window.location.origin}/#/clock?site=${siteId}`;
   };
 
   // Update QR code

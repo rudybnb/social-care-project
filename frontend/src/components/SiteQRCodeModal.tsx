@@ -15,8 +15,8 @@ const SiteQRCodeModal: React.FC<SiteQRCodeModalProps> = ({ siteId, siteName, onC
 
   React.useEffect(() => {
     if (canvasRef.current) {
-      // Backend expects 'SITE_{siteId}'
-      const code = `SITE_${siteId}`;
+      // Encode the clock-in URL so that scanning it with native camera apps opens the app directly
+      const code = `${window.location.origin}/#/clock?site=${siteId}`;
       QRCode.toCanvas(canvasRef.current, code, {
         width: 256,
         margin: 2,

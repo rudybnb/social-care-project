@@ -121,9 +121,31 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
   const handleQRScan = async (qrCodeData: string) => {
     if (!qrCodeData) return;
 
-    // Detect if this is a site transition (scanning a different site than scheduled)
-    const scannedSiteId = qrCodeData.startsWith('SITE_') ? qrCodeData.replace('SITE_', '') : null;
-    const isTransition = selectedShift && scannedSiteId && selectedShift.siteId !== scannedSiteId;
+    // Extract site ID from the QR code data (handle both URL and raw formats)
+    let scannedSiteId: string | null = null;
+    if (qrCodeData.startsWith('SITE_')) {
+      scannedSiteId = qrCodeData.replace('SITE_', '');
+    } else if (qrCodeData.includes('site=')) {
+      try {
+        const urlParams = new URLSearchParams(qrCodeData.split('?')[1]);
+        const siteParam = urlParams.get('site');
+        if (siteParam) {
+          scannedSiteId = siteParam.startsWith('SITE_') ? siteParam.replace('SITE_', '') : siteParam;
+        }
+      } catch (e) {
+        console.error('Failed to parse site ID from QR URL', e);
+      }
+    }
+
+    // Helper to get plain ID for transition comparison (strips all SITE_ prefixes)
+    const getPlainId = (id: string | null | undefined): string | null => {
+      if (!id) return null;
+      return id.replace(/^SITE_/i, '').replace(/^SITE_/i, '');
+    };
+
+    const plainScannedId = getPlainId(scannedSiteId);
+    const plainShiftSiteId = getPlainId(selectedShift?.siteId);
+    const isTransition = selectedShift && plainScannedId && plainShiftSiteId !== plainScannedId;
 
     try {
       let endpoint = selectedShift?.clockedIn ? 'clock-out' : 'clock-in';
