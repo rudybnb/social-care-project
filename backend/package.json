@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:auth": "node --loader ts-node/esm --test src/__tests__/authPhase1A.test.ts",
     "dev": "nodemon --watch src --exec \"ts-node --transpile-only\" src/index.ts",
     "build": "tsc",
     "start": "node run-all-migrations.js && node restore-staff.js && node dist/index.js",
@@ -16,7 +17,8 @@
     "migrate:staff-status": "ts-node --transpile-only run-migration.ts",
     "migrate:all": "node run-all-migrations.js",
     "accept-shifts": "node accept-shifts-task.cjs",
-    "reset-db": "ts-node --transpile-only src/reset-and-setup-db.ts"
+    "reset-db": "ts-node --transpile-only src/reset-and-setup-db.ts",
+    "provision:admin": "ts-node --transpile-only src/scripts/provision-admin.ts"
   },
   "keywords": [],
   "author": "",

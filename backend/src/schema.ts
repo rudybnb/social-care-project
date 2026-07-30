@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean, uuid, decimal, real } from 'drizzle-orm/pg-core';
+import { index, pgTable, serial, text, timestamp, integer, boolean, uuid, decimal, real } from 'drizzle-orm/pg-core';
 
 // Staff members (enhanced from users table)
 export const staff = pgTable('staff', {
@@ -25,6 +25,21 @@ export const staff = pgTable('staff', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// Server-side authentication sessions. Stores only hashed tokens.
+export const authSessions = pgTable('auth_sessions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  staffId: uuid('staff_id').notNull().references(() => staff.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  userAgent: text('user_agent'),
+  ipAddress: text('ip_address'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+}, (table) => [
+  index('idx_auth_sessions_staff_id').on(table.staffId),
+  index('idx_auth_sessions_expires_at').on(table.expiresAt),
+]);
 
 // Sites/Care Homes
 export const sites = pgTable('sites', {
