@@ -18,7 +18,7 @@
     "migrate:all": "node run-all-migrations.js",
     "accept-shifts": "node accept-shifts-task.cjs",
     "reset-db": "ts-node --transpile-only src/reset-and-setup-db.ts",
-    "provision:admin": "ts-node --transpile-only src/scripts/provision-admin.ts"
+    "provision:admin": "node --loader ts-node/esm src/scripts/provision-admin.ts"
   },
   "keywords": [],
   "author": "",
