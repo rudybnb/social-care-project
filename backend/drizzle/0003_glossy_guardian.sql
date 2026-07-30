@@ -66,7 +66,7 @@ ALTER TABLE "shifts" ADD COLUMN "auto_accepted" boolean DEFAULT false;--> statem
 ALTER TABLE "shifts" ADD COLUMN "response_locked" boolean DEFAULT false;--> statement-breakpoint
 ALTER TABLE "shifts" ADD COLUMN "week_deadline" timestamp;--> statement-breakpoint
 ALTER TABLE "shifts" ADD COLUMN "published" boolean DEFAULT false;--> statement-breakpoint
-ALTER TABLE "staff" ADD COLUMN "email" text;--> statement-breakpoint
-ALTER TABLE "staff" ADD COLUMN "phone" text;--> statement-breakpoint
-ALTER TABLE "staff" ADD COLUMN "telegram_chat_id" text;--> statement-breakpoint
-ALTER TABLE "staff" ADD COLUMN "start_date" text;
+ALTER TABLE "staff" ADD COLUMN IF NOT EXISTS "email" text;--> statement-breakpoint
+ALTER TABLE "staff" ADD COLUMN IF NOT EXISTS "phone" text;--> statement-breakpoint
+ALTER TABLE "staff" ADD COLUMN IF NOT EXISTS "telegram_chat_id" text;--> statement-breakpoint
+ALTER TABLE "staff" ADD COLUMN IF NOT EXISTS "start_date" text;
