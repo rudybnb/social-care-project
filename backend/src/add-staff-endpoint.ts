@@ -24,7 +24,7 @@ export async function addStaffAccounts(req: Request, res: Response) {
     
     // Check existing staff
     const existingStaff = await db.select().from(staff);
-    const existingUsernames = existingStaff.map(s => s.username);
+    const existingUsernames = existingStaff.map((s: { username: string }) => s.username);
     
     const created = [];
     const skipped = [];

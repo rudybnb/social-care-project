@@ -25,7 +25,7 @@ export async function fixShiftStaffIds(req: Request, res: Response) {
     
     for (const shift of allShifts) {
       // Find matching staff by name (case-insensitive)
-      const matchingStaff = allStaff.find(s => 
+      const matchingStaff = allStaff.find((s: { name: string; id: string }) =>
         s.name.toLowerCase() === shift.staffName.toLowerCase()
       );
       

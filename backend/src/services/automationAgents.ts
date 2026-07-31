@@ -300,12 +300,12 @@ async function checkCoverageGaps() {
       ));
 
     // Find unassigned or declined shifts
-    const gaps = upcomingShifts.filter(shift =>
+    const gaps = upcomingShifts.filter((shift: { staffId?: string | null; staffStatus?: string | null }) =>
       !shift.staffId || shift.staffStatus === 'declined'
     );
 
     if (gaps.length > 0) {
-      const gapDetails = gaps.map(gap => ({
+      const gapDetails = gaps.map((gap: { siteName: string; type: string; date: string; staffStatus?: string | null }) => ({
         site: gap.siteName,
         shiftType: gap.type,
         date: gap.date,
@@ -464,12 +464,12 @@ async function checkTomorrowCoverage() {
 
     const tomorrowShifts = await db.select().from(shifts).where(eq(shifts.date, tomorrowStr));
 
-    const gaps = tomorrowShifts.filter(shift =>
+    const gaps = tomorrowShifts.filter((shift: { staffId?: string | null; staffStatus?: string | null }) =>
       !shift.staffId || shift.staffStatus === 'declined'
     );
 
     if (gaps.length > 0) {
-      const gapDetails = gaps.map(gap => ({
+      const gapDetails = gaps.map((gap: { siteName: string; type: string; date: string; staffStatus?: string | null }) => ({
         site: gap.siteName,
         shiftType: gap.type,
         date: gap.date,
@@ -549,17 +549,18 @@ async function sendDailyPayrollOverview() {
 
     // Build Time Map
     const timeMap: Record<string, string> = {};
-    yesterdayShifts.forEach(s => {
+    yesterdayShifts.forEach((s: { staffName?: string | null; startTime: string; endTime: string; clockInTime?: unknown; clockOutTime?: unknown }) => {
       if (!s.staffName) return;
       const formatT = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
       let start = s.startTime;
       let end = s.endTime;
 
-      if (s.clockInTime) start = formatT(new Date(s.clockInTime));
-      if (s.clockOutTime) end = formatT(new Date(s.clockOutTime));
+      if (s.clockInTime) start = formatT(new Date(s.clockInTime as string | number | Date));
+      if (s.clockOutTime) end = formatT(new Date(s.clockOutTime as string | number | Date));
 
       const str = `${start}-${end}`;
-      timeMap[s.staffName] = timeMap[s.staffName] ? timeMap[s.staffName] + ', ' + str : str;
+      const name = s.staffName;
+      timeMap[name] = timeMap[name] ? timeMap[name] + ', ' + str : str;
     });
 
     let totalCost = 0;

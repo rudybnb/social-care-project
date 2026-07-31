@@ -124,11 +124,11 @@ export function initTelegramBot() {
                 const allStaff = await db.select().from(staff);
                 console.log(`[/fix] Found ${allStaff.length} staff members in DB`);
                 // Fuzzy match
-                const targetStaff = allStaff.find(s => s.name.toLowerCase().includes(staffNamePart.toLowerCase()));
+                const targetStaff = allStaff.find((s: { name: string }) => s.name.toLowerCase().includes(staffNamePart.toLowerCase()));
 
                 if (!targetStaff) {
                     // Show available staff names for debugging
-                    const staffNames = allStaff.map(s => s.name).slice(0, 15).join(', ');
+                    const staffNames = allStaff.map((s: { name: string }) => s.name).slice(0, 15).join(', ');
                     bot?.sendMessage(chatId,
                         `❌ Staff member containing "${staffNamePart}" not found.\n\n` +
                         `📋 Available staff (${allStaff.length} total):\n${staffNames || 'None found'}`
@@ -239,11 +239,11 @@ export function initTelegramBot() {
                 const allStaff = await db.select().from(staff);
                 console.log(`[/fixbatch] Found ${allStaff.length} staff members in DB`);
 
-                const targetStaff = allStaff.find(s => s.name.toLowerCase().includes(staffNamePart.toLowerCase()));
+                const targetStaff = allStaff.find((s: { name: string }) => s.name.toLowerCase().includes(staffNamePart.toLowerCase()));
 
                 if (!targetStaff) {
                     // Show available staff names for debugging
-                    const staffNames = allStaff.map(s => s.name).slice(0, 15).join(', ');
+                    const staffNames = allStaff.map((s: { name: string }) => s.name).slice(0, 15).join(', ');
                     bot?.sendMessage(chatId,
                         `❌ Staff member containing "${staffNamePart}" not found.\n\n` +
                         `📋 Available staff (${allStaff.length} total):\n${staffNames || 'None found'}`
@@ -295,7 +295,7 @@ export function initTelegramBot() {
                         const anyShifts = await db.select().from(shifts).where(
                             eq(shifts.staffName, targetStaff.name)
                         );
-                        const availableDates = anyShifts.map(s => s.date).slice(0, 5).join(', ');
+                        const availableDates = anyShifts.map((s: { date: string }) => s.date).slice(0, 5).join(', ');
                         results.push(`❌ No shift for "${targetStaff.name}" on ${targetDate} (Available: ${availableDates || 'none'})`);
                         errorCount++;
                         continue;
@@ -403,7 +403,8 @@ export function initTelegramBot() {
 
                 // Get all staff for rate lookup
                 const allStaff = await db.select().from(staff);
-                const staffMap = new Map(allStaff.map(s => [s.id, s]));
+                type StaffMemberRate = { id: string; name: string; nightRate?: string | null; standardRate?: string | null };
+                const staffMap = new Map<string, StaffMemberRate>(allStaff.map((s: StaffMemberRate) => [s.id, s]));
 
                 let totalCost = 0;
                 let totalHours = 0;

@@ -36,7 +36,7 @@ export const authSessions = pgTable('auth_sessions', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
-}, (table) => [
+}, (table: { staffId: unknown; expiresAt: unknown }) => [
   index('idx_auth_sessions_staff_id').on(table.staffId),
   index('idx_auth_sessions_expires_at').on(table.expiresAt),
 ]);

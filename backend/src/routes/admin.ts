@@ -85,7 +85,7 @@ router.post('/backfill-csv', async (req: Request, res: Response) => {
 
         // Get all staff to match names to IDs (optimisation: cache this map)
         const allStaff = await db.select().from(staff);
-        const staffMap = new Map(allStaff.map(s => [s.name.toLowerCase(), s.id]));
+        const staffMap = new Map(allStaff.map((s: { name: string; id: string }) => [s.name.toLowerCase(), s.id]));
 
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
@@ -192,7 +192,7 @@ router.get('/bulk-accept-now', async (req: Request, res: Response) => {
             success: true,
             message: `Processed Bulk Accept: Erith/Thamesmead (No Singita) for ${startDate} to ${endDate}`,
             count: updateResult.length,
-            updated: updateResult.map(s => `${s.date}: ${s.staffName} @ ${s.siteName}`)
+            updated: updateResult.map((s: { date: string; staffName: string; siteName: string }) => `${s.date}: ${s.staffName} @ ${s.siteName}`)
         });
 
     } catch (error: any) {

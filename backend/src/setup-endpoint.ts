@@ -34,7 +34,7 @@ export async function setupDatabase(req: Request, res: Response) {
     
     // Check existing staff
     const existingStaff = await db.select().from(staff);
-    const existingUsernames = existingStaff.map(s => s.username);
+    const existingUsernames = existingStaff.map((s: Record<string, unknown>) => s.username);
     
     let createdCount = 0;
     for (const account of testAccounts) {

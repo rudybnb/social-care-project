@@ -82,10 +82,8 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
             const logEntries: string[] = [];
 
             // Sort shifts by date and time
-            weeklyShifts.sort((a, b) => {
-                // Primary sort: Date
+            weeklyShifts.sort((a: { date: string; startTime: string }, b: { date: string; startTime: string }) => {
                 if (a.date !== b.date) return a.date.localeCompare(b.date);
-                // Secondary sort: Start Time
                 return a.startTime.localeCompare(b.startTime);
             });
 
@@ -274,7 +272,7 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
         }
 
         const uniqueNotes = new Set<string>();
-        myShifts.forEach(s => {
+        myShifts.forEach((s: { notes?: string | null; declineReason?: string | null }) => {
             if (s.notes) uniqueNotes.add(s.notes);
             if (s.declineReason) uniqueNotes.add(`Declined: ${s.declineReason}`);
         });
@@ -312,10 +310,10 @@ export async function auditSingleShift(shiftId: string) {
 
     // For now, let's just dump the raw rates and the logical categorization.
 
-    const shift = await db.select().from(shifts).where(eq(shifts.id, shiftId)).limit(1).then(r => r[0]);
+    const shift = await db.select().from(shifts).where(eq(shifts.id, shiftId)).limit(1).then((r: Array<{ id: string; staffId: string; date: string; startTime: string }>) => r[0]);
     if (!shift) throw new Error("Shift not found");
 
-    const person = await db.select().from(staff).where(eq(staff.id, shift.staffId)).limit(1).then(r => r[0]);
+    const person = await db.select().from(staff).where(eq(staff.id, shift.staffId)).limit(1).then((r: Array<{ name: string }>) => r[0]);
 
     // Get Week Context
     const date = new Date(shift.date);
@@ -337,7 +335,7 @@ export async function auditSingleShift(shiftId: string) {
 
     // Calculate position of this shift
     // Sort by date/time
-    weekShifts.sort((a, b) => {
+    weekShifts.sort((a: { date: string; startTime: string }, b: { date: string; startTime: string }) => {
         const dtA = new Date(`${a.date}T${a.startTime}`);
         const dtB = new Date(`${b.date}T${b.startTime}`);
         return dtA.getTime() - dtB.getTime();

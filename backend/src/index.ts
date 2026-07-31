@@ -1049,8 +1049,8 @@ app.post('/api/staff/lookup', async (req: Request, res: Response) => {
     const allStaff = await db.select().from(staff);
 
     // Find matching staff
-    const matchingStaff = allStaff.find(s =>
-      s.phone && s.phone.endsWith(phoneDigits)
+    const matchingStaff = allStaff.find((s: { phone?: string | null }) =>
+      typeof s.phone === 'string' && s.phone.endsWith(phoneDigits)
     );
 
     if (!matchingStaff) {
@@ -2120,8 +2120,8 @@ app.post('/api/admin/recalculate-durations', async (_req: Request, res: Response
     console.log(`[RecalcDurations] Found ${allShifts.length} total shifts`);
 
     // Filter to completed shifts
-    const completedShifts = allShifts.filter(s =>
-      s.clockedIn === true && s.clockedOut === true && s.clockInTime && s.clockOutTime
+    const completedShifts = allShifts.filter((s: { clockedIn?: boolean | null; clockedOut?: boolean | null; clockInTime?: unknown; clockOutTime?: unknown }) =>
+      s.clockedIn === true && s.clockedOut === true && Boolean(s.clockInTime) && Boolean(s.clockOutTime)
     );
     console.log(`[RecalcDurations] ${completedShifts.length} are completed with clock times`);
 
