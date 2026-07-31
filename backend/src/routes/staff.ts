@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { staff } from '../schema.js';
 import { eq, or, sql } from 'drizzle-orm';
-import { createAuthenticateRequest } from '../middleware/auth.js';
+import { createAuthenticateRequest, requireAdmin } from '../middleware/auth.js';
 
 type DbLike = any;
 
@@ -35,7 +35,7 @@ export function createStaffRouter(database: DbLike): Router {
   const authenticateRequest = createAuthenticateRequest(database);
 
   // GET / — list or search staff
-  router.get('/', authenticateRequest, async (req: Request, res: Response) => {
+  router.get('/', authenticateRequest, requireAdmin, async (req: Request, res: Response) => {
     try {
       if (!database) return res.status(500).json({ error: 'Database not configured' });
 
@@ -70,7 +70,7 @@ export function createStaffRouter(database: DbLike): Router {
   });
 
   // GET /:id — get a single staff member
-  router.get('/:id', authenticateRequest, async (req: Request, res: Response) => {
+  router.get('/:id', authenticateRequest, requireAdmin, async (req: Request, res: Response) => {
     try {
       if (!database) return res.status(500).json({ error: 'Database not configured' });
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Overview from '../components/Overview';
 import Rota from '../components/Rota';
@@ -14,7 +15,10 @@ import RemittancesList from '../components/RemittancesList';
 
 const AdminDashboard: React.FC = () => {
   const { logout, user } = useAuth();
-  const [currentPage, setCurrentPage] = useState('overview');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const subPath = location.pathname.replace(/^\/admin\/?/, '');
+  const currentPage = subPath || 'overview';
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
   const [pendingUnscheduledCount, setPendingUnscheduledCount] = useState(0);
@@ -60,7 +64,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleMenuClick = (pageId: string) => {
-    setCurrentPage(pageId);
+    navigate(`/admin/${pageId}`);
     setSidebarOpen(false); // Close sidebar on mobile after selection
   };
 
@@ -372,50 +376,6 @@ const AdminDashboard: React.FC = () => {
             >
               ☰
             </button>
-            <span style={{ color: 'white', fontSize: '13px', fontWeight: 'bold', display: window.innerWidth <= 480 ? 'none' : 'inline' }}>DEV MODE:</span>
-            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', flexWrap: 'nowrap' }}>
-              <button style={{
-                padding: '6px 12px',
-                backgroundColor: '#7c3aed',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: '600',
-                whiteSpace: 'nowrap',
-                flexShrink: 0
-              }}>
-                Admin
-              </button>
-              <button style={{
-                padding: '6px 12px',
-                backgroundColor: '#7c3aed',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: '600',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                display: window.innerWidth <= 480 ? 'none' : 'block'
-              }}>
-                Manager
-              </button>
-              <button style={{
-                padding: '6px 12px',
-                backgroundColor: '#7c3aed',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: '600',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                display: window.innerWidth <= 480 ? 'none' : 'block'
-              }}>
-                Worker
-              </button>
-            </div>
           </div>
           <button
             onClick={handleLogout}

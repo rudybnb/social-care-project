@@ -10,6 +10,7 @@ import {
   validateSessionToken,
 } from '../services/sessionService.js';
 
+
 class FakeDb {
   public sessions: any[] = [];
   public selectQueue: any[][] = [];
@@ -173,18 +174,31 @@ function makeResponse() {
   };
 }
 
+async function withAuthEnforcement<T>(fn: () => Promise<T>): Promise<T> {
+  const previous = process.env.AUTH_ENFORCEMENT;
+  process.env.AUTH_ENFORCEMENT = 'true';
+  try {
+    return await fn();
+  } finally {
+    if (previous === undefined) delete process.env.AUTH_ENFORCEMENT;
+    else process.env.AUTH_ENFORCEMENT = previous;
+  }
+}
+
 async function invokeRoute(router: any, method: 'get' | 'post', routePath: string, req: any) {
-  const layer = router.stack.find((item: any) => item.route?.path === routePath && item.route?.methods?.[method]);
-  if (!layer) return makeResponse(); // route not found
-  const handlers = layer.route.stack.map((item: any) => item.handle);
-  const res = makeResponse();
-  let index = 0;
-  const next = async () => {
-    const handler = handlers[index++];
-    if (handler) await handler(req, res, next);
-  };
-  await next();
-  return res;
+  return withAuthEnforcement(async () => {
+    const layer = router.stack.find((item: any) => item.route?.path === routePath && item.route?.methods?.[method]);
+    if (!layer) return makeResponse(); // route not found
+    const handlers = layer.route.stack.map((item: any) => item.handle);
+    const res = makeResponse();
+    let index = 0;
+    const next = async () => {
+      const handler = handlers[index++];
+      if (handler) await handler(req, res, next);
+    };
+    await next();
+    return res;
+  });
 }
 
 // ---------- Tests ----------
@@ -474,4 +488,258 @@ test('q is limited to 100 characters', async () => {
   const pattern = sqlStrings.find((s) => s.startsWith('%'));
   assert.ok(pattern, 'expected a pattern param in search condition');
   assert.equal(pattern.length, 102);
+});
+
+test('search condition covers every supported field', async () => {
+  const db = new FakeDb({
+    selectQueue: makeAuthSelectQueue([makeStaff({ id: 'staff-1' })]),
+  });
+
+  const token = await createSession(db, 'staff-admin-1');
+  const router = createStaffRouter(db);
+
+  const res = await invokeRoute(router, 'get', '/', {
+    headers: { authorization: `Bearer ${token.token}` },
+    query: { q: 'thamesmead' },
+  });
+
+  assert.equal(res.statusCode, 200);
+
+  const searchCall = findSearchCall(db);
+  assert.ok(searchCall, 'expected a search select call');
+
+  const sqlStrings: string[] = [];
+  flattenSqlChunks(searchCall.condition, sqlStrings);
+  const ilikeCount = sqlStrings.filter((s) => s.includes('ILIKE')).length;
+  assert.equal(ilikeCount, 6, 'expected one ILIKE condition per supported field');
+  assert.equal(sqlStrings.filter((s) => s.includes('%thamesmead%')).length, 6, 'expected the pattern to apply to every field');
+});
+
+test('search by role returns matching staff', async () => {
+  const db = new FakeDb({
+    selectQueue: makeAuthSelectQueue([makeStaff({ id: 'staff-1', role: 'Manager' })]),
+  });
+
+  const token = await createSession(db, 'staff-admin-1');
+  const router = createStaffRouter(db);
+
+  const res = await invokeRoute(router, 'get', '/', {
+    headers: { authorization: `Bearer ${token.token}` },
+    query: { q: 'manager' },
+  });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.length, 1);
+  assert.equal(res.payload[0].role, 'Manager');
+});
+
+test('search applies a 50-result limit at the database level', async () => {
+  const db = new FakeDb({
+    selectQueue: makeAuthSelectQueue([makeStaff({ id: 'staff-1' })]),
+  });
+
+  const token = await createSession(db, 'staff-admin-1');
+  const router = createStaffRouter(db);
+
+  const res = await invokeRoute(router, 'get', '/', {
+    headers: { authorization: `Bearer ${token.token}` },
+    query: { q: 'alice' },
+  });
+
+  assert.equal(res.statusCode, 200);
+
+  const searchCall = findSearchCall(db);
+  assert.ok(searchCall, 'expected a search select call');
+  assert.equal(searchCall.limit, 50);
+});
+
+test('expired session is rejected with 401 for search and get-by-id', async () => {
+  const previousEnv = process.env.AUTH_ENFORCEMENT;
+  process.env.AUTH_ENFORCEMENT = 'true';
+  try {
+    for (const routePath of ['/', '/:id']) {
+      const db = new FakeDb({
+        selectQueue: [[makeSession({ expiresAt: new Date(Date.now() - 1_000) })]],
+      });
+
+      const token = generateSessionToken();
+      const router = createStaffRouter(db);
+
+      const res = await invokeRoute(router, 'get', routePath, {
+        headers: { authorization: `Bearer ${token}` },
+        query: {},
+        params: { id: 'staff-1' },
+      });
+
+      assert.equal(res.statusCode, 401, `expected 401 for ${routePath}`);
+      assert.equal(res.payload.error, 'Authentication required');
+    }
+  } finally {
+    if (previousEnv === undefined) delete process.env.AUTH_ENFORCEMENT;
+    else process.env.AUTH_ENFORCEMENT = previousEnv;
+  }
+});
+
+test('revoked session is rejected with 401 for protected staff routes', async () => {
+  const previousEnv = process.env.AUTH_ENFORCEMENT;
+  process.env.AUTH_ENFORCEMENT = 'true';
+  try {
+    const db = new FakeDb({
+      selectQueue: [[makeSession({ revokedAt: new Date() })]],
+    });
+
+    const token = generateSessionToken();
+    const router = createStaffRouter(db);
+
+    const res = await invokeRoute(router, 'get', '/', {
+      headers: { authorization: `Bearer ${token}` },
+      query: {},
+    });
+
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.payload.error, 'Authentication required');
+  } finally {
+    if (previousEnv === undefined) delete process.env.AUTH_ENFORCEMENT;
+    else process.env.AUTH_ENFORCEMENT = previousEnv;
+  }
+});
+
+test('non-admin user cannot access admin staff search', async () => {
+  const db = new FakeDb({
+    selectQueue: [
+      [makeSession()],
+      [makeStaff({ id: 'staff-worker-1', role: 'Worker' })],
+    ],
+  });
+
+  const token = await createSession(db, 'staff-worker-1');
+  const router = createStaffRouter(db);
+
+  const res = await invokeRoute(router, 'get', '/', {
+    headers: { authorization: `Bearer ${token.token}` },
+    query: {},
+  });
+
+  assert.ok(res.statusCode === 401 || res.statusCode === 403, `expected 401 or 403, got ${res.statusCode}`);
+});
+
+test('admin/admin123 credentials and legacy fallback login do not exist', async () => {
+  const db = new FakeDb({ selectQueue: [[]] }); // Database returns no staff for 'admin'
+  const { createAuthRouter } = await import('../routes/auth.js');
+  const authRouter = createAuthRouter(db);
+
+  const adminLoginRes = await invokeRoute(authRouter, 'post', '/admin/login', {
+    body: { username: 'admin', password: 'admin123' },
+    ip: '127.0.0.1',
+    headers: {},
+  });
+
+  assert.equal(adminLoginRes.statusCode, 401);
+  assert.equal(adminLoginRes.payload.error, 'Invalid username or password');
+
+  const legacyFallbackRes = await invokeRoute(authRouter, 'post', '/login', {
+    body: { username: 'admin', password: 'admin123' },
+    ip: '127.0.0.1',
+    headers: {},
+  });
+
+  assert.equal(legacyFallbackRes.payload, undefined); // Route not found
+});
+
+test('production inventory query returns only non-sensitive staff fields', async () => {
+  const { getProductionInventoryQuery, STAGING_INVENTORY_FIELDS } = await import('../services/stagingCopyService.js');
+  const inventoryInfo = getProductionInventoryQuery();
+
+  const expectedFields = ['id', 'username', 'name', 'role', 'site', 'status'];
+  assert.deepEqual([...STAGING_INVENTORY_FIELDS], expectedFields);
+  assert.equal(inventoryInfo.sql, 'SELECT id, username, name, role, site, status FROM staff ORDER BY id;');
+
+  for (const forbidden of ['email', 'password', 'rates', 'standardRate', 'pension', 'tax', 'phone', 'auth_sessions']) {
+    assert.equal(inventoryInfo.sql.includes(forbidden), false, `forbidden field ${forbidden} must not be in inventory query`);
+  }
+});
+
+test('staging copy query uses parameterised UUID placeholders and approved fields', async () => {
+  const { getProductionStagingCopyQuery, STAGING_COPY_APPROVED_FIELDS } = await import('../services/stagingCopyService.js');
+
+  const validUuid1 = '12345678-1234-1234-1234-1234567890ab';
+  const validUuid2 = '87654321-4321-4321-4321-ba0987654321';
+
+  const approvedFields = ['id', 'name', 'email', 'username', 'role', 'site', 'status'];
+  assert.deepEqual([...STAGING_COPY_APPROVED_FIELDS], approvedFields);
+
+  const queryInfo = getProductionStagingCopyQuery([validUuid1, validUuid2]);
+  assert.equal(queryInfo.sql, 'SELECT id, name, email, username, role, site, status FROM staff WHERE id NOT IN ($1, $2);');
+  assert.deepEqual(queryInfo.params, [validUuid1, validUuid2]);
+  assert.equal(queryInfo.excludedCount, 2);
+
+  for (const malformed of ['admin', '12345', 'not-a-uuid-string', '']) {
+    assert.throws(() => {
+      getProductionStagingCopyQuery([malformed]);
+    }, /Invalid UUID/);
+  }
+});
+
+test('staging copy execution guards enforce ALLOW_STAGING_DATA_COPY=true and destination validation', async () => {
+  const { validateStagingCopyGuards } = await import('../services/stagingCopyService.js');
+
+  const validUuid = '12345678-1234-1234-1234-1234567890ab';
+  const validOptions = {
+    sourceDatabaseUrl: 'postgres://prod_user:secret@prod-db.render.com/prod_db',
+    destinationDatabaseUrl: 'postgres://staging_user:secret@staging-db.render.com/staging_db',
+    isStagingDestinationConfirmed: true,
+    confirmedDemoUuidExclusions: [validUuid],
+  };
+
+  const prevEnv = process.env.ALLOW_STAGING_DATA_COPY;
+  try {
+    delete process.env.ALLOW_STAGING_DATA_COPY;
+
+    assert.throws(() => {
+      validateStagingCopyGuards(validOptions);
+    }, /ALLOW_STAGING_DATA_COPY=true is required/);
+
+    process.env.ALLOW_STAGING_DATA_COPY = 'true';
+
+    assert.doesNotThrow(() => {
+      validateStagingCopyGuards(validOptions);
+    });
+
+    assert.throws(() => {
+      validateStagingCopyGuards({ ...validOptions, destinationDatabaseUrl: validOptions.sourceDatabaseUrl });
+    }, /Source and destination database connection strings match/);
+
+    assert.throws(() => {
+      validateStagingCopyGuards({ ...validOptions, sourceDatabaseUrl: 'postgres://user:pass@localhost:5432/db' });
+    }, /Localhost test database cannot be used/);
+
+    assert.throws(() => {
+      validateStagingCopyGuards({ ...validOptions, destinationDatabaseUrl: 'postgres://user:pass@staging-host:5432/social_care_auth_test' });
+    }, /Destination cannot be localhost or test database/);
+
+    assert.throws(() => {
+      validateStagingCopyGuards({ ...validOptions, destinationDatabaseUrl: 'postgres://user:pass@staging-host:5432/prod_db' });
+    }, /Destination database name matches production/);
+
+    assert.throws(() => {
+      validateStagingCopyGuards({ ...validOptions, isStagingDestinationConfirmed: false });
+    }, /Destination must be explicitly confirmed as a staging environment/);
+
+    assert.throws(() => {
+      validateStagingCopyGuards({ ...validOptions, confirmedDemoUuidExclusions: ['admin'] });
+    }, /not a valid UUID/);
+  } finally {
+    if (prevEnv === undefined) delete process.env.ALLOW_STAGING_DATA_COPY;
+    else process.env.ALLOW_STAGING_DATA_COPY = prevEnv;
+  }
+});
+
+test('standalone staging copy is isolated from backend startup and HTTP routes', async () => {
+  const fs = await import('fs');
+  const path = await import('path');
+  const indexPath = path.join(process.cwd(), 'src', 'index.ts');
+  const indexContent = fs.readFileSync(indexPath, 'utf8');
+
+  assert.equal(indexContent.includes('stagingCopyService'), false, 'index.ts must not import stagingCopyService');
+  assert.equal(indexContent.includes('copy-staging-data'), false, 'index.ts must not import copy-staging-data');
 });

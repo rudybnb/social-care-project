@@ -1,39 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { getShifts, subscribeToDataChange, getStaff, addStaff, updateStaff, deleteStaff, StaffMember, Agency, AgencyWorker, getAgencies, addAgency, updateAgency, deleteAgency, getAgencyWorkers, addAgencyWorker, updateAgencyWorker, deleteAgencyWorker } from '../data/sharedData';
-import { calculateWeeklyHours } from '../utils/hoursCalculator';
-import StaffQRCodeModal from './StaffQRCodeModal';
+import { useNavigate } from 'react-router-dom';
+import { subscribeToDataChange, Agency, AgencyWorker, getAgencies, addAgency, updateAgency, deleteAgency, getAgencyWorkers, addAgencyWorker, updateAgencyWorker, deleteAgencyWorker } from '../data/sharedData';
+import { useAuth } from '../context/AuthContext';
+import { staffAPI, StaffAuthError, SafeStaff } from '../services/api';
 
 const Directory: React.FC = () => {
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
+  const { token, clearSession } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'staff' | 'agency'>('staff');
-  const [qrModalStaff, setQrModalStaff] = useState<{ id: string | number; name: string } | null>(null);
-  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
 
-  // Staff state
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    username: '',
-    password: '',
-    role: 'Worker',
-    site: 'All Sites',
-    employmentType: 'Full-time',
-    startDate: '',
-    taxCode: '',
-    standardRate: '12.50',
-    enhancedRate: '',
-    nightRate: '',
-    pension: '',
-    otherDeductions: '',
-    daysPerWeek: 5
-  });
-
-  const [shifts, setShifts] = useState(getShifts());
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>(getStaff());
+  // Staff search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SafeStaff[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchAuthExpired, setSearchAuthExpired] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchPerformed, setSearchPerformed] = useState(false);
 
   // Agency state
   const [agencies, setAgencies] = useState<Agency[]>(getAgencies());
@@ -60,166 +42,36 @@ const Directory: React.FC = () => {
   // Subscribe to changes
   useEffect(() => {
     const unsubscribe = subscribeToDataChange(() => {
-      setShifts(getShifts());
-      setStaffMembers(getStaff());
       setAgencies(getAgencies());
       setAgencyWorkers(getAgencyWorkers());
     });
     return unsubscribe;
   }, []);
 
-  // Staff handlers
-  const handleSubmit = async () => {
-    if (!formData.firstName || !formData.lastName) {
-      alert('Please enter at least first and last name');
-      return;
-    }
-
-    const newStaff: Partial<StaffMember> = {
-      name: `${formData.firstName} ${formData.lastName}`,
-      email: formData.email || undefined,
-      phone: formData.phone || undefined,
-      username: formData.username || undefined,
-      password: formData.password || undefined,
-      role: formData.role,
-      site: formData.site,
-      status: 'Active',
-      standardRate: formData.standardRate,
-      enhancedRate: formData.enhancedRate || '—',
-      nightRate: formData.nightRate || '—',
-      rates: `Standard: £${formData.standardRate}/h (0-20h) • Enhanced: £${formData.enhancedRate || '—'}/h (20h+) • Night: £${formData.nightRate || '—'}/h`,
-      pension: formData.pension ? `${formData.pension}%` : '—',
-      deductions: formData.otherDeductions ? `£${formData.otherDeductions}` : '£0.00',
-      tax: formData.taxCode || '—',
-      weeklyHours: 0,
-      daysPerWeek: formData.daysPerWeek
-    };
-
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = searchQuery.trim();
+    setSearchError(null);
+    setSearchAuthExpired(false);
+    setSearchPerformed(true);
+    setIsSearching(true);
+    setSearchResults(null);
     try {
-      await addStaff(newStaff);
-
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        username: '',
-        password: '',
-        role: 'Worker',
-        site: 'All Sites',
-        employmentType: 'Full-time',
-        startDate: '',
-        taxCode: '',
-        standardRate: '12.50',
-        enhancedRate: '',
-        nightRate: '',
-        pension: '',
-        otherDeductions: '',
-        daysPerWeek: 5
-      });
-
-      alert(`✅ Staff member ${newStaff.name} added successfully!\n\nUsername: ${newStaff.username || 'Not set'}\nPassword: Set (hashed)`);
-    } catch (error) {
-      alert('❌ Failed to add staff member. Please try again.');
-      console.error('Error:', error);
+      const results = await staffAPI.search(query, token);
+      const validResults = (results || []).filter(
+        (s) => s && typeof s.name === 'string' && s.name.trim() !== ''
+      );
+      setSearchResults(validResults);
+    } catch (err) {
+      if (err instanceof StaffAuthError) {
+        setSearchAuthExpired(true);
+        clearSession();
+      } else {
+        setSearchError(err instanceof Error ? err.message : 'Failed to search staff. Please try again.');
+      }
+    } finally {
+      setIsSearching(false);
     }
-  };
-
-  const handleDeactivate = (id: number | string, name: string) => {
-    if (window.confirm(`Are you sure you want to deactivate ${name}?`)) {
-      updateStaff(id, { status: 'Inactive' });
-      alert(`${name} has been deactivated`);
-    }
-  };
-
-  const handleDelete = (id: number | string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete ${name}? This action cannot be undone.`)) {
-      deleteStaff(id);
-      alert(`${name} has been deleted`);
-    }
-  };
-
-  const handleEdit = (staff: StaffMember) => {
-    setEditingStaff(staff);
-    const nameParts = staff.name.split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-
-    setFormData({
-      firstName,
-      lastName,
-      email: staff.email || '',
-      phone: staff.phone || '',
-      username: staff.username || '',
-      password: '',
-      role: staff.role || 'Worker',
-      site: staff.site || 'All Sites',
-      employmentType: 'Full-time',
-      startDate: staff.startDate || '',
-      taxCode: staff.tax || '',
-      standardRate: staff.standardRate || '12.50',
-      enhancedRate: staff.enhancedRate || '',
-      nightRate: staff.nightRate || '',
-      pension: staff.pension || '',
-      otherDeductions: staff.deductions || '',
-      daysPerWeek: staff.daysPerWeek ?? 5
-    });
-    setShowEditModal(true);
-  };
-
-  const handleUpdateStaff = () => {
-    if (!editingStaff) return;
-
-    if (!formData.firstName || !formData.lastName || !formData.standardRate) {
-      alert('Please fill in required fields: First Name, Last Name, and Standard Rate');
-      return;
-    }
-
-    const updatedStaff: any = {
-      name: `${formData.firstName} ${formData.lastName}`,
-      email: formData.email,
-      phone: formData.phone,
-      username: formData.username,
-      role: formData.role,
-      site: formData.site,
-      startDate: formData.startDate,
-      tax: formData.taxCode,
-      standardRate: formData.standardRate,
-      enhancedRate: formData.enhancedRate,
-      nightRate: formData.nightRate,
-      pension: formData.pension,
-      deductions: formData.otherDeductions,
-      daysPerWeek: formData.daysPerWeek
-    };
-
-    // Only include password if a new one was entered
-    if (formData.password && formData.password.trim() !== '') {
-      updatedStaff.password = formData.password;
-    }
-
-    updateStaff(editingStaff.id, updatedStaff);
-    setShowEditModal(false);
-    setEditingStaff(null);
-    setFormData({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      username: '',
-      password: '',
-      role: 'Worker',
-      site: 'All Sites',
-      employmentType: 'Full-time',
-      startDate: '',
-      taxCode: '',
-      standardRate: '12.50',
-      enhancedRate: '',
-      nightRate: '',
-      pension: '',
-      otherDeductions: '',
-      daysPerWeek: 5
-    });
-    alert(`${updatedStaff.name} updated successfully!`);
   };
 
   // Agency handlers
@@ -311,99 +163,9 @@ const Directory: React.FC = () => {
     }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordInput === '123admin') {
-      setIsUnlocked(true);
-      setPasswordInput('');
-    } else {
-      alert('❌ Incorrect password');
-      setPasswordInput('');
-    }
+  const handleViewProfile = (staffId: string) => {
+    navigate(`/admin/directory/staff/${staffId}`);
   };
-
-  // Show password screen if not unlocked
-  if (!isUnlocked) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '100vh',
-        backgroundColor: '#0a0a0a',
-        padding: '20px'
-      }}>
-        <div style={{
-          backgroundColor: '#1a1a1a',
-          border: '1px solid #3a3a3a',
-          borderRadius: '16px',
-          padding: '40px',
-          maxWidth: '400px',
-          width: '100%',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
-            <h2 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>
-              Directory Access
-            </h2>
-            <p style={{ color: '#9ca3af', fontSize: '14px' }}>
-              This page is password protected
-            </p>
-          </div>
-          <form onSubmit={handlePasswordSubmit}>
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{
-                display: 'block',
-                color: '#9ca3af',
-                fontSize: '14px',
-                fontWeight: '600',
-                marginBottom: '8px'
-              }}>
-                Password
-              </label>
-              <input
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                placeholder="Enter password"
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  backgroundColor: '#0a0a0a',
-                  border: '1px solid #3a3a3a',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '16px',
-                  outline: 'none'
-                }}
-                autoFocus
-              />
-            </div>
-            <button
-              type="submit"
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#8b5cf6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#7c3aed'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#8b5cf6'}
-            >
-              🔓 Unlock Directory
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div style={{ padding: '20px 16px', maxWidth: '1400px', margin: '0 auto' }}>
@@ -461,7 +223,7 @@ const Directory: React.FC = () => {
       {/* Staff Tab Content */}
       {activeTab === 'staff' && (
         <>
-          {/* Add Staff Form */}
+          {/* Search Staff */}
           <div style={{
             backgroundColor: '#2a2a2a',
             borderRadius: '12px',
@@ -469,607 +231,182 @@ const Directory: React.FC = () => {
             border: '1px solid #3a3a3a',
             marginBottom: '24px'
           }}>
-            <h2 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '20px' }}>
-              Add New Staff Member
-            </h2>
-
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-              gap: '16px',
-              marginBottom: '24px'
-            }}>
-              {/* First Name */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  First Name *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., John"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              {/* Last Name */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Last Name *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Doe"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Email
-                </label>
-                <input
-                  type="email"
-                  placeholder="e.g., staff@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Phone Number <span style={{ color: '#9333ea' }}>*</span>
-                </label>
-                <input
-                  type="tel"
-                  placeholder="e.g., 07123456789"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-                <div style={{ fontSize: '11px', color: '#888', marginTop: '4px' }}>
-                  Staff will use last 4 digits to clock in/out
-                </div>
-              </div>
-
-              {/* Username */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Username (for login)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., lauren.alecia"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              {/* Password */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Temporary Password
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., temp123"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              {/* Role */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Role
-                </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    cursor: 'pointer',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                >
-                  <option value="Worker">Worker</option>
-                  <option value="Site Manager">Site Manager</option>
-                  <option value="Admin">Admin</option>
-                </select>
-              </div>
-
-              {/* Site */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Site
-                </label>
-                <select
-                  value={formData.site}
-                  onChange={(e) => setFormData({ ...formData, site: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    cursor: 'pointer',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                >
-                  <option value="All Sites">All Sites</option>
-                  <option value="Thamesmead Care Home">Thamesmead Care Home</option>
-                  <option value="Rochester Care Home">Rochester Care Home</option>
-                  <option value="Erith Care Home">Erith Care Home</option>
-                </select>
-              </div>
-
-              {/* Start Date */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              {/* Days Per Week */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Days Per Week
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="7"
-                  value={formData.daysPerWeek}
-                  onChange={(e) => setFormData({ ...formData, daysPerWeek: Number(e.target.value) })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              {/* Standard Rate */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Standard Rate (£/h) - First 20h/week *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="12.50"
-                  value={formData.standardRate}
-                  onChange={(e) => setFormData({ ...formData, standardRate: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              {/* Enhanced Rate */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Enhanced Rate (£/h) - After 20h/week
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="15.00"
-                  value={formData.enhancedRate}
-                  onChange={(e) => setFormData({ ...formData, enhancedRate: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              {/* Night Rate */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Night Rate (£/h)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="18.00"
-                  value={formData.nightRate}
-                  onChange={(e) => setFormData({ ...formData, nightRate: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              {/* Tax Code */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Tax Code
-                </label>
-                <input
-                  type="text"
-                  placeholder="1257L"
-                  value={formData.taxCode}
-                  onChange={(e) => setFormData({ ...formData, taxCode: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              {/* Pension */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Pension (%)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  placeholder="5"
-                  value={formData.pension}
-                  onChange={(e) => setFormData({ ...formData, pension: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              {/* Other Deductions */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Other Deductions (£)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.otherDeductions}
-                  onChange={(e) => setFormData({ ...formData, otherDeductions: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-            </div>
-
-            <button
-              onClick={handleSubmit}
-              style={{
-                width: '100%',
-                padding: '14px',
-                backgroundColor: '#9333ea',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '15px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#7c3aed'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#9333ea'}
-            >
-              Add Staff Member
-            </button>
-          </div>
-
-          {/* Staff List */}
-          <div>
             <h2 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
-              Staff Members ({staffMembers.length})
+              Search Staff
             </h2>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-              gap: '16px'
-            }}>
-              {staffMembers.map((staff) => (
-                <div
-                  key={staff.id}
-                  style={{
-                    backgroundColor: '#2a2a2a',
-                    borderRadius: '12px',
-                    padding: '20px',
-                    border: '1px solid #3a3a3a'
-                  }}
-                >
-                  <div style={{ marginBottom: '12px' }}>
-                    <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
-                      {staff.name}
-                    </h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                      <span style={{ color: '#9ca3af', fontSize: '13px' }}>{staff.role}</span>
-                      <span style={{ color: '#6b7280', fontSize: '13px' }}>•</span>
-                      <span style={{ color: '#9ca3af', fontSize: '13px' }}>{staff.site}</span>
-                    </div>
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '4px 10px',
-                      backgroundColor: staff.status === 'Active' ? '#10b98120' : '#6b728020',
-                      color: staff.status === 'Active' ? '#10b981' : '#6b7280',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      fontWeight: '600'
-                    }}>
-                      <span style={{ width: '5px', height: '5px', backgroundColor: staff.status === 'Active' ? '#10b981' : '#6b7280', borderRadius: '50%', display: 'inline-block' }}></span>
-                      {staff.status}
-                    </span>
-                  </div>
+            <form
+              onSubmit={handleSearch}
+              style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}
+            >
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, username, role, site, status or email..."
+                disabled={isSearching}
+                style={{
+                  flex: 1,
+                  minWidth: '220px',
+                  padding: '12px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box',
+                  outline: 'none'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#9333ea'}
+                onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+              />
+              <button
+                type="submit"
+                disabled={isSearching}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#9333ea',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: isSearching ? 'not-allowed' : 'pointer',
+                  opacity: isSearching ? 0.6 : 1,
+                  whiteSpace: 'nowrap'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSearching) e.currentTarget.style.backgroundColor = '#7c3aed';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSearching) e.currentTarget.style.backgroundColor = '#9333ea';
+                }}
+              >
+                {isSearching ? 'Searching...' : 'Search'}
+              </button>
+            </form>
 
-                  <div style={{
-                    paddingTop: '12px',
-                    borderTop: '1px solid #2a2a2a',
-                    color: '#9ca3af',
-                    fontSize: '12px',
-                    lineHeight: '1.8',
-                    marginBottom: '14px'
-                  }}>
-                    <div style={{ marginBottom: '4px' }}>
-                      <span style={{ color: '#6b7280' }}>Rates:</span> {staff.rates}
-                    </div>
-                    <div>
-                      <span style={{ color: '#6b7280' }}>Pension:</span> {staff.pension} •
-                      <span style={{ color: '#6b7280' }}> Deductions:</span> {staff.deductions} •
-                      <span style={{ color: '#6b7280' }}> Tax:</span> {staff.tax}
-                    </div>
-                  </div>
+            {isSearching && (
+              <div style={{ color: '#9ca3af', fontSize: '14px', padding: '8px 0' }}>
+                Loading staff...
+              </div>
+            )}
 
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button
-                      onClick={() => handleDeactivate(staff.id, staff.name)}
-                      disabled={staff.status === 'Inactive'}
-                      style={{
-                        flex: '1 1 auto',
-                        minWidth: '120px',
-                        padding: '10px 16px',
-                        backgroundColor: staff.status === 'Inactive' ? '#3a3a3a' : '#6b7280',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '7px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: staff.status === 'Inactive' ? 'not-allowed' : 'pointer',
-                        opacity: staff.status === 'Inactive' ? 0.5 : 1
-                      }}
-                    >
-                      Deactivate
-                    </button>
-                    <button
-                      onClick={() => setQrModalStaff({ id: staff.id, name: staff.name })}
-                      style={{
-                        flex: '1 1 auto',
-                        minWidth: '100px',
-                        padding: '10px 16px',
-                        backgroundColor: '#8b5cf6',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '7px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      📱 QR
-                    </button>
-                    <button
-                      onClick={() => handleEdit(staff)}
-                      style={{
-                        flex: '1 1 auto',
-                        minWidth: '100px',
-                        padding: '10px 16px',
-                        backgroundColor: '#3b82f6',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '7px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(staff.id, staff.name)}
-                      style={{
-                        flex: '1 1 auto',
-                        minWidth: '100px',
-                        padding: '10px 16px',
-                        backgroundColor: '#ef4444',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '7px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      🗑️ Delete
-                    </button>
-                  </div>
+            {searchAuthExpired && (
+              <div style={{
+                padding: '12px 16px',
+                backgroundColor: '#ef444420',
+                border: '1px solid #ef4444',
+                borderRadius: '8px',
+                color: '#f87171',
+                fontSize: '14px',
+                marginBottom: '16px'
+              }}>
+                Your session has expired. Please log out and sign in again to search staff.
+              </div>
+            )}
+
+            {!searchAuthExpired && searchError && (
+              <div style={{
+                padding: '12px 16px',
+                backgroundColor: '#ef444420',
+                border: '1px solid #ef4444',
+                borderRadius: '8px',
+                color: '#f87171',
+                fontSize: '14px',
+                marginBottom: '16px'
+              }}>
+                {searchError}
+              </div>
+            )}
+
+            {!isSearching && searchPerformed && !searchAuthExpired && !searchError && searchResults && searchResults.length === 0 && (
+              <div style={{ color: '#9ca3af', fontSize: '14px', padding: '8px 0' }}>
+                No staff found matching "{searchQuery.trim()}".
+              </div>
+            )}
+
+            {!isSearching && searchPerformed && !searchAuthExpired && !searchError && searchResults && searchResults.length > 0 && (
+              <>
+                <div style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '12px' }}>
+                  {searchResults.length} result{searchResults.length === 1 ? '' : 's'} for "{searchQuery.trim()}"
                 </div>
-              ))}
-            </div>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                  gap: '16px'
+                }} data-testid="staff-search-results">
+                  {searchResults.map((staff) => (
+                    <div
+                      key={staff.id}
+                      style={{
+                        backgroundColor: '#1a1a1a',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        border: '1px solid #3a3a3a'
+                      }}
+                    >
+                      <div style={{ marginBottom: '12px' }}>
+                        <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', margin: 0, marginBottom: '8px' }}>
+                          {staff.name}
+                        </h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                          <span style={{ color: '#9ca3af', fontSize: '13px' }}>{staff.role}</span>
+                          <span style={{ color: '#6b7280', fontSize: '13px' }}>•</span>
+                          <span style={{ color: '#9ca3af', fontSize: '13px' }}>{staff.site}</span>
+                        </div>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          backgroundColor: staff.status === 'Active' ? '#10b98120' : '#6b728020',
+                          color: staff.status === 'Active' ? '#10b981' : '#6b7280',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '600'
+                        }}>
+                          <span style={{ width: '5px', height: '5px', backgroundColor: staff.status === 'Active' ? '#10b981' : '#6b7280', borderRadius: '50%', display: 'inline-block' }}></span>
+                          {staff.status}
+                        </span>
+                      </div>
+                      <div style={{
+                        paddingTop: '12px',
+                        borderTop: '1px solid #2a2a2a',
+                        color: '#9ca3af',
+                        fontSize: '12px',
+                        lineHeight: '1.8',
+                        marginBottom: '14px'
+                      }}>
+                        <div>
+                          <span style={{ color: '#6b7280' }}>Username:</span> {staff.username || '—'}
+                        </div>
+                        <div>
+                          <span style={{ color: '#6b7280' }}>Email:</span> {staff.email || '—'}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleViewProfile(String(staff.id))}
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          backgroundColor: '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '7px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        View Profile
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
+
         </>
       )}
 
@@ -1657,310 +994,6 @@ const Directory: React.FC = () => {
         </>
       )}
 
-      {/* Edit Staff Modal */}
-      {showEditModal && editingStaff && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '20px'
-          }}
-          onClick={() => setShowEditModal(false)}
-        >
-          <div
-            style={{
-              backgroundColor: '#2a2a2a',
-              borderRadius: '12px',
-              padding: '24px',
-              maxWidth: '600px',
-              width: '100%',
-              maxHeight: '90vh',
-              overflowY: 'auto'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 style={{ color: 'white', fontSize: '20px', marginBottom: '20px' }}>Edit Staff Member</h2>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              {/* First Name */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  First Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-
-              {/* Last Name */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Last Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-
-              {/* Phone Number */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Phone Number *
-                </label>
-                <input
-                  type="tel"
-                  placeholder="e.g., 07123456789"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                />
-                <div style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px' }}>
-                  Used for clock in/out authentication (last 4 digits)
-                </div>
-              </div>
-
-              {/* Password */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Password
-                </label>
-                <input
-                  type="password"
-                  placeholder="Leave blank to keep current password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                />
-                <div style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px' }}>
-                  Enter new password to change, or leave blank to keep existing
-                </div>
-              </div>
-
-              {/* Standard Rate */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Standard Rate (£/h) *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.standardRate}
-                  onChange={(e) => setFormData({ ...formData, standardRate: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-
-              {/* Enhanced Rate */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Enhanced Rate (£/h)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.enhancedRate}
-                  onChange={(e) => setFormData({ ...formData, enhancedRate: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-
-              {/* Night Rate */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Night Rate (£/h)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.nightRate}
-                  onChange={(e) => setFormData({ ...formData, nightRate: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-
-              {/* Start Date */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-
-              {/* Days Per Week */}
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Days Per Week
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="7"
-                  value={formData.daysPerWeek}
-                  onChange={(e) => setFormData({ ...formData, daysPerWeek: Number(e.target.value) })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-              <button
-                onClick={handleUpdateStaff}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Save Changes
-              </button>
-              <button
-                onClick={() => setShowEditModal(false)}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  backgroundColor: '#6b7280',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* QR Code Modal */}
-      {qrModalStaff && (
-        <StaffQRCodeModal
-          staffId={qrModalStaff.id}
-          staffName={qrModalStaff.name}
-          onClose={() => setQrModalStaff(null)}
-        />
-      )}
     </div>
   );
 };

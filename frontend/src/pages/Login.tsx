@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { authAPI, AuthApiError } from '../services/api';
 import logo from '../assets/logo.jpeg';
 
 const Login: React.FC = () => {
@@ -13,7 +14,7 @@ const Login: React.FC = () => {
 
   const handleLogin = async () => {
     console.log('Login button clicked!');
-    
+
     if (!username || !password) {
       alert('Please enter both username and password');
       return;
@@ -21,48 +22,33 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
-      // Call authentication API
-      const response = await fetch('https://social-care-backend.onrender.com/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
+      // Real Phase 1A admin login — returns a server-side session token
+      const data = await authAPI.adminLogin(username, password);
+      const { token, expiresAt, user: serverUser } = data;
 
-      if (!response.ok) {
-        const error = await response.json();
-        alert(error.error || 'Invalid username or password');
-        setLoading(false);
-        return;
+      const role: 'admin' | 'worker' =
+        serverUser.role === 'Admin' || serverUser.role === 'Site Manager' ? 'admin' : 'worker';
+      const sessionUser = {
+        id: serverUser.staffId || serverUser.id,
+        email: serverUser.email || '',
+        name: serverUser.name,
+        role,
+      };
+
+      login(sessionUser, token, expiresAt);
+
+      if (serverUser.staffId) {
+        localStorage.setItem('staffId', serverUser.staffId.toString());
+        localStorage.setItem('staffName', serverUser.name);
       }
 
-      const data = await response.json();
-      const { user } = data;
-      
-      // Store user info and login
-      await login(user.username, user.role);
-      if (user.staffId) {
-        localStorage.setItem('staffId', user.staffId.toString());
-        localStorage.setItem('staffName', user.name);
-      }
-      
-      console.log('Login successful, navigating to:', user.role);
-      navigate(user.role === 'admin' ? '/admin' : '/worker');
+      console.log('Login successful, navigating to:', sessionUser.role);
+      navigate(sessionUser.role === 'admin' ? '/admin' : '/worker');
     } catch (error) {
       console.error('Login failed:', error);
-      alert('Login failed. Please try again.');
+      alert(error instanceof AuthApiError ? error.message : 'Login failed. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Dev mode quick login handlers
-  const handleDevLogin = async (role: 'admin' | 'worker') => {
-    console.log(`Dev mode: Logging in as ${role}`);
-    try {
-      await login(`dev_${role}`, role);
-      navigate(role === 'admin' ? '/admin' : '/worker');
-    } catch (error) {
-      console.error('Dev login failed:', error);
     }
   };
 
@@ -73,67 +59,6 @@ const Login: React.FC = () => {
       display: 'flex',
       flexDirection: 'column'
     }}>
-      {/* Purple Top Bar - Mobile Optimized */}
-      <div style={{
-        backgroundColor: '#9333ea',
-        padding: '10px 12px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        overflowX: 'auto',
-        flexWrap: 'nowrap'
-      }}>
-        <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>DEV MODE:</span>
-        <button 
-          onClick={() => handleDevLogin('admin')}
-          style={{
-          padding: '6px 12px',
-          backgroundColor: '#7c3aed',
-          color: 'white',
-          border: 'none',
-          borderRadius: '6px',
-          fontSize: '11px',
-          fontWeight: '600',
-          whiteSpace: 'nowrap',
-          flexShrink: 0,
-          cursor: 'pointer'
-        }}>
-          Admin
-        </button>
-        <button 
-          onClick={() => handleDevLogin('admin')}
-          style={{
-          padding: '6px 12px',
-          backgroundColor: '#7c3aed',
-          color: 'white',
-          border: 'none',
-          borderRadius: '6px',
-          fontSize: '11px',
-          fontWeight: '600',
-          whiteSpace: 'nowrap',
-          flexShrink: 0,
-          cursor: 'pointer'
-        }}>
-          Manager
-        </button>
-        <button 
-          onClick={() => handleDevLogin('worker')}
-          style={{
-          padding: '6px 12px',
-          backgroundColor: '#7c3aed',
-          color: 'white',
-          border: 'none',
-          borderRadius: '6px',
-          fontSize: '11px',
-          fontWeight: '600',
-          whiteSpace: 'nowrap',
-          flexShrink: 0,
-          cursor: 'pointer'
-        }}>
-          Worker
-        </button>
-      </div>
-
       {/* Main Content */}
       <div style={{
         flex: 1,

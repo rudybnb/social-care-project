@@ -950,19 +950,6 @@ app.post('/api/auth/staff/qr-login', async (req: Request, res: Response) => {
   }
 });
 
-// Legacy admin login (email/role)
-app.post('/api/auth/login', async (req: Request, res: Response) => {
-  const { email, role } = req.body || {};
-  if (!email || !role) {
-    return res.status(400).json({ error: 'email and role required' });
-  }
-  const user = { id: 'u_demo', email, role, name: 'Demo User' };
-  return res.json({ user, token: 'demo-token' });
-});
-
-app.get('/api/auth/me', async (_req: Request, res: Response) => {
-  res.json({ user: { id: 'u_demo', email: 'demo@example.com', role: 'admin', name: 'Demo User' } });
-});
 
 // ==================== CLOCK-IN/OUT ROUTES ====================
 
@@ -1540,17 +1527,6 @@ app.post('/api/sites/:siteId/generate-qr', async (req: Request, res: Response) =
   }
 });
 
-// Database setup endpoint (one-time use)
-app.post('/api/setup', async (req: Request, res: Response) => {
-  const { setupDatabase } = await import('./setup-endpoint.js');
-  return setupDatabase(req, res);
-});
-
-// Add staff accounts endpoint
-app.post('/api/add-staff', async (req: Request, res: Response) => {
-  const { addStaffAccounts } = await import('./add-staff-endpoint.js');
-  return addStaffAccounts(req, res);
-});
 
 // Fix shift staff IDs endpoint
 app.post('/api/fix-shifts', async (req: Request, res: Response) => {

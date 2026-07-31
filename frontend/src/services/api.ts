@@ -1,8 +1,109 @@
 // API service for communicating with backend
 import { StaffMember, Site } from '../data/sharedData';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com';
+// In development the fetch target must stay same-origin ('self') to satisfy the
+// CSP in public/index.html, so requests use relative /api routes and the dev
+// server proxies them to the local backend. Production keeps the full URL.
+const API_BASE_URL =
+  process.env.REACT_APP_API_URL ||
+  (process.env.NODE_ENV === 'development' ? '' : 'https://social-care-backend.onrender.com');
 export const API_URL = API_BASE_URL;
+
+// Safe (non-sensitive) staff fields returned by the protected staff endpoint.
+export interface SafeStaff {
+  id: string;
+  name: string;
+  username: string;
+  role: string;
+  site: string;
+  status: string;
+  email: string;
+}
+
+// Thrown when the staff endpoint rejects the bearer session token (401).
+export class StaffAuthError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'StaffAuthError';
+    this.status = status;
+  }
+}
+
+// ==================== AUTH API ====================
+
+export interface AuthApiErrorBody {
+  error?: string;
+}
+
+export class AuthApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'AuthApiError';
+    this.status = status;
+  }
+}
+
+export interface SessionUser {
+  id: string;
+  staffId: string;
+  username: string | null;
+  name: string;
+  email: string | null;
+  role: string;
+  site: string;
+  status: string;
+}
+
+export interface AdminLoginResponse {
+  success: boolean;
+  token: string;
+  expiresAt: string;
+  user: SessionUser;
+}
+
+export const authAPI = {
+  // Real Phase 1A admin login — returns a server-side session token.
+  async adminLogin(username: string, password: string): Promise<AdminLoginResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/auth/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!response.ok) {
+      const body: AuthApiErrorBody = await response.json().catch(() => ({}));
+      throw new AuthApiError(body.error || 'Invalid username or password', response.status);
+    }
+    return response.json();
+  },
+
+  // Revoke the current server-side session. A 401 means the session is already gone.
+  async logout(token?: string | null): Promise<void> {
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      method: 'POST',
+      headers,
+    });
+    if (response.status === 401) return;
+    if (!response.ok) throw new Error('Failed to log out');
+  },
+
+  // Return the authenticated user for a token, or null when the session is invalid/expired.
+  async me(token?: string | null): Promise<SessionUser | null> {
+    if (!token) return null;
+    const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.status === 401) return null;
+    if (!response.ok) throw new Error('Failed to fetch session');
+    const data = await response.json();
+    return data?.user ?? null;
+  },
+};
 
 // ==================== STAFF API ====================
 
@@ -14,9 +115,32 @@ export const staffAPI = {
     return response.json();
   },
 
-  // Get staff by ID
-  async getById(id: string | number): Promise<StaffMember> {
-    const response = await fetch(`${API_BASE_URL}/api/staff/${id}`);
+  // Search staff via the protected endpoint using the authenticated bearer session token
+  async search(query: string, token?: string | null): Promise<SafeStaff[]> {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    const queryString = params.toString();
+    const url = `${API_BASE_URL}/api/staff${queryString ? `?${queryString}` : ''}`;
+
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(url, { headers });
+    if (response.status === 401) {
+      throw new StaffAuthError('Your session has expired. Please log in again.', response.status);
+    }
+    if (!response.ok) throw new Error('Failed to search staff');
+    return response.json();
+  },
+
+  // Get staff by ID via the protected endpoint using the authenticated bearer session token
+  async getById(id: string | number, token?: string | null): Promise<SafeStaff> {
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}/api/staff/${id}`, { headers });
+    if (response.status === 401) {
+      throw new StaffAuthError('Your session has expired. Please log in again.', response.status);
+    }
     if (!response.ok) throw new Error('Failed to fetch staff member');
     return response.json();
   },

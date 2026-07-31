@@ -1,5 +1,7 @@
+/// <reference path="../types/express.d.ts" />
+
 import { NextFunction, Request, Response } from 'express';
-import { validateSessionToken } from '../services/sessionService.js';
+import { validateSessionToken, isAuthEnforcementEnabled } from '../services/sessionService.js';
 
 const AUTH_ERROR = { error: 'Authentication required' };
 type DbLike = any;
@@ -44,3 +46,5 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
 
   return next();
 }
+
+

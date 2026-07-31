@@ -7,6 +7,7 @@ import ClockInOut from './pages/ClockInOut';
 import WorkerDashboard from './pages/WorkerDashboard';
 import StaffApp from './components/StaffApp';
 import DynamicSiteQR from './components/DynamicSiteQR';
+import StaffProfile from './pages/StaffProfile';
 import { useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ role, children }: { role?: 'admin' | 'worker'; children: React.ReactElement }) {
@@ -20,7 +21,6 @@ function ProtectedRoute({ role, children }: { role?: 'admin' | 'worker'; childre
     );
   }
 
-  console.log('ProtectedRoute check:', { user, requiredRole: role });
   if (!user) return <Navigate to="/" replace />;
   if (role && user.role !== role) return <Navigate to={user.role === 'admin' ? '/admin' : '/worker'} replace />;
   return children;
@@ -35,6 +35,14 @@ function AppRoutes() {
       <Route path="/clock-in" element={<ClockInOut />} />
       <Route path="/qr-clock" element={<ClockInOut />} />
       <Route path="/site-qr/:siteId" element={<DynamicSiteQR />} />
+      <Route
+        path="/admin/directory/staff/:staffId"
+        element={
+          <ProtectedRoute role="admin">
+            <StaffProfile />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/admin/*"
         element={
