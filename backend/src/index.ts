@@ -11,6 +11,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
+import { createStaffRouter } from './routes/staff.js';
 import { calculatePayForPeriod } from './services/payrollAuditService.js';
 import { sendDailyPayrollReport, sendRemittanceAdvice } from './services/emailService.js';
 import { getWeekDeadline } from './jobs/autoAcceptShifts.js';
@@ -80,6 +81,7 @@ pool.query(`
 // Auth routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes); // Register new admin routes
+app.use('/api/staff', createStaffRouter(db));
 
 // Health check for Render
 app.get('/api/health', async (_req: Request, res: Response) => {
@@ -325,35 +327,6 @@ app.get('/api/admin/audit-payroll', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error auditing payroll:', error);
     res.status(500).json({ error: 'Failed to audit payroll', details: error.message });
-  }
-});
-
-// Get all staff
-app.get('/api/staff', async (_req: Request, res: Response) => {
-  try {
-    if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const allStaff = await db.select().from(staff);
-    res.json(allStaff);
-  } catch (error) {
-    console.error('Error fetching staff:', error);
-    res.status(500).json({ error: 'Failed to fetch staff' });
-  }
-});
-
-// Get staff by ID
-app.get('/api/staff/:id', async (req: Request, res: Response) => {
-  try {
-    if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const id = req.params.id as string;
-    if (!id) return res.status(400).json({ error: 'ID is required' });
-    const staffMember = await db.select().from(staff).where(eq(staff.id, id));
-    if (staffMember.length === 0) {
-      return res.status(404).json({ error: 'Staff member not found' });
-    }
-    res.json(staffMember[0]);
-  } catch (error) {
-    console.error('Error fetching staff member:', error);
-    res.status(500).json({ error: 'Failed to fetch staff member' });
   }
 });
 
