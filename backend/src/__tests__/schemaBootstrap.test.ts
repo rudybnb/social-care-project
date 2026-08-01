@@ -176,3 +176,44 @@ test('8. Unit Test: Required-table verification fails when a required table is a
     assert.match(err.message, /Required table\(s\) missing/i);
   }
 });
+
+test('9. Architecture: index.ts startup does not run another schema migration', async () => {
+  const indexPath = path.resolve(process.cwd(), 'src/index.ts');
+  const indexContent = fs.readFileSync(indexPath, 'utf8');
+
+  assert.ok(!indexContent.includes('runStartupMigration'), 'index.ts must not define or call runStartupMigration');
+  assert.ok(!indexContent.includes('Running comprehensive database migration'), 'index.ts must not contain duplicate migration logs');
+});
+
+test('10. Architecture: Only one migration process runs on server startup', async () => {
+  const pkgPath = path.resolve(process.cwd(), 'package.json');
+  const pkgContent = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+  const startScript = pkgContent.scripts?.start || '';
+
+  assert.equal(startScript, 'node dist/run-all-migrations.js && node dist/index.js');
+});
+
+test('11. Startup safety: background jobs start only after required tables are ready', async () => {
+  const pkgPath = path.resolve(process.cwd(), 'package.json');
+  const pkgContent = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+  const startScript = pkgContent.scripts?.start || '';
+
+  assert.ok(startScript.includes('node dist/run-all-migrations.js && node dist/index.js'), 'Must execute migrations before index.js via && operator');
+});
+
+test('12. Startup safety: migration failure prevents the server from starting', async () => {
+  const migrationTsPath = path.resolve(process.cwd(), 'src/run-all-migrations.ts');
+  const migrationContent = fs.readFileSync(migrationTsPath, 'utf8');
+
+  assert.ok(migrationContent.includes('process.exit(1)'), 'run-all-migrations must exit non-zero on failure to stop start chain');
+});
+
+test('13. Migration SQL safety: no SQL containing JavaScript // comments is executed', async () => {
+  const migrationTsPath = path.resolve(process.cwd(), 'src/run-all-migrations.ts');
+  const migrationContent = fs.readFileSync(migrationTsPath, 'utf8');
+
+  const queryBlocks = migrationContent.match(/query\(\s*`([\s\S]*?)`/g) || [];
+  for (const block of queryBlocks) {
+    assert.ok(!block.includes('//'), `SQL query string block must not contain JS // comments: ${block}`);
+  }
+});
