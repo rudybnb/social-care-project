@@ -9,7 +9,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { users, staff, sites, shifts, approvalRequests, quotes, remittances, remittanceWorkers } from './schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
-import authRoutes from './routes/auth.js';
+import { createAuthRouter } from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import { createStaffRouter } from './routes/staff.js';
 import { calculatePayForPeriod } from './services/payrollAuditService.js';
@@ -40,7 +40,7 @@ const pool = new Pool({
 export const db = drizzle(pool);
 
 // Auth routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', createAuthRouter(db));
 app.use('/api/admin', adminRoutes); // Register new admin routes
 app.use('/api/staff', createStaffRouter(db));
 

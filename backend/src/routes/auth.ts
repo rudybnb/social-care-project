@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import { db } from '../db.js';
 import { createAuthenticateRequest } from '../middleware/auth.js';
 import { createSession, revokeSessionById } from '../services/sessionService.js';
 import { authenticateAdminCredentials } from '../services/adminAuthService.js';
@@ -79,4 +78,4 @@ export function createAuthRouter(database: DbLike): Router {
   return router;
 }
 
-export default createAuthRouter(null);
+export default createAuthRouter;
