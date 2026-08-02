@@ -12,6 +12,7 @@ import {
   addAgencyWorker,
   updateAgencyWorker,
   deleteAgencyWorker,
+  addStaff,
   Site
 } from '../data/sharedData';
 import { useAuth } from '../context/AuthContext';
@@ -36,6 +37,23 @@ const Directory: React.FC = () => {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchPerformed, setSearchPerformed] = useState(false);
 
+  // Add Staff Modal & Form State
+  const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
+  const [isSubmittingStaff, setIsSubmittingStaff] = useState(false);
+  const [staffFormError, setStaffFormError] = useState<string | null>(null);
+  const [staffSuccessMessage, setStaffSuccessMessage] = useState<string | null>(null);
+
+  const [newStaffForm, setNewStaffForm] = useState({
+    name: '',
+    username: '',
+    email: '',
+    role: 'Care Worker',
+    site: '',
+    status: 'Active',
+    startDate: new Date().toISOString().split('T')[0],
+    password: ''
+  });
+
   // Agency state
   const [agencies, setAgencies] = useState<Agency[]>(getAgencies());
   const [agencyWorkers, setAgencyWorkers] = useState<AgencyWorker[]>(getAgencyWorkers());
@@ -58,7 +76,7 @@ const Directory: React.FC = () => {
     notes: ''
   });
 
-  // Subscribe to agency data changes
+  // Subscribe to agency & staff data changes
   useEffect(() => {
     const unsubscribe = subscribeToDataChange(() => {
       setAgencies(getAgencies());
@@ -75,6 +93,12 @@ const Directory: React.FC = () => {
         if (isMounted) {
           const sorted = [...sites].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
           setDynamicSites(sorted);
+          if (sorted.length > 0) {
+            setNewStaffForm((prev) => ({
+              ...prev,
+              site: prev.site || sorted[0].name
+            }));
+          }
         }
       })
       .catch((err) => console.warn('Failed to load sites for directory filter:', err));
@@ -122,20 +146,77 @@ const Directory: React.FC = () => {
     fetchStaff('');
   };
 
+  // Add New Staff Submission Handler
+  const handleCreateStaffSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStaffFormError(null);
+    setStaffSuccessMessage(null);
+
+    if (!newStaffForm.name || !newStaffForm.name.trim()) {
+      setStaffFormError('Staff member full name is required.');
+      return;
+    }
+
+    if (!newStaffForm.password || !newStaffForm.password.trim()) {
+      setStaffFormError('Temporary password is required.');
+      return;
+    }
+
+    setIsSubmittingStaff(true);
+
+    try {
+      const payload = {
+        name: newStaffForm.name.trim(),
+        username: newStaffForm.username.trim() || undefined,
+        email: newStaffForm.email.trim() || undefined,
+        role: newStaffForm.role,
+        site: newStaffForm.site || (dynamicSites.length > 0 ? dynamicSites[0].name : 'General'),
+        status: newStaffForm.status as 'Active' | 'Inactive',
+        startDate: newStaffForm.startDate,
+        password: newStaffForm.password.trim()
+      };
+
+      const created = await staffAPI.create(payload, token);
+
+      // Pushes to shared memory and notifies Rota / Assign Workers dropdown
+      await addStaff(created as any).catch(() => {});
+
+      setStaffSuccessMessage(`Staff member "${created.name}" created successfully!`);
+      
+      // Reset form
+      setNewStaffForm({
+        name: '',
+        username: '',
+        email: '',
+        role: 'Care Worker',
+        site: dynamicSites.length > 0 ? dynamicSites[0].name : 'General',
+        status: 'Active',
+        startDate: new Date().toISOString().split('T')[0],
+        password: ''
+      });
+
+      setIsAddStaffModalOpen(false);
+
+      // Re-fetch Directory staff list
+      await fetchStaff('');
+    } catch (err: any) {
+      setStaffFormError(err.message || 'Failed to create staff member.');
+    } finally {
+      setIsSubmittingStaff(false);
+    }
+  };
+
   // Filter staffList based on selected dropdown filters
   const filteredStaff = staffList.filter((s) => {
-    // 1. Site Filter
     if (selectedSite !== 'all') {
       const staffSite = (s.site || '').toLowerCase();
       if (!staffSite.includes(selectedSite.toLowerCase())) return false;
     }
 
-    // 2. Role Filter
     if (selectedRole !== 'all') {
       if ((s.role || '').toLowerCase() !== selectedRole.toLowerCase()) return false;
     }
 
-    // 3. Status Filter
     if (selectedStatus !== 'all') {
       if ((s.status || '').toLowerCase() !== selectedStatus.toLowerCase()) return false;
     }
@@ -242,14 +323,66 @@ const Directory: React.FC = () => {
   return (
     <div style={{ padding: '20px 16px', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', margin: '0 0 6px 0' }}>
-          Directory
-        </h1>
-        <p style={{ color: '#9ca3af', fontSize: '13px', margin: 0 }}>
-          Manage permanent staff and agency worker records
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div>
+          <h1 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', margin: '0 0 6px 0' }}>
+            Directory
+          </h1>
+          <p style={{ color: '#9ca3af', fontSize: '13px', margin: 0 }}>
+            Manage permanent staff and agency worker records
+          </p>
+        </div>
+
+        {/* Add New Staff Button (Permanent Staff Tab) */}
+        {activeTab === 'staff' && (
+          <button
+            onClick={() => {
+              setStaffFormError(null);
+              setIsAddStaffModalOpen(true);
+            }}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#16a34a',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }}
+          >
+            + Add New Staff
+          </button>
+        )}
       </div>
+
+      {/* Success Notification Banner */}
+      {staffSuccessMessage && (
+        <div style={{
+          marginBottom: '20px',
+          padding: '12px 16px',
+          backgroundColor: '#16a34a20',
+          border: '1px solid #16a34a',
+          borderRadius: '8px',
+          color: '#4ade80',
+          fontSize: '14px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span>{staffSuccessMessage}</span>
+          <button
+            onClick={() => setStaffSuccessMessage(null)}
+            style={{ background: 'none', border: 'none', color: '#4ade80', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{
@@ -291,6 +424,289 @@ const Directory: React.FC = () => {
           Agency Workers ({agencyWorkers.length})
         </button>
       </div>
+
+      {/* Add New Staff Modal Dialog */}
+      {isAddStaffModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '16px'
+        }}>
+          <div style={{
+            backgroundColor: '#2a2a2a',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '100%',
+            maxWidth: '540px',
+            border: '1px solid #3a3a3a',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', margin: 0 }}>
+                Add New Permanent Staff Member
+              </h2>
+              <button
+                onClick={() => setIsAddStaffModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '18px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {staffFormError && (
+              <div style={{
+                marginBottom: '16px',
+                padding: '10px 14px',
+                backgroundColor: '#ef444420',
+                border: '1px solid #ef4444',
+                borderRadius: '6px',
+                color: '#f87171',
+                fontSize: '13px'
+              }}>
+                {staffFormError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateStaffSubmit}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+                {/* 1. Full Name */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newStaffForm.name}
+                    onChange={(e) => setNewStaffForm({ ...newStaffForm, name: e.target.value })}
+                    placeholder="e.g. Jane Smith"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#1a1a1a',
+                      color: 'white',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* 2. Username & Email Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Username (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={newStaffForm.username}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, username: e.target.value })}
+                      placeholder="Auto-generated if blank"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Email (Optional)
+                    </label>
+                    <input
+                      type="email"
+                      value={newStaffForm.email}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, email: e.target.value })}
+                      placeholder="jane@example.com"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Role & Site Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Role *
+                    </label>
+                    <select
+                      value={newStaffForm.role}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, role: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px'
+                      }}
+                    >
+                      <option value="Care Worker">Care Worker</option>
+                      <option value="Senior Care Worker">Senior Care Worker</option>
+                      <option value="Team Leader">Team Leader</option>
+                      <option value="Manager">Manager</option>
+                      <option value="Admin">Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Assigned Site *
+                    </label>
+                    <select
+                      value={newStaffForm.site}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, site: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px'
+                      }}
+                    >
+                      {dynamicSites.map((site) => (
+                        <option key={site.id} value={site.name}>{site.name}</option>
+                      ))}
+                      {dynamicSites.length === 0 && <option value="General">General</option>}
+                    </select>
+                  </div>
+                </div>
+
+                {/* 4. Status & Start Date Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Employment Status *
+                    </label>
+                    <select
+                      value={newStaffForm.status}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, status: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px'
+                      }}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={newStaffForm.startDate}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, startDate: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* 5. Temporary Password */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                    Temporary Password *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={newStaffForm.password}
+                    onChange={(e) => setNewStaffForm({ ...newStaffForm, password: e.target.value })}
+                    placeholder="Enter temporary password"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#1a1a1a',
+                      color: 'white',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Modal Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsAddStaffModalOpen(false)}
+                  style={{
+                    padding: '10px 18px',
+                    backgroundColor: '#3f3f46',
+                    color: '#d4d4d8',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingStaff}
+                  style={{
+                    padding: '10px 24px',
+                    backgroundColor: '#16a34a',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: isSubmittingStaff ? 'not-allowed' : 'pointer',
+                    opacity: isSubmittingStaff ? 0.7 : 1
+                  }}
+                >
+                  {isSubmittingStaff ? 'Saving...' : 'Save Staff Member'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Staff Tab Content */}
       {activeTab === 'staff' && (
