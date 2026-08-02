@@ -1,11 +1,19 @@
 import { staff, shifts, leaveBalances, leaveRequests } from '../schema.js';
-import { ilike, or, and, gte, lte, sql, eq } from 'drizzle-orm';
 
 export interface GlobalSearchQueryParsed {
   rawQuery: string;
   cleanText: string;
   dateRange: { start: string; end: string } | null;
   dateLabel: string;
+}
+
+export interface GlobalSearchOptions {
+  q?: string;
+  section?: string;
+  site?: string;
+  dateFilter?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface StaffSearchResult {
@@ -149,30 +157,74 @@ export function parseGlobalSearchQuery(rawQuery: string, now: Date = new Date())
   return { rawQuery, cleanText, dateRange, dateLabel };
 }
 
-export async function executeGlobalSearch(database: any, rawQuery: string, now: Date = new Date()): Promise<GlobalSearchResults> {
+export async function executeGlobalSearch(
+  database: any,
+  queryOrOptions: string | GlobalSearchOptions,
+  now: Date = new Date()
+): Promise<GlobalSearchResults> {
+  const options: GlobalSearchOptions = typeof queryOrOptions === 'string' ? { q: queryOrOptions } : (queryOrOptions || {});
+  const rawQuery = options.q || '';
+  const section = (options.section || 'all').toLowerCase();
+  const siteFilter = (options.site && options.site !== 'all') ? options.site.toLowerCase() : null;
+  const dateFilter = options.dateFilter || 'any';
+
   const parsed = parseGlobalSearchQuery(rawQuery, now);
   const qLower = parsed.rawQuery.toLowerCase();
   const cleanLower = parsed.cleanText.toLowerCase();
 
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = formatDateLocal(now);
 
-  // Detect query intents
-  const isStaffIntent = /\b(staff|worker|workers|admin|new|newly|active|inactive|director|manager)\b/i.test(qLower) || !qLower;
-  const isLeaveIntent = /\b(leave|holiday|vacation|balance|available|approved|pending|rejected|accrued|entitlement)\b/i.test(qLower);
-  const isShiftIntent = /\b(shift|shifts|missed|unfilled|bank|unconfirmed|unscheduled|completed|day|night|thamesmead|kent|site)\b/i.test(qLower);
-  const isAttendanceIntent = /\b(attendance|absent|late|clock|clockin|clockout|punch|punches|missing)\b/i.test(qLower);
+  // Compute explicit dateRange based on dateFilter option or parsed text
+  let dateRange: { start: string; end: string } | null = null;
+  if (dateFilter === 'today') {
+    dateRange = { start: todayStr, end: todayStr };
+  } else if (dateFilter === 'yesterday') {
+    const y = new Date(now);
+    y.setDate(y.getDate() - 1);
+    const yStr = formatDateLocal(y);
+    dateRange = { start: yStr, end: yStr };
+  } else if (dateFilter === 'this_week') {
+    const start = new Date(now);
+    start.setDate(start.getDate() - start.getDay());
+    dateRange = { start: formatDateLocal(start), end: todayStr };
+  } else if (dateFilter === 'last_week') {
+    const end = new Date(now);
+    const start = new Date(now);
+    start.setDate(start.getDate() - 7);
+    dateRange = { start: formatDateLocal(start), end: formatDateLocal(end) };
+  } else if (dateFilter === 'this_month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    dateRange = { start: formatDateLocal(start), end: todayStr };
+  } else if (dateFilter === 'last_month') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end = new Date(now.getFullYear(), now.getMonth(), 0);
+    dateRange = { start: formatDateLocal(start), end: formatDateLocal(end) };
+  } else if (dateFilter === 'custom' && options.startDate && options.endDate) {
+    dateRange = { start: options.startDate, end: options.endDate };
+  } else if (parsed.dateRange) {
+    dateRange = parsed.dateRange;
+  }
 
-  const searchAll = !isStaffIntent && !isLeaveIntent && !isShiftIntent && !isAttendanceIntent;
+  // Section intent checks
+  const runStaff = section === 'all' || section === 'staff' || section === 'directory';
+  const runLeave = section === 'all' || section === 'leave' || section === 'annual-leave';
+  const runShifts = section === 'all' || section === 'shifts' || section === 'rota';
+  const runAttendance = section === 'all' || section === 'attendance';
 
   // 1. Staff Search
   let staffResults: StaffSearchResult[] = [];
-  if (searchAll || isStaffIntent || cleanLower.length > 0) {
+  if (runStaff) {
     const allStaff = await database.select().from(staff);
     
-    // Filter staff
     const filteredStaff = allStaff.filter((s: any) => {
+      if (siteFilter) {
+        const staffSite = (s.site || '').toLowerCase();
+        if (!staffSite.includes(siteFilter) && String(s.siteId || '').toLowerCase() !== siteFilter) {
+          return false;
+        }
+      }
+
       if (cleanLower) {
-        // Exclude generic intent words when matching name/username/site/role
         const tokens = cleanLower.split(/\s+/).filter(t => !['staff', 'worker', 'workers', 'active', 'inactive', 'at', 'in', 'available', 'leave', 'shift', 'shifts', 'absent', 'new', 'newly'].includes(t));
         if (tokens.length > 0) {
           const matchText = `${s.name || ''} ${s.username || ''} ${s.email || ''} ${s.role || ''} ${s.site || ''} ${s.status || ''}`.toLowerCase();
@@ -185,7 +237,6 @@ export async function executeGlobalSearch(database: any, rawQuery: string, now: 
       if (qLower.includes('inactive') && s.status !== 'Inactive') return false;
       if (qLower.includes('worker') && s.role !== 'Worker') return false;
 
-      // Filter by new staff if requested
       if (qLower.includes('new') || parsed.dateLabel === 'this month') {
         const created = new Date(s.createdAt || s.startDate || 0);
         const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -195,7 +246,7 @@ export async function executeGlobalSearch(database: any, rawQuery: string, now: 
       return true;
     });
 
-    staffResults = filteredStaff.slice(0, 20).map((s: any) => ({
+    staffResults = filteredStaff.slice(0, 30).map((s: any) => ({
       id: s.id,
       name: s.name,
       username: s.username || null,
@@ -212,8 +263,7 @@ export async function executeGlobalSearch(database: any, rawQuery: string, now: 
 
   // 2. Leave Search
   let leaveResults: LeaveSearchResult[] = [];
-  if (searchAll || isLeaveIntent || cleanLower.length > 0) {
-    // Leave balances
+  if (runLeave) {
     const allBalances = await database.select().from(leaveBalances);
     const allRequests = await database.select().from(leaveRequests);
 
@@ -228,7 +278,7 @@ export async function executeGlobalSearch(database: any, rawQuery: string, now: 
       return true;
     });
 
-    for (const b of filteredBalances.slice(0, 10)) {
+    for (const b of filteredBalances.slice(0, 20)) {
       leaveResults.push({
         id: b.id,
         staffId: b.staffId,
@@ -254,8 +304,8 @@ export async function executeGlobalSearch(database: any, rawQuery: string, now: 
         }
       }
 
-      if (parsed.dateRange) {
-        if (r.startDate < parsed.dateRange.start || r.startDate > parsed.dateRange.end) {
+      if (dateRange) {
+        if (r.startDate < dateRange.start || r.startDate > dateRange.end) {
           return false;
         }
       }
@@ -263,7 +313,7 @@ export async function executeGlobalSearch(database: any, rawQuery: string, now: 
       return true;
     });
 
-    for (const r of filteredRequests.slice(0, 10)) {
+    for (const r of filteredRequests.slice(0, 20)) {
       leaveResults.push({
         id: r.id,
         staffId: r.staffId,
@@ -282,17 +332,24 @@ export async function executeGlobalSearch(database: any, rawQuery: string, now: 
 
   // 3. Shifts Search
   let shiftResults: ShiftSearchResult[] = [];
-  if (searchAll || isShiftIntent || cleanLower.length > 0) {
+  if (runShifts) {
     const allShifts = await database.select().from(shifts);
 
     const filteredShifts = allShifts.filter((s: any) => {
+      if (siteFilter) {
+        const shiftSite = (s.siteName || '').toLowerCase();
+        if (!shiftSite.includes(siteFilter) && String(s.siteId || '').toLowerCase() !== siteFilter) {
+          return false;
+        }
+      }
+
       if (qLower.includes('missed') && s.clockedIn) return false;
       if ((qLower.includes('unfilled') || qLower.includes('bank')) && !s.isBank && !s.staffName.toLowerCase().includes('bank')) return false;
       if (qLower.includes('unconfirmed') && s.staffStatus !== 'pending') return false;
       if (qLower.includes('completed') && (!s.clockedIn || !s.clockedOut)) return false;
 
-      if (parsed.dateRange) {
-        if (s.date < parsed.dateRange.start || s.date > parsed.dateRange.end) return false;
+      if (dateRange) {
+        if (s.date < dateRange.start || s.date > dateRange.end) return false;
       }
 
       if (cleanLower) {
@@ -306,7 +363,7 @@ export async function executeGlobalSearch(database: any, rawQuery: string, now: 
       return true;
     });
 
-    shiftResults = filteredShifts.slice(0, 20).map((s: any) => ({
+    shiftResults = filteredShifts.slice(0, 30).map((s: any) => ({
       id: s.id,
       staffId: s.staffId,
       staffName: s.staffName,
@@ -327,10 +384,17 @@ export async function executeGlobalSearch(database: any, rawQuery: string, now: 
 
   // 4. Attendance Search
   let attendanceResults: AttendanceSearchResult[] = [];
-  if (searchAll || isAttendanceIntent || qLower.includes('absent') || qLower.includes('late') || qLower.includes('missing')) {
+  if (runAttendance) {
     const allShifts = await database.select().from(shifts);
 
     const filteredAttendance = allShifts.filter((s: any) => {
+      if (siteFilter) {
+        const shiftSite = (s.siteName || '').toLowerCase();
+        if (!shiftSite.includes(siteFilter) && String(s.siteId || '').toLowerCase() !== siteFilter) {
+          return false;
+        }
+      }
+
       let isAbsent = !s.clockedIn && s.date <= todayStr && s.staffStatus !== 'declined';
       let isLate = s.clockedIn && s.clockInTime && new Date(s.clockInTime).toISOString().split('T')[1]?.slice(0,5) > s.startTime;
       let isMissingClockOut = s.clockedIn && !s.clockedOut && s.date <= todayStr;
@@ -343,8 +407,8 @@ export async function executeGlobalSearch(database: any, rawQuery: string, now: 
         return false;
       }
 
-      if (parsed.dateRange) {
-        if (s.date < parsed.dateRange.start || s.date > parsed.dateRange.end) return false;
+      if (dateRange) {
+        if (s.date < dateRange.start || s.date > dateRange.end) return false;
       }
 
       if (cleanLower) {
@@ -358,7 +422,7 @@ export async function executeGlobalSearch(database: any, rawQuery: string, now: 
       return true;
     });
 
-    attendanceResults = filteredAttendance.slice(0, 20).map((s: any) => {
+    attendanceResults = filteredAttendance.slice(0, 30).map((s: any) => {
       let issue: 'absent' | 'late' | 'missing_clock_out' = 'absent';
       let details = 'Staff member did not clock in for scheduled shift';
 

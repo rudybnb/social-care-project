@@ -188,3 +188,22 @@ test('Global Search Engine: Handles specific search query intents', async () => 
   const q5 = await executeGlobalSearch(fakeDb, 'active workers at Thamesmead', fixedNow);
   assert.ok(q5.results.staff.some(s => s.site.includes('Thamesmead')));
 });
+
+// 4. Structured Options Filtering (Section, Site, DateFilter)
+test('Global Search Engine: Filters by structured section, site, and date options', async () => {
+  const fakeDb = new FakeDb();
+  const fixedNow = new Date('2026-08-02T12:00:00Z');
+
+  // Test section = staff
+  const staffOnly = await executeGlobalSearch(fakeDb, { section: 'staff' }, fixedNow);
+  assert.ok(staffOnly.results.staff.length > 0);
+  assert.equal(staffOnly.results.leave.length, 0);
+
+  // Test site filter
+  const siteFilter = await executeGlobalSearch(fakeDb, { site: 'Thamesmead' }, fixedNow);
+  assert.ok(siteFilter.results.staff.every(s => s.site.toLowerCase().includes('thamesmead')));
+
+  // Test date filter = yesterday
+  const yesterdayRes = await executeGlobalSearch(fakeDb, { dateFilter: 'yesterday' }, fixedNow);
+  assert.ok(yesterdayRes.results.shifts.some(s => s.date === '2026-08-01'));
+});

@@ -291,8 +291,15 @@ const authenticateRequest = (req: Request, res: Response, next: NextFunction) =>
 router.get('/global-search', authenticateRequest, requireAdmin, async (req: Request, res: Response) => {
     try {
         if (!db) return res.status(500).json({ error: 'Database not configured' });
-        const query = typeof req.query.q === 'string' ? req.query.q : '';
-        const searchResults = await executeGlobalSearch(db, query);
+        const options = {
+            q: typeof req.query.q === 'string' ? req.query.q : '',
+            section: typeof req.query.section === 'string' ? req.query.section : 'all',
+            site: typeof req.query.site === 'string' ? req.query.site : 'all',
+            dateFilter: typeof req.query.dateFilter === 'string' ? req.query.dateFilter : 'any',
+            startDate: typeof req.query.startDate === 'string' ? req.query.startDate : undefined,
+            endDate: typeof req.query.endDate === 'string' ? req.query.endDate : undefined,
+        };
+        const searchResults = await executeGlobalSearch(db, options);
         res.json(searchResults);
     } catch (error: any) {
         console.error('Error in admin global search:', error);
