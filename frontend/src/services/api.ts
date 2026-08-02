@@ -18,6 +18,7 @@ export interface SafeStaff {
   site: string;
   status: string;
   email: string;
+  startDate?: string;
 }
 
 // Thrown when the staff endpoint rejects the bearer session token (401).
@@ -105,25 +106,40 @@ export const authAPI = {
   },
 };
 
+function getStoredToken(): string | null {
+  try {
+    const saved = localStorage.getItem('auth');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed?.token || null;
+    }
+  } catch (e) {}
+  return null;
+}
+
 // ==================== STAFF API ====================
 
 export const staffAPI = {
   // Get all staff
-  async getAll(): Promise<StaffMember[]> {
-    const response = await fetch(`${API_BASE_URL}/api/staff`);
+  async getAll(token?: string | null): Promise<StaffMember[]> {
+    const authToken = token || getStoredToken();
+    const headers: Record<string, string> = {};
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+    const response = await fetch(`${API_BASE_URL}/api/staff`, { headers });
     if (!response.ok) throw new Error('Failed to fetch staff');
     return response.json();
   },
 
   // Search staff via the protected endpoint using the authenticated bearer session token
-  async search(query: string, token?: string | null): Promise<SafeStaff[]> {
+  async search(query: string = '', token?: string | null): Promise<SafeStaff[]> {
+    const authToken = token || getStoredToken();
     const params = new URLSearchParams();
-    if (query) params.set('q', query);
-    const queryString = params.toString();
-    const url = `${API_BASE_URL}/api/staff${queryString ? `?${queryString}` : ''}`;
+    params.set('q', query);
+    const url = `${API_BASE_URL}/api/staff?${params.toString()}`;
 
     const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
     const response = await fetch(url, { headers });
     if (response.status === 401) {
