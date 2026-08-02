@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_URL, sitesAPI } from '../services/api';
-import { Site } from '../data/sharedData';
+import { API_URL, sitesAPI, staffAPI, SafeStaff } from '../services/api';
+import { Site, StaffMember } from '../data/sharedData';
 import { useAuth } from '../context/AuthContext';
 
 interface StaffResult {
@@ -93,14 +93,18 @@ const GlobalSearch: React.FC = () => {
   // Filters State
   const [section, setSection] = useState<string>('all');
   const [site, setSite] = useState<string>('all');
+  const [selectedStaff, setSelectedStaff] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('any');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [query, setQuery] = useState<string>('');
 
-  // Dynamic Sites List loaded from Database
+  // Dynamic Lists loaded from Database
   const [dynamicSites, setDynamicSites] = useState<Site[]>([]);
   const [sitesLoading, setSitesLoading] = useState<boolean>(false);
+
+  const [dynamicStaff, setDynamicStaff] = useState<StaffMember[] | SafeStaff[]>([]);
+  const [staffLoading, setStaffLoading] = useState<boolean>(false);
 
   // Search Results State
   const [loading, setLoading] = useState<boolean>(false);
@@ -115,7 +119,9 @@ const GlobalSearch: React.FC = () => {
       try {
         const fetchedSites = await sitesAPI.getAll();
         if (isMounted) {
-          setDynamicSites(fetchedSites);
+          // Sort alphabetically by site name
+          const sorted = [...fetchedSites].sort((a, b) => a.name.localeCompare(b.name));
+          setDynamicSites(sorted);
         }
       } catch (err) {
         console.warn('Failed to load dynamic sites for filter dropdown:', err);
@@ -124,6 +130,30 @@ const GlobalSearch: React.FC = () => {
       }
     };
     loadSites();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Load staff dynamically from database
+  useEffect(() => {
+    let isMounted = true;
+    const loadStaff = async () => {
+      setStaffLoading(true);
+      try {
+        const fetchedStaff = await staffAPI.getAll();
+        if (isMounted) {
+          // Sort alphabetically by staff full name
+          const sorted = [...fetchedStaff].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          setDynamicStaff(sorted);
+        }
+      } catch (err) {
+        console.warn('Failed to load dynamic staff for filter dropdown:', err);
+      } finally {
+        if (isMounted) setStaffLoading(false);
+      }
+    };
+    loadStaff();
     return () => {
       isMounted = false;
     };
@@ -138,6 +168,7 @@ const GlobalSearch: React.FC = () => {
       if (query.trim()) queryParams.set('q', query.trim());
       if (section && section !== 'all') queryParams.set('section', section);
       if (site && site !== 'all') queryParams.set('site', site);
+      if (selectedStaff && selectedStaff !== 'all') queryParams.set('staffId', selectedStaff);
       if (dateFilter && dateFilter !== 'any') queryParams.set('dateFilter', dateFilter);
       if (dateFilter === 'custom') {
         if (startDate) queryParams.set('startDate', startDate);
@@ -150,7 +181,6 @@ const GlobalSearch: React.FC = () => {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       } else {
-        // Fallback check from localStorage if context token is pending
         const savedAuth = localStorage.getItem('auth');
         if (savedAuth) {
           try {
@@ -175,7 +205,7 @@ const GlobalSearch: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [query, section, site, dateFilter, startDate, endDate, token]);
+  }, [query, section, site, selectedStaff, dateFilter, startDate, endDate, token]);
 
   // Initial load
   useEffect(() => {
@@ -190,6 +220,7 @@ const GlobalSearch: React.FC = () => {
   const handleResetFilters = () => {
     setSection('all');
     setSite('all');
+    setSelectedStaff('all');
     setDateFilter('any');
     setStartDate('');
     setEndDate('');
@@ -224,7 +255,7 @@ const GlobalSearch: React.FC = () => {
           {/* Top Row: Dropdowns */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
             gap: '16px',
             marginBottom: '16px'
           }}>
@@ -284,7 +315,36 @@ const GlobalSearch: React.FC = () => {
               </select>
             </div>
 
-            {/* 3. Date Dropdown */}
+            {/* 3. Staff Dropdown */}
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#d4d4d8', marginBottom: '6px' }}>
+                Staff Member
+              </label>
+              <select
+                value={selectedStaff}
+                onChange={(e) => setSelectedStaff(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  backgroundColor: '#18181b',
+                  border: '1px solid #3f3f46',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              >
+                <option value="all">All Staff</option>
+                {staffLoading && <option disabled>Loading database staff...</option>}
+                {dynamicStaff.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name} ({st.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 4. Date Dropdown */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#d4d4d8', marginBottom: '6px' }}>
                 Date Range
@@ -466,7 +526,7 @@ const GlobalSearch: React.FC = () => {
                 No results found
               </h3>
               <p style={{ fontSize: '14px', color: '#9ca3af', margin: 0, maxWidth: '500px', marginLeft: 'auto', marginRight: 'auto' }}>
-                No matching records were found for the selected filters. Try broadening your section, site, date, or search query.
+                No matching records were found for the selected filters. Try broadening your section, site, staff, date, or search query.
               </p>
             </div>
           ) : (

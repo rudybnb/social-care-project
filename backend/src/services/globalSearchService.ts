@@ -11,6 +11,8 @@ export interface GlobalSearchOptions {
   q?: string;
   section?: string;
   site?: string;
+  staffId?: string;
+  staffName?: string;
   dateFilter?: string;
   startDate?: string;
   endDate?: string;
@@ -166,6 +168,8 @@ export async function executeGlobalSearch(
   const rawQuery = options.q || '';
   const section = (options.section || 'all').toLowerCase();
   const siteFilter = (options.site && options.site !== 'all') ? options.site.toLowerCase() : null;
+  const staffFilter = (options.staffId && options.staffId !== 'all') ? options.staffId.toLowerCase() :
+                      (options.staffName && options.staffName !== 'all') ? options.staffName.toLowerCase() : null;
   const dateFilter = options.dateFilter || 'any';
 
   const parsed = parseGlobalSearchQuery(rawQuery, now);
@@ -194,7 +198,9 @@ export async function executeGlobalSearch(
     dateRange = { start: formatDateLocal(start), end: formatDateLocal(end) };
   } else if (dateFilter === 'this_month') {
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    dateRange = { start: formatDateLocal(start), end: todayStr };
+    // End of this month (e.g. 2026-08-31) so leave overlapping any part of the month matches
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    dateRange = { start: formatDateLocal(start), end: formatDateLocal(end) };
   } else if (dateFilter === 'last_month') {
     const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const end = new Date(now.getFullYear(), now.getMonth(), 0);
@@ -211,12 +217,36 @@ export async function executeGlobalSearch(
   const runShifts = section === 'all' || section === 'shifts' || section === 'rota';
   const runAttendance = section === 'all' || section === 'attendance';
 
+  // Retrieve all staff members for site/staff lookups
+  const allStaff = await database.select().from(staff);
+
+  // Map site staff if site filter is active
+  let siteStaffIdSet: Set<string> | null = null;
+  let siteStaffNameSet: Set<string> | null = null;
+  if (siteFilter) {
+    siteStaffIdSet = new Set(
+      allStaff
+        .filter((s: any) => (s.site || '').toLowerCase().includes(siteFilter) || String(s.siteId || '').toLowerCase() === siteFilter)
+        .map((s: any) => String(s.id).toLowerCase())
+    );
+    siteStaffNameSet = new Set(
+      allStaff
+        .filter((s: any) => (s.site || '').toLowerCase().includes(siteFilter) || String(s.siteId || '').toLowerCase() === siteFilter)
+        .map((s: any) => (s.name || '').toLowerCase())
+    );
+  }
+
   // 1. Staff Search
   let staffResults: StaffSearchResult[] = [];
   if (runStaff) {
-    const allStaff = await database.select().from(staff);
-    
     const filteredStaff = allStaff.filter((s: any) => {
+      if (staffFilter) {
+        const matchId = String(s.id).toLowerCase() === staffFilter;
+        const matchName = (s.name || '').toLowerCase().includes(staffFilter);
+        const matchUser = (s.username || '').toLowerCase() === staffFilter;
+        if (!matchId && !matchName && !matchUser) return false;
+      }
+
       if (siteFilter) {
         const staffSite = (s.site || '').toLowerCase();
         if (!staffSite.includes(siteFilter) && String(s.siteId || '').toLowerCase() !== siteFilter) {
@@ -246,7 +276,7 @@ export async function executeGlobalSearch(
       return true;
     });
 
-    staffResults = filteredStaff.slice(0, 30).map((s: any) => ({
+    staffResults = filteredStaff.slice(0, 50).map((s: any) => ({
       id: s.id,
       name: s.name,
       username: s.username || null,
@@ -268,6 +298,18 @@ export async function executeGlobalSearch(
     const allRequests = await database.select().from(leaveRequests);
 
     const filteredBalances = allBalances.filter((b: any) => {
+      if (staffFilter) {
+        const matchId = String(b.staffId).toLowerCase() === staffFilter;
+        const matchName = (b.staffName || '').toLowerCase().includes(staffFilter);
+        if (!matchId && !matchName) return false;
+      }
+
+      if (siteStaffIdSet && siteStaffNameSet) {
+        const matchId = siteStaffIdSet.has(String(b.staffId).toLowerCase());
+        const matchName = siteStaffNameSet.has((b.staffName || '').toLowerCase());
+        if (!matchId && !matchName) return false;
+      }
+
       if (cleanLower) {
         const tokens = cleanLower.split(/\s+/).filter(t => !['leave', 'available', 'balance', 'vacation', 'holiday'].includes(t));
         if (tokens.length > 0) {
@@ -278,7 +320,7 @@ export async function executeGlobalSearch(
       return true;
     });
 
-    for (const b of filteredBalances.slice(0, 20)) {
+    for (const b of filteredBalances.slice(0, 30)) {
       leaveResults.push({
         id: b.id,
         staffId: b.staffId,
@@ -292,6 +334,18 @@ export async function executeGlobalSearch(
     }
 
     const filteredRequests = allRequests.filter((r: any) => {
+      if (staffFilter) {
+        const matchId = String(r.staffId).toLowerCase() === staffFilter;
+        const matchName = (r.staffName || '').toLowerCase().includes(staffFilter);
+        if (!matchId && !matchName) return false;
+      }
+
+      if (siteStaffIdSet && siteStaffNameSet) {
+        const matchId = siteStaffIdSet.has(String(r.staffId).toLowerCase());
+        const matchName = siteStaffNameSet.has((r.staffName || '').toLowerCase());
+        if (!matchId && !matchName) return false;
+      }
+
       if (qLower.includes('approved') && r.status !== 'approved') return false;
       if (qLower.includes('pending') && r.status !== 'pending') return false;
       if (qLower.includes('rejected') && r.status !== 'rejected') return false;
@@ -304,8 +358,11 @@ export async function executeGlobalSearch(
         }
       }
 
+      // Correct Overlap Logic: Leave request overlaps dateRange if r.startDate <= dateRange.end AND r.endDate >= dateRange.start
       if (dateRange) {
-        if (r.startDate < dateRange.start || r.startDate > dateRange.end) {
+        const reqStart = r.startDate;
+        const reqEnd = r.endDate || r.startDate;
+        if (reqStart > dateRange.end || reqEnd < dateRange.start) {
           return false;
         }
       }
@@ -313,7 +370,7 @@ export async function executeGlobalSearch(
       return true;
     });
 
-    for (const r of filteredRequests.slice(0, 20)) {
+    for (const r of filteredRequests.slice(0, 30)) {
       leaveResults.push({
         id: r.id,
         staffId: r.staffId,
@@ -336,6 +393,12 @@ export async function executeGlobalSearch(
     const allShifts = await database.select().from(shifts);
 
     const filteredShifts = allShifts.filter((s: any) => {
+      if (staffFilter) {
+        const matchId = String(s.staffId).toLowerCase() === staffFilter;
+        const matchName = (s.staffName || '').toLowerCase().includes(staffFilter);
+        if (!matchId && !matchName) return false;
+      }
+
       if (siteFilter) {
         const shiftSite = (s.siteName || '').toLowerCase();
         if (!shiftSite.includes(siteFilter) && String(s.siteId || '').toLowerCase() !== siteFilter) {
@@ -363,7 +426,7 @@ export async function executeGlobalSearch(
       return true;
     });
 
-    shiftResults = filteredShifts.slice(0, 30).map((s: any) => ({
+    shiftResults = filteredShifts.slice(0, 50).map((s: any) => ({
       id: s.id,
       staffId: s.staffId,
       staffName: s.staffName,
@@ -388,6 +451,12 @@ export async function executeGlobalSearch(
     const allShifts = await database.select().from(shifts);
 
     const filteredAttendance = allShifts.filter((s: any) => {
+      if (staffFilter) {
+        const matchId = String(s.staffId).toLowerCase() === staffFilter;
+        const matchName = (s.staffName || '').toLowerCase().includes(staffFilter);
+        if (!matchId && !matchName) return false;
+      }
+
       if (siteFilter) {
         const shiftSite = (s.siteName || '').toLowerCase();
         if (!shiftSite.includes(siteFilter) && String(s.siteId || '').toLowerCase() !== siteFilter) {
@@ -422,7 +491,7 @@ export async function executeGlobalSearch(
       return true;
     });
 
-    attendanceResults = filteredAttendance.slice(0, 30).map((s: any) => {
+    attendanceResults = filteredAttendance.slice(0, 50).map((s: any) => {
       let issue: 'absent' | 'late' | 'missing_clock_out' = 'absent';
       let details = 'Staff member did not clock in for scheduled shift';
 

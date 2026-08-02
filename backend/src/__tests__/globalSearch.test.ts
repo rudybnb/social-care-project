@@ -14,7 +14,6 @@ class FakeDb {
   public sessionRows: any[] = [];
 
   constructor() {
-    // Populate realistic test data (no passwords/secrets in output)
     this.staffRows = [
       {
         id: '11111111-1111-1111-1111-111111111111',
@@ -57,16 +56,17 @@ class FakeDb {
       }
     ];
 
+    // Overlapping leave request: Starts in July (2026-07-28) and ends in August (2026-08-05)
     this.leaveRequestRows = [
       {
-        id: 'req-1',
+        id: 'req-lauren-overlapping',
         staffId: '11111111-1111-1111-1111-111111111111',
         staffName: 'Lauren Alecia',
-        startDate: '2026-08-10',
-        endDate: '2026-08-12',
-        totalDays: 3,
-        totalHours: 24,
-        reason: 'Family holiday',
+        startDate: '2026-07-28',
+        endDate: '2026-08-05',
+        totalDays: 8,
+        totalHours: 64,
+        reason: 'Summer break',
         leaveType: 'annual',
         status: 'approved'
       }
@@ -157,7 +157,6 @@ test('Global Search Engine: Groups results into 4 categories and excludes sensit
   assert.ok(res.results.shifts);
   assert.ok(res.results.attendance);
 
-  // Check safety: password and secrets must NOT exist in output JSON
   const jsonStr = JSON.stringify(res);
   assert.ok(!jsonStr.includes('hashedpasswordsecret123'), 'Secrets/passwords must never be in search results');
   assert.ok(!jsonStr.includes('password'), 'Password keys must not exist in safe staff search payload');
@@ -168,29 +167,24 @@ test('Global Search Engine: Handles specific search query intents', async () => 
   const fakeDb = new FakeDb();
   const fixedNow = new Date('2026-08-02T12:00:00Z');
 
-  // Query 1: staff absent last week
   const q1 = await executeGlobalSearch(fakeDb, 'staff absent last week', fixedNow);
   assert.ok(q1.counts.attendance >= 0);
 
-  // Query 2: missed shifts yesterday
   const q2 = await executeGlobalSearch(fakeDb, 'missed shifts yesterday', fixedNow);
   assert.ok(q2.results.shifts.some(s => s.id === 'shift-missed-1'));
 
-  // Query 3: new staff this month
   const q3 = await executeGlobalSearch(fakeDb, 'new staff this month', fixedNow);
   assert.ok(q3.results.staff.some(s => s.name === 'Lauren Alecia'));
 
-  // Query 4: unfilled shifts next week
   const q4 = await executeGlobalSearch(fakeDb, 'unfilled shifts next week', fixedNow);
   assert.ok(q4.results.shifts.some(s => s.isBank === true));
 
-  // Query 5: active workers at Thamesmead
   const q5 = await executeGlobalSearch(fakeDb, 'active workers at Thamesmead', fixedNow);
   assert.ok(q5.results.staff.some(s => s.site.includes('Thamesmead')));
 });
 
-// 4. Structured Options Filtering (Section, Site, DateFilter)
-test('Global Search Engine: Filters by structured section, site, and date options', async () => {
+// 4. Structured Options Filtering & Overlapping Leave Test
+test('Global Search Engine: Filters by staffId, site, and handles overlapping annual leave', async () => {
   const fakeDb = new FakeDb();
   const fixedNow = new Date('2026-08-02T12:00:00Z');
 
@@ -199,11 +193,19 @@ test('Global Search Engine: Filters by structured section, site, and date option
   assert.ok(staffOnly.results.staff.length > 0);
   assert.equal(staffOnly.results.leave.length, 0);
 
+  // Test staffId filter for Lauren
+  const laurenFilter = await executeGlobalSearch(fakeDb, { staffId: '11111111-1111-1111-1111-111111111111' }, fixedNow);
+  assert.ok(laurenFilter.results.staff.every(s => s.name === 'Lauren Alecia'));
+  assert.ok(laurenFilter.results.leave.every(l => l.staffName === 'Lauren Alecia'));
+
   // Test site filter
   const siteFilter = await executeGlobalSearch(fakeDb, { site: 'Thamesmead' }, fixedNow);
   assert.ok(siteFilter.results.staff.every(s => s.site.toLowerCase().includes('thamesmead')));
 
-  // Test date filter = yesterday
-  const yesterdayRes = await executeGlobalSearch(fakeDb, { dateFilter: 'yesterday' }, fixedNow);
-  assert.ok(yesterdayRes.results.shifts.some(s => s.date === '2026-08-01'));
+  // Test overlapping leave for Lauren in "this_month" (August 2026, leave is July 28 - August 5)
+  const augustMonthRes = await executeGlobalSearch(fakeDb, { section: 'leave', dateFilter: 'this_month' }, fixedNow);
+  assert.ok(
+    augustMonthRes.results.leave.some(l => l.id === 'req-lauren-overlapping' && l.staffName === 'Lauren Alecia'),
+    'Lauren leave request starting in July and ending in August MUST appear when date filter is set to this_month'
+  );
 });

@@ -295,6 +295,8 @@ router.get('/global-search', authenticateRequest, requireAdmin, async (req: Requ
             q: typeof req.query.q === 'string' ? req.query.q : '',
             section: typeof req.query.section === 'string' ? req.query.section : 'all',
             site: typeof req.query.site === 'string' ? req.query.site : 'all',
+            staffId: typeof req.query.staffId === 'string' ? req.query.staffId : 'all',
+            staffName: typeof req.query.staffName === 'string' ? req.query.staffName : 'all',
             dateFilter: typeof req.query.dateFilter === 'string' ? req.query.dateFilter : 'any',
             startDate: typeof req.query.startDate === 'string' ? req.query.startDate : undefined,
             endDate: typeof req.query.endDate === 'string' ? req.query.endDate : undefined,
