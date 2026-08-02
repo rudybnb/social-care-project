@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { staff } from '../schema.js';
 import { eq, or, sql } from 'drizzle-orm';
 import { createAuthenticateRequest, requireAdmin } from '../middleware/auth.js';
+import bcrypt from 'bcrypt';
 
 type DbLike = any;
 
@@ -86,6 +87,55 @@ export function createStaffRouter(database: DbLike): Router {
     } catch (error) {
       console.error('Error fetching staff member:', error);
       return res.status(500).json({ error: 'Failed to fetch staff member' });
+    }
+  });
+
+  // POST / — create new staff member (Admin only)
+  router.post('/', authenticateRequest, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      if (!database) return res.status(500).json({ error: 'Database not configured' });
+
+      const { name, username, email, role, site, status, password, startDate } = req.body || {};
+
+      if (!name || typeof name !== 'string' || !name.trim()) {
+        return res.status(400).json({ error: 'Staff name is required' });
+      }
+
+      if (!password || typeof password !== 'string' || !password.trim()) {
+        return res.status(400).json({ error: 'Temporary password is required' });
+      }
+
+      const autoUsername = username && typeof username === 'string' && username.trim()
+        ? username.trim()
+        : `staff_${Date.now()}`;
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const staffData: any = {
+        name: name.trim(),
+        username: autoUsername,
+        password: hashedPassword,
+        email: email && typeof email === 'string' && email.trim() ? email.trim() : null,
+        role: role && typeof role === 'string' ? role.trim() : 'Care Worker',
+        site: site && typeof site === 'string' ? site.trim() : 'General',
+        status: status === 'Inactive' ? 'Inactive' : 'Active',
+        standardRate: '12.50',
+        enhancedRate: '—',
+        nightRate: '—',
+        rates: '£12.50/h',
+        pension: '—',
+        deductions: '£0.00',
+        tax: '—',
+        weeklyHours: 0,
+        startDate: startDate && typeof startDate === 'string' && startDate.trim() ? startDate.trim() : new Date().toISOString().split('T')[0]
+      };
+
+      const inserted = await database.insert(staff).values(staffData).returning();
+      const createdStaff = inserted[0];
+      return res.status(201).json(toSafeStaff(createdStaff));
+    } catch (error: any) {
+      console.error('Error creating staff member:', error);
+      return res.status(500).json({ error: 'Failed to create staff member', details: error.message });
     }
   });
 

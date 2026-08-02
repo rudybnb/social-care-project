@@ -149,6 +149,30 @@ export const staffAPI = {
     return response.json();
   },
 
+  // Create new staff member via the protected endpoint using the authenticated bearer session token
+  async create(data: Partial<StaffMember> & { password?: string }, token?: string | null): Promise<SafeStaff> {
+    const authToken = token || getStoredToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+    const response = await fetch(`${API_BASE_URL}/api/staff`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data)
+    });
+
+    if (response.status === 401) {
+      throw new StaffAuthError('Your session has expired. Please log in again.', response.status);
+    }
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Failed to create staff member' }));
+      throw new Error(err.error || err.details || 'Failed to create staff member');
+    }
+    return response.json();
+  },
+
   // Get staff by ID via the protected endpoint using the authenticated bearer session token
   async getById(id: string | number, token?: string | null): Promise<SafeStaff> {
     const headers: Record<string, string> = {};
@@ -158,17 +182,6 @@ export const staffAPI = {
       throw new StaffAuthError('Your session has expired. Please log in again.', response.status);
     }
     if (!response.ok) throw new Error('Failed to fetch staff member');
-    return response.json();
-  },
-
-  // Create new staff member
-  async create(staff: Omit<StaffMember, 'id'>): Promise<StaffMember> {
-    const response = await fetch(`${API_BASE_URL}/api/staff`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(staff),
-    });
-    if (!response.ok) throw new Error('Failed to create staff member');
     return response.json();
   },
 

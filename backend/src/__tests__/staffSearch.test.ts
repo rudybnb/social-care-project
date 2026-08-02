@@ -12,13 +12,15 @@ import {
 
 
 class FakeDb {
-  public sessions: any[] = [];
-  public selectQueue: any[][] = [];
+  public selectQueue: any[][];
   public selectCalls: any[] = [];
   public inserts: any[] = [];
+  public sessions: any[] = [];
+  public insertResult: any[] = [];
 
-  constructor(options: { selectQueue?: any[][] } = {}) {
+  constructor(options: { selectQueue?: any[][]; insertResult?: any[] } = {}) {
     this.selectQueue = options.selectQueue ?? [];
+    this.insertResult = options.insertResult ?? [];
   }
 
   select(selection?: any) {
@@ -58,7 +60,15 @@ class FakeDb {
         if (table === authSessions) {
           db.sessions.push({ id: `session-${db.sessions.length + 1}`, ...value });
         }
-        return Promise.resolve();
+        const res = db.insertResult.length > 0 ? db.insertResult : [{ id: 'new-id-1', ...value }];
+        return {
+          returning() {
+            return Promise.resolve(res);
+          },
+          then(onFulfilled?: any, onRejected?: any) {
+            return Promise.resolve(res).then(onFulfilled, onRejected);
+          }
+        };
       },
     };
   }
@@ -621,6 +631,69 @@ test('non-admin user cannot access admin staff search', async () => {
   });
 
   assert.ok(res.statusCode === 401 || res.statusCode === 403, `expected 401 or 403, got ${res.statusCode}`);
+});
+
+test('POST /api/staff security matrix: Admin 201, Worker 401/403, Unauth 401, Password Omitted', async () => {
+  // 1. Unauthenticated request -> 401
+  const dbUnauth = new FakeDb({});
+  const routerUnauth = createStaffRouter(dbUnauth);
+  const unauthRes = await invokeRoute(routerUnauth, 'post', '/', {
+    headers: {},
+    body: { name: 'Test Person', password: 'tempPassword123' },
+  });
+  assert.equal(unauthRes.statusCode, 401, 'unauthenticated POST /api/staff must return 401');
+
+  // 2. Worker session -> 401 or 403
+  const dbWorker = new FakeDb({
+    selectQueue: [
+      [makeSession()],
+      [makeStaff({ id: 'staff-worker-1', role: 'Worker' })],
+    ],
+  });
+  const workerToken = await createSession(dbWorker, 'staff-worker-1');
+  const routerWorker = createStaffRouter(dbWorker);
+  const workerRes = await invokeRoute(routerWorker, 'post', '/', {
+    headers: { authorization: `Bearer ${workerToken.token}` },
+    body: { name: 'Test Person', password: 'tempPassword123' },
+  });
+  assert.ok(workerRes.statusCode === 401 || workerRes.statusCode === 403, `expected 401/403 for worker creation, got ${workerRes.statusCode}`);
+
+  // 3. Admin session -> 201 Created & safe payload returned
+  const dbAdmin = new FakeDb({
+    selectQueue: makeAuthSelectQueue([]),
+    insertResult: [
+      makeStaff({
+        id: 'new-staff-101',
+        name: 'Jane Doe',
+        username: 'janedoe',
+        role: 'Senior Care Worker',
+        site: 'Thamesmead',
+        status: 'Active',
+        email: 'jane@example.com',
+      }),
+    ],
+  });
+  const adminToken = await createSession(dbAdmin, 'staff-admin-1');
+  const routerAdmin = createStaffRouter(dbAdmin);
+
+  const adminRes = await invokeRoute(routerAdmin, 'post', '/', {
+    headers: { authorization: `Bearer ${adminToken.token}` },
+    body: {
+      name: 'Jane Doe',
+      username: 'janedoe',
+      email: 'jane@example.com',
+      role: 'Senior Care Worker',
+      site: 'Thamesmead',
+      status: 'Active',
+      password: 'secretPassword123',
+    },
+  });
+
+  assert.equal(adminRes.statusCode, 201, 'admin POST /api/staff must return 201');
+  assert.equal(adminRes.payload.name, 'Jane Doe');
+  assert.equal(adminRes.payload.username, 'janedoe');
+  assert.equal(adminRes.payload.role, 'Senior Care Worker');
+  assert.equal(adminRes.payload.password, undefined, 'password must not be exposed in response payload');
 });
 
 test('admin/admin123 credentials and legacy fallback login do not exist', async () => {

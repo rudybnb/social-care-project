@@ -348,53 +348,7 @@ app.post('/api/staff/bulk-create', async (req: Request, res: Response) => {
   }
 });
 
-// Create new staff member
-app.post('/api/staff', async (req: Request, res: Response) => {
-  try {
-    if (!db) return res.status(500).json({ error: 'Database not configured' });
-
-    console.log('Received staff data:', JSON.stringify(req.body, null, 2));
-
-    // Auto-generate username if not provided (to avoid NULL constraint issues)
-    const autoUsername = req.body.username || `staff_${Date.now()}`;
-
-    // Auto-generate password if not provided
-    const passwordToHash = req.body.password || `temp_${Math.random().toString(36).substring(7)}`;
-
-    const staffData: any = {
-      name: req.body.name?.trim(),
-      email: req.body.email?.trim() || null,
-      username: (req.body.username?.trim()) || autoUsername,
-      password: await bcrypt.hash(passwordToHash, 10), // Always hash a password
-      role: req.body.role,
-      site: req.body.site,
-      status: req.body.status || 'Active',
-      standardRate: req.body.standardRate ? String(req.body.standardRate) : '12.50',
-      enhancedRate: req.body.enhancedRate || '—',
-      nightRate: req.body.nightRate || '—',
-      rates: req.body.rates || '£12.50/h',
-      pension: req.body.pension || '—',
-      deductions: req.body.deductions || '£0.00',
-      tax: req.body.tax || '—',
-      weeklyHours: req.body.weeklyHours || 0,
-      startDate: req.body.startDate || new Date().toISOString().split('T')[0]
-    };
-
-    console.log('Inserting staff into database...');
-    const newStaff = await db.insert(staff).values(staffData).returning();
-    console.log('Staff created successfully:', newStaff[0].id);
-    res.status(201).json(newStaff[0]);
-  } catch (error: any) {
-    console.error('Error creating staff member:');
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    console.error('Full error:', error);
-    res.status(500).json({
-      error: 'Failed to create staff member',
-      details: error.message
-    });
-  }
-});
+// Note: Staff routes are handled by createStaffRouter(db) at /api/staff
 
 // Update staff member
 app.put('/api/staff/:id', async (req: Request, res: Response) => {
