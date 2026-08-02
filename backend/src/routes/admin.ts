@@ -1,4 +1,4 @@
-import express, { Request, Response, Router } from 'express';
+import express, { Request, Response, NextFunction, Router } from 'express';
 import { db } from '../index.js';
 import { shifts, staff } from '../schema.js';
 import { eq, and, sql } from 'drizzle-orm';
@@ -282,8 +282,13 @@ router.get('/remove-duplicates', async (req: Request, res: Response) => {
     }
 });
 
+// Middleware to defer database access until request time
+const authenticateRequest = (req: Request, res: Response, next: NextFunction) => {
+    return createAuthenticateRequest(db)(req, res, next);
+};
+
 // Admin Global Search Endpoint
-router.get('/global-search', createAuthenticateRequest(db), requireAdmin, async (req: Request, res: Response) => {
+router.get('/global-search', authenticateRequest, requireAdmin, async (req: Request, res: Response) => {
     try {
         if (!db) return res.status(500).json({ error: 'Database not configured' });
         const query = typeof req.query.q === 'string' ? req.query.q : '';
