@@ -12,6 +12,7 @@ import ApprovalRequests from '../components/ApprovalRequests';
 import UnscheduledPunches from '../components/UnscheduledPunches';
 import Quotes from '../components/Quotes';
 import RemittancesList from '../components/RemittancesList';
+import GlobalSearch from '../components/GlobalSearch';
 
 const AdminDashboard: React.FC = () => {
   const { logout, user } = useAuth();
@@ -82,6 +83,7 @@ const AdminDashboard: React.FC = () => {
   ];
 
   const adminItems = [
+    { id: 'global-search', label: 'Global Search' },
     { id: 'directory', label: 'Directory' },
     { id: 'sites', label: 'Sites' },
     { id: 'quotes', label: 'Quotes' },
@@ -93,6 +95,8 @@ const AdminDashboard: React.FC = () => {
     switch (currentPage) {
       case 'overview':
         return <Overview />;
+      case 'global-search':
+        return <GlobalSearch />;
       case 'rota':
         return <Rota />;
       case 'sites':

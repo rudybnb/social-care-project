@@ -28,7 +28,7 @@ async function main() {
       REQUIRE_REAL_DB_TESTS: 'true'
     };
 
-    const res = spawnSync('npx', ['tsx', '--test', 'src/__tests__/*.test.ts'], {
+    const res = spawnSync('node', ['--test', 'dist/__tests__/adminAuth.test.js', 'dist/__tests__/globalSearch.test.js', 'dist/__tests__/migration.test.js', 'dist/__tests__/schemaBootstrap.test.js', 'dist/__tests__/staffSearch.test.js'], {
       env,
       stdio: 'inherit',
       shell: true

@@ -3,6 +3,8 @@ import { db } from '../index.js';
 import { shifts, staff } from '../schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import { sendSystemAlert } from '../services/telegramService.js';
+import { createAuthenticateRequest, requireAdmin } from '../middleware/auth.js';
+import { executeGlobalSearch } from '../services/globalSearchService.js';
 
 const router: Router = express.Router();
 
@@ -277,6 +279,19 @@ router.get('/remove-duplicates', async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Error removing duplicates:', error);
         res.status(500).json({ error: 'Failed to remove duplicates', details: error.message });
+    }
+});
+
+// Admin Global Search Endpoint
+router.get('/global-search', createAuthenticateRequest(db), requireAdmin, async (req: Request, res: Response) => {
+    try {
+        if (!db) return res.status(500).json({ error: 'Database not configured' });
+        const query = typeof req.query.q === 'string' ? req.query.q : '';
+        const searchResults = await executeGlobalSearch(db, query);
+        res.json(searchResults);
+    } catch (error: any) {
+        console.error('Error in admin global search:', error);
+        res.status(500).json({ error: 'Global search failed', details: error.message });
     }
 });
 
