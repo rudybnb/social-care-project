@@ -62,7 +62,7 @@ export async function runAllMigrations(options: MigrationOptions = {}): Promise<
     await executor.query(`
       CREATE TABLE IF NOT EXISTS auth_sessions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        staff_id UUID NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+        staff_id UUID NOT NULL,
         token_hash TEXT NOT NULL UNIQUE,
         user_agent TEXT,
         ip_address TEXT,
@@ -325,11 +325,61 @@ export async function runAllMigrations(options: MigrationOptions = {}): Promise<
       CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at);
     `);
 
+    // Handle potential data-type mismatch between staff.id and auth_sessions.staff_id in legacy production schemas
     await executor.query(`
+      ALTER TABLE auth_sessions DROP CONSTRAINT IF EXISTS auth_sessions_staff_id_staff_id_fk;
+      ALTER TABLE auth_sessions DROP CONSTRAINT IF EXISTS auth_sessions_staff_id_fkey;
+
       DO $$
+      DECLARE
+        invalid_staff_count INTEGER;
+        invalid_session_count INTEGER;
       BEGIN
+        -- Preflight Check 1: Verify all staff.id values are valid UUID strings if staff.id is currently text/varchar
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'staff' AND column_name = 'id' AND data_type IN ('text', 'character varying')
+        ) THEN
+          SELECT COUNT(*) INTO invalid_staff_count
+          FROM staff
+          WHERE id IS NULL OR id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+
+          IF invalid_staff_count > 0 THEN
+            RAISE EXCEPTION 'Migration Preflight Aborted: Found % record(s) in staff table with non-UUID id values.', invalid_staff_count;
+          END IF;
+        END IF;
+
+        -- Preflight Check 2: Verify all auth_sessions.staff_id values are valid UUID strings if staff_id is currently text/varchar
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'auth_sessions' AND column_name = 'staff_id' AND data_type IN ('text', 'character varying')
+        ) THEN
+          SELECT COUNT(*) INTO invalid_session_count
+          FROM auth_sessions
+          WHERE staff_id IS NULL OR staff_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+
+          IF invalid_session_count > 0 THEN
+            RAISE EXCEPTION 'Migration Preflight Aborted: Found % record(s) in auth_sessions table with non-UUID staff_id values.', invalid_session_count;
+          END IF;
+        END IF;
+
+        -- Safe type conversion after preflight passes
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'staff' AND column_name = 'id' AND data_type IN ('text', 'character varying')
+        ) THEN
+          ALTER TABLE staff ALTER COLUMN id TYPE UUID USING id::uuid;
+        END IF;
+
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'auth_sessions' AND column_name = 'staff_id' AND data_type IN ('text', 'character varying')
+        ) THEN
+          ALTER TABLE auth_sessions ALTER COLUMN staff_id TYPE UUID USING staff_id::uuid;
+        END IF;
+
         IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint WHERE conname = 'auth_sessions_staff_id_staff_id_fk'
+          SELECT 1 FROM pg_constraint WHERE conname IN ('auth_sessions_staff_id_staff_id_fk', 'auth_sessions_staff_id_fkey')
         ) THEN
           ALTER TABLE auth_sessions
           ADD CONSTRAINT auth_sessions_staff_id_staff_id_fk

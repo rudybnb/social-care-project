@@ -217,3 +217,103 @@ test('13. Migration SQL safety: no SQL containing JavaScript // comments is exec
     assert.ok(!block.includes('//'), `SQL query string block must not contain JS // comments: ${block}`);
   }
 });
+
+test('14. Real PostgreSQL: Migrates legacy TEXT staff.id and auth_sessions.staff_id to UUID without error', async () => {
+  const { client, close } = await getRealTestClient();
+  try {
+    // 1. Simulate legacy production database state where staff.id is TEXT
+    await client.query(`
+      CREATE TABLE staff (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'Worker',
+        site TEXT NOT NULL DEFAULT 'General',
+        status TEXT NOT NULL DEFAULT 'Active',
+        rates TEXT NOT NULL DEFAULT '£12.50/hr'
+      );
+    `);
+
+    await client.query(`
+      INSERT INTO staff (id, name) VALUES
+      ('a702a1dc-c278-465c-8478-6a498cedb536', 'Rudy'),
+      ('713b1395-4a60-47d1-814d-dca8c81103b0', 'Admin User');
+    `);
+
+    await client.query(`
+      CREATE TABLE auth_sessions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        staff_id TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        user_agent TEXT,
+        ip_address TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        revoked_at TIMESTAMPTZ
+      );
+    `);
+
+    await client.query(`
+      INSERT INTO auth_sessions (staff_id, token_hash, expires_at) VALUES
+      ('a702a1dc-c278-465c-8478-6a498cedb536', 'hash_test_123', NOW() + INTERVAL '1 day');
+    `);
+
+    // 2. Run migrations on this legacy mismatched database
+    await runAllMigrations({ client });
+
+    // 3. Verify staff data and type
+    const staffResult = await client.query(`SELECT id, name, pg_typeof(id) as id_type FROM staff`);
+    assert.equal(staffResult.rows.length, 2, 'Existing staff rows must be preserved');
+    assert.equal(staffResult.rows[0].id_type, 'uuid', 'staff.id must be converted to UUID');
+
+    // 4. Verify auth_sessions data and type
+    const sessionResult = await client.query(`SELECT id, staff_id, pg_typeof(staff_id) as staff_id_type FROM auth_sessions`);
+    assert.equal(sessionResult.rows.length, 1, 'Existing auth_sessions rows must be preserved');
+    assert.equal(sessionResult.rows[0].staff_id_type, 'uuid', 'auth_sessions.staff_id must be converted to UUID');
+
+    // 5. Verify foreign key constraint exists
+    const fkResult = await client.query(`
+      SELECT conname FROM pg_constraint
+      WHERE conname IN ('auth_sessions_staff_id_staff_id_fk', 'auth_sessions_staff_id_fkey');
+    `);
+    assert.ok(fkResult.rows.length > 0, 'Foreign key constraint must exist');
+  } finally {
+    await close();
+  }
+});
+
+test('15. Real PostgreSQL: Migration preflight aborts safely with error when non-UUID string exists in staff.id', async () => {
+  const { client, close } = await getRealTestClient();
+  try {
+    await client.query(`
+      CREATE TABLE staff (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'Worker',
+        site TEXT NOT NULL DEFAULT 'General',
+        status TEXT NOT NULL DEFAULT 'Active',
+        rates TEXT NOT NULL DEFAULT '£12.50/hr'
+      );
+    `);
+
+    await client.query(`
+      INSERT INTO staff (id, name) VALUES
+      ('INVALID_STAFF_123', 'Corrupted ID User');
+    `);
+
+    await assert.rejects(
+      async () => runAllMigrations({ client }),
+      (err: any) => {
+        assert.match(err.message, /Migration Preflight Aborted: Found 1 record\(s\) in staff table with non-UUID id values/i);
+        return true;
+      },
+      'Preflight must abort when non-UUID id is detected'
+    );
+
+    // Verify row was NOT deleted or modified
+    const checkRow = await client.query(`SELECT id, name FROM staff`);
+    assert.equal(checkRow.rows.length, 1, 'Corrupted row must not be deleted');
+    assert.equal(checkRow.rows[0].id, 'INVALID_STAFF_123', 'Original ID must not be changed');
+  } finally {
+    await close();
+  }
+});
