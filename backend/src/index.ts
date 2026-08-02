@@ -19,9 +19,16 @@ import { initAuditLog, logActivity } from './services/auditLogService.js';
 import { sendAdminTelegram } from './services/telegramService.js';
 process.env.TZ = 'Europe/London'; // Force UK time zone for all dates
 
+const allowedOrigins = [
+  'https://social-care-frontend.onrender.com',
+  'http://localhost:3000',
+  'http://localhost:8080',
+  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) : [])
+].filter(Boolean);
+
 const app = express();
 app.use(cors({
-  origin: ['https://social-care-frontend.onrender.com', 'http://localhost:3000', 'http://localhost:8080'],
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
