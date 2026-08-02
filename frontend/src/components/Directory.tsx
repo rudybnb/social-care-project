@@ -1,18 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { subscribeToDataChange, Agency, AgencyWorker, getAgencies, addAgency, updateAgency, deleteAgency, getAgencyWorkers, addAgencyWorker, updateAgencyWorker, deleteAgencyWorker } from '../data/sharedData';
+import {
+  subscribeToDataChange,
+  Agency,
+  AgencyWorker,
+  getAgencies,
+  addAgency,
+  updateAgency,
+  deleteAgency,
+  getAgencyWorkers,
+  addAgencyWorker,
+  updateAgencyWorker,
+  deleteAgencyWorker,
+  Site
+} from '../data/sharedData';
 import { useAuth } from '../context/AuthContext';
-import { staffAPI, StaffAuthError, SafeStaff } from '../services/api';
+import { staffAPI, sitesAPI, StaffAuthError, SafeStaff } from '../services/api';
 
 const Directory: React.FC = () => {
   const { token, clearSession } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'staff' | 'agency'>('staff');
 
-  // Staff search state
+  // Staff state & filters
+  const [staffList, setStaffList] = useState<SafeStaff[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SafeStaff[] | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
+  const [selectedSite, setSelectedSite] = useState<string>('all');
+  const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+
+  // Dynamic sites list from database
+  const [dynamicSites, setDynamicSites] = useState<Site[]>([]);
+
   const [searchAuthExpired, setSearchAuthExpired] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchPerformed, setSearchPerformed] = useState(false);
@@ -39,7 +58,7 @@ const Directory: React.FC = () => {
     notes: ''
   });
 
-  // Subscribe to changes
+  // Subscribe to agency data changes
   useEffect(() => {
     const unsubscribe = subscribeToDataChange(() => {
       setAgencies(getAgencies());
@@ -48,31 +67,81 @@ const Directory: React.FC = () => {
     return unsubscribe;
   }, []);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const query = searchQuery.trim();
+  // Fetch dynamic sites list on mount
+  useEffect(() => {
+    let isMounted = true;
+    sitesAPI.getAll()
+      .then((sites) => {
+        if (isMounted) {
+          const sorted = [...sites].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          setDynamicSites(sorted);
+        }
+      })
+      .catch((err) => console.warn('Failed to load sites for directory filter:', err));
+    return () => { isMounted = false; };
+  }, []);
+
+  // Fetch staff from API
+  const fetchStaff = useCallback(async (query: string = '') => {
     setSearchError(null);
     setSearchAuthExpired(false);
-    setSearchPerformed(true);
-    setIsSearching(true);
-    setSearchResults(null);
     try {
-      const results = await staffAPI.search(query, token);
+      const results = await staffAPI.search(query.trim(), token);
       const validResults = (results || []).filter(
         (s) => s && typeof s.name === 'string' && s.name.trim() !== ''
       );
-      setSearchResults(validResults);
+      validResults.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      setStaffList(validResults);
     } catch (err) {
       if (err instanceof StaffAuthError) {
         setSearchAuthExpired(true);
         clearSession();
       } else {
-        setSearchError(err instanceof Error ? err.message : 'Failed to search staff. Please try again.');
+        setSearchError(err instanceof Error ? err.message : 'Failed to load staff. Please try again.');
       }
-    } finally {
-      setIsSearching(false);
     }
+  }, [token, clearSession]);
+
+  // Load all staff on initial mount
+  useEffect(() => {
+    fetchStaff('');
+  }, [fetchStaff]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchPerformed(true);
+    fetchStaff(searchQuery);
   };
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedSite('all');
+    setSelectedRole('all');
+    setSelectedStatus('all');
+    setSearchPerformed(false);
+    fetchStaff('');
+  };
+
+  // Filter staffList based on selected dropdown filters
+  const filteredStaff = staffList.filter((s) => {
+    // 1. Site Filter
+    if (selectedSite !== 'all') {
+      const staffSite = (s.site || '').toLowerCase();
+      if (!staffSite.includes(selectedSite.toLowerCase())) return false;
+    }
+
+    // 2. Role Filter
+    if (selectedRole !== 'all') {
+      if ((s.role || '').toLowerCase() !== selectedRole.toLowerCase()) return false;
+    }
+
+    // 3. Status Filter
+    if (selectedStatus !== 'all') {
+      if ((s.status || '').toLowerCase() !== selectedStatus.toLowerCase()) return false;
+    }
+
+    return true;
+  });
 
   // Agency handlers
   const handleAddAgency = () => {
@@ -167,6 +236,9 @@ const Directory: React.FC = () => {
     navigate(`/admin/directory/staff/${staffId}`);
   };
 
+  // Derive unique roles from staff list for filter dropdown
+  const uniqueRoles = Array.from(new Set(staffList.map((s) => s.role).filter(Boolean))).sort();
+
   return (
     <div style={{ padding: '20px 16px', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Header */}
@@ -175,7 +247,7 @@ const Directory: React.FC = () => {
           Directory
         </h1>
         <p style={{ color: '#9ca3af', fontSize: '13px', margin: 0 }}>
-          Manage your permanent staff and agency workers
+          Manage permanent staff and agency worker records
         </p>
       </div>
 
@@ -200,7 +272,7 @@ const Directory: React.FC = () => {
             transition: 'all 0.2s'
           }}
         >
-          Permanent Staff
+          Permanent Staff ({staffList.length})
         </button>
         <button
           onClick={() => setActiveTab('agency')}
@@ -216,14 +288,14 @@ const Directory: React.FC = () => {
             transition: 'all 0.2s'
           }}
         >
-          Agency Workers
+          Agency Workers ({agencyWorkers.length})
         </button>
       </div>
 
       {/* Staff Tab Content */}
       {activeTab === 'staff' && (
         <>
-          {/* Search Staff */}
+          {/* Search & Filter Staff Controls */}
           <div style={{
             backgroundColor: '#2a2a2a',
             borderRadius: '12px',
@@ -234,179 +306,320 @@ const Directory: React.FC = () => {
             <h2 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
               Search Staff
             </h2>
-            <form
-              onSubmit={handleSearch}
-              style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}
-            >
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name, username, role, site, status or email..."
-                disabled={isSearching}
-                style={{
-                  flex: 1,
-                  minWidth: '220px',
-                  padding: '12px',
-                  backgroundColor: '#1a1a1a',
-                  color: 'white',
-                  border: '1px solid #3a3a3a',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  boxSizing: 'border-box',
-                  outline: 'none'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#9333ea'}
-                onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-              />
-              <button
-                type="submit"
-                disabled={isSearching}
-                style={{
-                  padding: '12px 24px',
-                  backgroundColor: '#9333ea',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: isSearching ? 'not-allowed' : 'pointer',
-                  opacity: isSearching ? 0.6 : 1,
-                  whiteSpace: 'nowrap'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSearching) e.currentTarget.style.backgroundColor = '#7c3aed';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSearching) e.currentTarget.style.backgroundColor = '#9333ea';
-                }}
-              >
-                {isSearching ? 'Searching...' : 'Search'}
-              </button>
-            </form>
 
-            {isSearching && (
-              <div style={{ color: '#9ca3af', fontSize: '14px', padding: '8px 0' }}>
-                Loading staff...
+            <form onSubmit={handleSearchSubmit}>
+              {/* Filters Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '16px',
+                marginBottom: '16px'
+              }}>
+                {/* 1. Name / Keyword Filter */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '6px' }}>
+                    Staff Name / Keyword
+                  </label>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by name, username, role, site, status or email..."
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      backgroundColor: '#1a1a1a',
+                      color: 'white',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* 2. Site Filter */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '6px' }}>
+                    Site
+                  </label>
+                  <select
+                    value={selectedSite}
+                    onChange={(e) => setSelectedSite(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      backgroundColor: '#1a1a1a',
+                      color: 'white',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="all">All Sites</option>
+                    {dynamicSites.map((s) => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 3. Role Filter */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '6px' }}>
+                    Role
+                  </label>
+                  <select
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      backgroundColor: '#1a1a1a',
+                      color: 'white',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="all">All Roles</option>
+                    {uniqueRoles.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 4. Status Filter */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '6px' }}>
+                    Status
+                  </label>
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      backgroundColor: '#1a1a1a',
+                      color: 'white',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
               </div>
-            )}
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '10px 24px',
+                    backgroundColor: '#9333ea',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Search
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  style={{
+                    padding: '10px 18px',
+                    backgroundColor: '#3f3f46',
+                    color: '#d4d4d8',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Reset Filters
+                </button>
+              </div>
+            </form>
 
             {searchAuthExpired && (
               <div style={{
+                marginTop: '16px',
                 padding: '12px 16px',
                 backgroundColor: '#ef444420',
                 border: '1px solid #ef4444',
                 borderRadius: '8px',
                 color: '#f87171',
-                fontSize: '14px',
-                marginBottom: '16px'
+                fontSize: '14px'
               }}>
-                Your session has expired. Please log out and sign in again to search staff.
+                Your session has expired. Please log in again.
               </div>
             )}
 
-            {!searchAuthExpired && searchError && (
+            {searchError && (
               <div style={{
+                marginTop: '16px',
                 padding: '12px 16px',
                 backgroundColor: '#ef444420',
                 border: '1px solid #ef4444',
                 borderRadius: '8px',
                 color: '#f87171',
-                fontSize: '14px',
-                marginBottom: '16px'
+                fontSize: '14px'
               }}>
                 {searchError}
               </div>
             )}
-
-            {!isSearching && searchPerformed && !searchAuthExpired && !searchError && searchResults && searchResults.length === 0 && (
-              <div style={{ color: '#9ca3af', fontSize: '14px', padding: '8px 0' }}>
-                No staff found matching "{searchQuery.trim()}".
-              </div>
-            )}
-
-            {!isSearching && searchPerformed && !searchAuthExpired && !searchError && searchResults && searchResults.length > 0 && (
-              <>
-                <div style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '12px' }}>
-                  {searchResults.length} result{searchResults.length === 1 ? '' : 's'} for "{searchQuery.trim()}"
-                </div>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                  gap: '16px'
-                }} data-testid="staff-search-results">
-                  {searchResults.map((staff) => (
-                    <div
-                      key={staff.id}
-                      style={{
-                        backgroundColor: '#1a1a1a',
-                        borderRadius: '12px',
-                        padding: '20px',
-                        border: '1px solid #3a3a3a'
-                      }}
-                    >
-                      <div style={{ marginBottom: '12px' }}>
-                        <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', margin: 0, marginBottom: '8px' }}>
-                          {staff.name}
-                        </h3>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                          <span style={{ color: '#9ca3af', fontSize: '13px' }}>{staff.role}</span>
-                          <span style={{ color: '#6b7280', fontSize: '13px' }}>•</span>
-                          <span style={{ color: '#9ca3af', fontSize: '13px' }}>{staff.site}</span>
-                        </div>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '4px 10px',
-                          backgroundColor: staff.status === 'Active' ? '#10b98120' : '#6b728020',
-                          color: staff.status === 'Active' ? '#10b981' : '#6b7280',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: '600'
-                        }}>
-                          <span style={{ width: '5px', height: '5px', backgroundColor: staff.status === 'Active' ? '#10b981' : '#6b7280', borderRadius: '50%', display: 'inline-block' }}></span>
-                          {staff.status}
-                        </span>
-                      </div>
-                      <div style={{
-                        paddingTop: '12px',
-                        borderTop: '1px solid #2a2a2a',
-                        color: '#9ca3af',
-                        fontSize: '12px',
-                        lineHeight: '1.8',
-                        marginBottom: '14px'
-                      }}>
-                        <div>
-                          <span style={{ color: '#6b7280' }}>Username:</span> {staff.username || '—'}
-                        </div>
-                        <div>
-                          <span style={{ color: '#6b7280' }}>Email:</span> {staff.email || '—'}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleViewProfile(String(staff.id))}
-                        style={{
-                          width: '100%',
-                          padding: '10px 16px',
-                          backgroundColor: '#3b82f6',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '7px',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        View Profile
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
           </div>
 
+          {/* Results List */}
+          {!searchError && (
+            <div>
+              {filteredStaff.length === 0 ? (
+                <div style={{
+                  backgroundColor: '#2a2a2a',
+                  borderRadius: '12px',
+                  padding: '40px 20px',
+                  border: '1px solid #3a3a3a',
+                  textAlign: 'center',
+                  color: '#9ca3af'
+                }}>
+                  <p style={{ margin: 0, fontSize: '15px' }}>
+                    {searchPerformed || searchQuery || selectedSite !== 'all' || selectedRole !== 'all' || selectedStatus !== 'all'
+                      ? `No staff found matching "${searchQuery}"`
+                      : 'No permanent staff records found.'}
+                  </p>
+                </div>
+              ) : (
+                <div data-testid="staff-search-results">
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '16px'
+                  }}>
+                    <h3 style={{ color: 'white', fontSize: '16px', fontWeight: '600', margin: 0 }}>
+                      Permanent Staff Directory ({filteredStaff.length})
+                    </h3>
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: '16px'
+                  }}>
+                    {filteredStaff.map((staffMember) => (
+                      <div
+                        key={staffMember.id}
+                        style={{
+                          backgroundColor: '#2a2a2a',
+                          borderRadius: '12px',
+                          padding: '20px',
+                          border: '1px solid #3a3a3a',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div>
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            marginBottom: '12px'
+                          }}>
+                            <div>
+                              <h4 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', margin: '0 0 4px 0' }}>
+                                {staffMember.name}
+                              </h4>
+                              {staffMember.username && (
+                                <p style={{ color: '#9ca3af', fontSize: '13px', margin: 0 }}>
+                                  {staffMember.username}
+                                </p>
+                              )}
+                            </div>
+                            <span style={{
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              backgroundColor: staffMember.status === 'Active' ? '#15803d' : '#991b1b',
+                              color: 'white'
+                            }}>
+                              {staffMember.status}
+                            </span>
+                          </div>
+
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                            fontSize: '13px',
+                            color: '#d1d5db'
+                          }}>
+                            <div>
+                              <span style={{ color: '#9ca3af' }}>Role: </span>
+                              <strong style={{ color: 'white' }}>{staffMember.role}</strong>
+                            </div>
+                            <div>
+                              <span style={{ color: '#9ca3af' }}>Site: </span>
+                              <strong style={{ color: 'white' }}>{staffMember.site}</strong>
+                            </div>
+                            {staffMember.email && (
+                              <div>
+                                <span style={{ color: '#9ca3af' }}>Email: </span>
+                                <span style={{ color: '#e5e7eb' }}>{staffMember.email}</span>
+                              </div>
+                            )}
+                            {staffMember.startDate && (
+                              <div>
+                                <span style={{ color: '#9ca3af' }}>Start Date: </span>
+                                <span style={{ color: '#e5e7eb' }}>{staffMember.startDate}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleViewProfile(String(staffMember.id))}
+                          style={{
+                            marginTop: '16px',
+                            padding: '10px 16px',
+                            backgroundColor: '#3a3a3a',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            width: '100%',
+                            textAlign: 'center'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4a4a4a'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3a3a3a'}
+                        >
+                          View Profile
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -421,133 +634,88 @@ const Directory: React.FC = () => {
             border: '1px solid #3a3a3a',
             marginBottom: '24px'
           }}>
-            <h2 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '20px' }}>
+            <h2 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
               Add New Agency
             </h2>
-
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-              gap: '16px',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '12px',
               marginBottom: '16px'
             }}>
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Agency Name *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Premier Care Agency"
-                  value={agencyForm.name}
-                  onChange={(e) => setAgencyForm({ ...agencyForm, name: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Contact Person *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Sarah Johnson"
-                  value={agencyForm.contactPerson}
-                  onChange={(e) => setAgencyForm({ ...agencyForm, contactPerson: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  placeholder="020 1234 5678"
-                  value={agencyForm.phone}
-                  onChange={(e) => setAgencyForm({ ...agencyForm, phone: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Email
-                </label>
-                <input
-                  type="email"
-                  placeholder="contact@agency.com"
-                  value={agencyForm.email}
-                  onChange={(e) => setAgencyForm({ ...agencyForm, email: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
+              <input
+                type="text"
+                value={agencyForm.name}
+                onChange={(e) => setAgencyForm({ ...agencyForm, name: e.target.value })}
+                placeholder="Agency Name *"
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <input
+                type="text"
+                value={agencyForm.contactPerson}
+                onChange={(e) => setAgencyForm({ ...agencyForm, contactPerson: e.target.value })}
+                placeholder="Contact Person *"
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <input
+                type="tel"
+                value={agencyForm.phone}
+                onChange={(e) => setAgencyForm({ ...agencyForm, phone: e.target.value })}
+                placeholder="Phone Number"
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <input
+                type="email"
+                value={agencyForm.email}
+                onChange={(e) => setAgencyForm({ ...agencyForm, email: e.target.value })}
+                placeholder="Email Address"
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
             </div>
-
             <button
               onClick={handleAddAgency}
               style={{
-                width: '100%',
-                padding: '14px',
-                backgroundColor: '#10b981',
+                padding: '10px 24px',
+                backgroundColor: '#9333ea',
                 color: 'white',
                 border: 'none',
-                borderRadius: '8px',
-                fontSize: '15px',
+                borderRadius: '6px',
+                fontSize: '14px',
                 fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s'
+                cursor: 'pointer'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
             >
               Add Agency
             </button>
@@ -561,442 +729,250 @@ const Directory: React.FC = () => {
             border: '1px solid #3a3a3a',
             marginBottom: '24px'
           }}>
-            <h2 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '20px' }}>
+            <h2 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
               Add Agency Worker
             </h2>
-
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-              gap: '16px',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '12px',
               marginBottom: '16px'
             }}>
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Worker Name *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Michael Brown"
-                  value={workerForm.name}
-                  onChange={(e) => setWorkerForm({ ...workerForm, name: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Agency *
-                </label>
-                <select
-                  value={workerForm.agencyId}
-                  onChange={(e) => setWorkerForm({ ...workerForm, agencyId: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    cursor: 'pointer',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                >
-                  <option value="">Select Agency</option>
-                  {agencies.filter(a => a.status === 'Active').map(agency => (
-                    <option key={agency.id} value={agency.id}>{agency.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Role
-                </label>
-                <select
-                  value={workerForm.role}
-                  onChange={(e) => setWorkerForm({ ...workerForm, role: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    cursor: 'pointer',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                >
-                  <option value="Care Worker">Care Worker</option>
-                  <option value="Senior Care Worker">Senior Care Worker</option>
-                  <option value="Nurse">Nurse</option>
-                  <option value="Support Worker">Support Worker</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Hourly Rate (£) *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="18.50"
-                  value={workerForm.hourlyRate}
-                  onChange={(e) => setWorkerForm({ ...workerForm, hourlyRate: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Availability
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Mon-Fri, 8am-6pm"
-                  value={workerForm.availability}
-                  onChange={(e) => setWorkerForm({ ...workerForm, availability: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={workerForm.startDate}
-                  onChange={(e) => setWorkerForm({ ...workerForm, startDate: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  End Date (Optional)
-                </label>
-                <input
-                  type="date"
-                  value={workerForm.endDate}
-                  onChange={(e) => setWorkerForm({ ...workerForm, endDate: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
-
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', color: 'white', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
-                  Notes
-                </label>
-                <textarea
-                  placeholder="e.g., 2 months contract, specialized in dementia care"
-                  value={workerForm.notes}
-                  onChange={(e) => setWorkerForm({ ...workerForm, notes: e.target.value })}
-                  rows={2}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    backgroundColor: '#1a1a1a',
-                    color: 'white',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none',
-                    resize: 'vertical',
-                    fontFamily: 'inherit'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                  onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                />
-              </div>
+              <input
+                type="text"
+                value={workerForm.name}
+                onChange={(e) => setWorkerForm({ ...workerForm, name: e.target.value })}
+                placeholder="Worker Full Name *"
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <select
+                value={workerForm.agencyId}
+                onChange={(e) => setWorkerForm({ ...workerForm, agencyId: e.target.value })}
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="">Select Agency *</option>
+                {agencies.filter(a => a.status === 'Active').map(agency => (
+                  <option key={agency.id} value={agency.id}>{agency.name}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={workerForm.role}
+                onChange={(e) => setWorkerForm({ ...workerForm, role: e.target.value })}
+                placeholder="Role (e.g. Care Worker)"
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <input
+                type="text"
+                value={workerForm.hourlyRate}
+                onChange={(e) => setWorkerForm({ ...workerForm, hourlyRate: e.target.value })}
+                placeholder="Hourly Rate (e.g. £15.00/hr) *"
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#1a1a1a',
+                  color: 'white',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
             </div>
-
             <button
               onClick={handleAddWorker}
               style={{
-                width: '100%',
-                padding: '14px',
-                backgroundColor: '#10b981',
+                padding: '10px 24px',
+                backgroundColor: '#9333ea',
                 color: 'white',
                 border: 'none',
-                borderRadius: '8px',
-                fontSize: '15px',
+                borderRadius: '6px',
+                fontSize: '14px',
                 fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s'
+                cursor: 'pointer'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
             >
-              Add Agency Worker
+              Add Worker
             </button>
           </div>
 
           {/* Agencies List */}
-          <div style={{ marginBottom: '32px' }}>
-            <h2 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>
               Agencies ({agencies.length})
-            </h2>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-              gap: '16px'
-            }}>
-              {agencies.map((agency) => (
-                <div
-                  key={agency.id}
-                  style={{
-                    backgroundColor: '#2a2a2a',
-                    borderRadius: '12px',
-                    padding: '20px',
-                    border: '1px solid #3a3a3a'
-                  }}
-                >
-                  <div style={{ marginBottom: '12px' }}>
-                    <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
-                      {agency.name}
-                    </h3>
-                    <div style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '8px' }}>
-                      <div>Contact: {agency.contactPerson}</div>
-                      {agency.phone && <div>Phone: {agency.phone}</div>}
-                      {agency.email && <div>Email: {agency.email}</div>}
+            </h3>
+            {agencies.length === 0 ? (
+              <p style={{ color: '#9ca3af', fontSize: '14px' }}>No agencies added yet.</p>
+            ) : (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: '16px'
+              }}>
+                {agencies.map((agency) => (
+                  <div
+                    key={agency.id}
+                    style={{
+                      backgroundColor: '#2a2a2a',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      border: '1px solid #3a3a3a'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <h4 style={{ color: 'white', margin: 0, fontSize: '15px' }}>{agency.name}</h4>
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        fontSize: '11px',
+                        backgroundColor: agency.status === 'Active' ? '#15803d' : '#991b1b',
+                        color: 'white'
+                      }}>
+                        {agency.status}
+                      </span>
                     </div>
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '4px 10px',
-                      backgroundColor: agency.status === 'Active' ? '#10b98120' : '#6b728020',
-                      color: agency.status === 'Active' ? '#10b981' : '#6b7280',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      fontWeight: '600'
-                    }}>
-                      <span style={{ width: '5px', height: '5px', backgroundColor: agency.status === 'Active' ? '#10b981' : '#6b7280', borderRadius: '50%', display: 'inline-block' }}></span>
-                      {agency.status}
-                    </span>
+                    <p style={{ color: '#9ca3af', fontSize: '13px', margin: '4px 0' }}>Contact: {agency.contactPerson}</p>
+                    {agency.phone && <p style={{ color: '#9ca3af', fontSize: '13px', margin: '4px 0' }}>Phone: {agency.phone}</p>}
+                    {agency.email && <p style={{ color: '#9ca3af', fontSize: '13px', margin: '4px 0' }}>Email: {agency.email}</p>}
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                      {agency.status === 'Active' && (
+                        <button
+                          onClick={() => handleDeactivateAgency(agency.id, agency.name)}
+                          style={{
+                            padding: '4px 10px',
+                            backgroundColor: '#b45309',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Deactivate
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteAgency(agency.id, agency.name)}
+                        style={{
+                          padding: '4px 10px',
+                          backgroundColor: '#991b1b',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button
-                      onClick={() => handleDeactivateAgency(agency.id, agency.name)}
-                      disabled={agency.status === 'Inactive'}
-                      style={{
-                        flex: '1 1 auto',
-                        minWidth: '120px',
-                        padding: '10px 16px',
-                        backgroundColor: agency.status === 'Inactive' ? '#3a3a3a' : '#6b7280',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '7px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: agency.status === 'Inactive' ? 'not-allowed' : 'pointer',
-                        opacity: agency.status === 'Inactive' ? 0.5 : 1
-                      }}
-                    >
-                      Deactivate
-                    </button>
-                    <button
-                      onClick={() => handleDeleteAgency(agency.id, agency.name)}
-                      style={{
-                        flex: '1 1 auto',
-                        minWidth: '120px',
-                        padding: '10px 16px',
-                        backgroundColor: '#ef4444',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '7px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Agency Workers List */}
           <div>
-            <h2 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
+            <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>
               Agency Workers ({agencyWorkers.length})
-            </h2>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-              gap: '16px'
-            }}>
-              {agencyWorkers.map((worker) => (
-                <div
-                  key={worker.id}
-                  style={{
-                    backgroundColor: '#2a2a2a',
-                    borderRadius: '12px',
-                    padding: '20px',
-                    border: '1px solid #3a3a3a'
-                  }}
-                >
-                  <div style={{ marginBottom: '12px' }}>
-                    <h3 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
-                      {worker.name}
-                    </h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                      <span style={{ color: '#9ca3af', fontSize: '13px' }}>{worker.role}</span>
-                      <span style={{ color: '#6b7280', fontSize: '13px' }}>•</span>
-                      <span style={{ color: '#10b981', fontSize: '13px' }}>{worker.agencyName}</span>
+            </h3>
+            {agencyWorkers.length === 0 ? (
+              <p style={{ color: '#9ca3af', fontSize: '14px' }}>No agency workers added yet.</p>
+            ) : (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: '16px'
+              }}>
+                {agencyWorkers.map((worker) => (
+                  <div
+                    key={worker.id}
+                    style={{
+                      backgroundColor: '#2a2a2a',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      border: '1px solid #3a3a3a'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <h4 style={{ color: 'white', margin: 0, fontSize: '15px' }}>{worker.name}</h4>
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        fontSize: '11px',
+                        backgroundColor: worker.status === 'Active' ? '#15803d' : '#991b1b',
+                        color: 'white'
+                      }}>
+                        {worker.status}
+                      </span>
                     </div>
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '4px 10px',
-                      backgroundColor: worker.status === 'Active' ? '#10b98120' : '#6b728020',
-                      color: worker.status === 'Active' ? '#10b981' : '#6b7280',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      fontWeight: '600'
-                    }}>
-                      <span style={{ width: '5px', height: '5px', backgroundColor: worker.status === 'Active' ? '#10b981' : '#6b7280', borderRadius: '50%', display: 'inline-block' }}></span>
-                      {worker.status}
-                    </span>
+                    <p style={{ color: '#9ca3af', fontSize: '13px', margin: '4px 0' }}>Agency: {worker.agencyName}</p>
+                    <p style={{ color: '#9ca3af', fontSize: '13px', margin: '4px 0' }}>Role: {worker.role}</p>
+                    <p style={{ color: '#9ca3af', fontSize: '13px', margin: '4px 0' }}>Rate: {worker.hourlyRate}</p>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                      {worker.status === 'Active' && (
+                        <button
+                          onClick={() => handleDeactivateWorker(worker.id, worker.name)}
+                          style={{
+                            padding: '4px 10px',
+                            backgroundColor: '#b45309',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Deactivate
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteWorker(worker.id, worker.name)}
+                        style={{
+                          padding: '4px 10px',
+                          backgroundColor: '#991b1b',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-
-                  <div style={{
-                    paddingTop: '12px',
-                    borderTop: '1px solid #2a2a2a',
-                    color: '#9ca3af',
-                    fontSize: '12px',
-                    lineHeight: '1.8',
-                    marginBottom: '14px'
-                  }}>
-                    <div><span style={{ color: '#6b7280' }}>Rate:</span> £{worker.hourlyRate}/h</div>
-                    {worker.availability && <div><span style={{ color: '#6b7280' }}>Availability:</span> {worker.availability}</div>}
-                    {worker.startDate && <div><span style={{ color: '#6b7280' }}>Period:</span> {worker.startDate} {worker.endDate ? `- ${worker.endDate}` : '(ongoing)'}</div>}
-                    {worker.notes && <div><span style={{ color: '#6b7280' }}>Notes:</span> {worker.notes}</div>}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button
-                      onClick={() => handleDeactivateWorker(worker.id, worker.name)}
-                      disabled={worker.status === 'Inactive'}
-                      style={{
-                        flex: '1 1 auto',
-                        minWidth: '120px',
-                        padding: '10px 16px',
-                        backgroundColor: worker.status === 'Inactive' ? '#3a3a3a' : '#6b7280',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '7px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: worker.status === 'Inactive' ? 'not-allowed' : 'pointer',
-                        opacity: worker.status === 'Inactive' ? 0.5 : 1
-                      }}
-                    >
-                      Deactivate
-                    </button>
-                    <button
-                      onClick={() => handleDeleteWorker(worker.id, worker.name)}
-                      style={{
-                        flex: '1 1 auto',
-                        minWidth: '120px',
-                        padding: '10px 16px',
-                        backgroundColor: '#ef4444',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '7px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}
-
     </div>
   );
 };
 
 export default Directory;
-
