@@ -8,7 +8,6 @@ export async function up(pool: Pool) {
     console.log('Adding employment detail columns to staff table...');
     await client.query(`
       ALTER TABLE staff
-      ADD COLUMN IF NOT EXISTS hourly_rate DECIMAL(10,2),
       ADD COLUMN IF NOT EXISTS address_line1 TEXT,
       ADD COLUMN IF NOT EXISTS address_line2 TEXT,
       ADD COLUMN IF NOT EXISTS town_city TEXT,
@@ -36,7 +35,6 @@ export async function down(pool: Pool) {
 
     await client.query(`
       ALTER TABLE staff
-      DROP COLUMN IF EXISTS hourly_rate,
       DROP COLUMN IF EXISTS address_line1,
       DROP COLUMN IF EXISTS address_line2,
       DROP COLUMN IF EXISTS town_city,
