@@ -14,9 +14,10 @@ interface StaffDashboardProps {
   onLogout: () => void;
   onViewPayroll?: () => void;
   onViewAnnualLeave?: () => void;
+  onViewDetails?: () => void;
 }
 
-const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onLogout, onViewPayroll, onViewAnnualLeave }) => {
+const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onLogout, onViewPayroll, onViewAnnualLeave, onViewDetails }) => {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(true);
   const [showScanner, setShowScanner] = useState(false);
@@ -458,6 +459,28 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
                 }}
               >
                 💰 My Payroll
+              </button>
+            )}
+            {onViewDetails && (
+              <button
+                onClick={onViewDetails}
+                style={{
+                  background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
+                }}
+              >
+                👤 My Details
               </button>
             )}
             {onViewAnnualLeave && (

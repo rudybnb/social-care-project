@@ -359,6 +359,12 @@ app.put('/api/staff/:id', async (req: Request, res: Response) => {
 
     const updateData = { ...req.body, updatedAt: new Date() };
 
+    // Map hourlyRate (frontend field) to standardRate (database column)
+    if (updateData.hourlyRate !== undefined) {
+      updateData.standardRate = updateData.hourlyRate;
+      delete updateData.hourlyRate;
+    }
+
     // Trim string fields if present
     if (updateData.name) updateData.name = updateData.name.trim();
     if (updateData.username) updateData.username = updateData.username.trim();
@@ -369,14 +375,14 @@ app.put('/api/staff/:id', async (req: Request, res: Response) => {
     }
 
     // Validate hourly rate >= 0
-    if (updateData.hourlyRate !== undefined && updateData.hourlyRate !== null && updateData.hourlyRate !== '') {
-      const rate = Number(updateData.hourlyRate);
+    if (updateData.standardRate !== undefined && updateData.standardRate !== null && updateData.standardRate !== '') {
+      const rate = Number(updateData.standardRate);
       if (isNaN(rate) || rate < 0) {
         return res.status(400).json({ error: 'Hourly rate must be zero or greater' });
       }
-      updateData.hourlyRate = String(rate);
-    } else if (updateData.hourlyRate === '' || updateData.hourlyRate === null) {
-      updateData.hourlyRate = null;
+      updateData.standardRate = String(rate);
+    } else if (updateData.standardRate === '' || updateData.standardRate === null) {
+      updateData.standardRate = null;
     }
 
     // Normalize phone: remove spaces and symbols
@@ -1060,6 +1066,54 @@ app.get('/api/staff/phone-duplicates', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[Phone Duplicates] Error:', error);
     res.status(500).json({ error: 'Failed to check phone duplicates' });
+  }
+});
+
+// Get own staff details (staff self-view with ownership check)
+app.get('/api/staff/me', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    if (!token.startsWith('staff-')) {
+      return res.status(403).json({ error: 'Invalid staff token' });
+    }
+
+    const tokenStaffId = token.slice('staff-'.length);
+    if (!tokenStaffId) {
+      return res.status(403).json({ error: 'Invalid staff token' });
+    }
+
+    const staffMember = await db
+      .select({
+        id: staff.id,
+        name: staff.name,
+        phone: staff.phone,
+        hourlyRate: staff.standardRate,
+        addressLine1: staff.addressLine1,
+        addressLine2: staff.addressLine2,
+        townCity: staff.townCity,
+        staffPostcode: staff.staffPostcode,
+        nextOfKinName: staff.nextOfKinName,
+        nextOfKinRelationship: staff.nextOfKinRelationship,
+        nextOfKinPhone: staff.nextOfKinPhone
+      })
+      .from(staff)
+      .where(eq(staff.id, tokenStaffId));
+
+    if (staffMember.length === 0) {
+      return res.status(404).json({ error: 'Staff member not found' });
+    }
+
+    res.json(staffMember[0]);
+  } catch (error) {
+    console.error('[Staff Me] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch staff details' });
   }
 });
 

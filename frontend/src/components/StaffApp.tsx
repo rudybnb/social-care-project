@@ -4,8 +4,9 @@ import StaffDashboard from './StaffDashboard';
 import StaffProgress from './StaffProgress';
 import StaffPayrollView from './StaffPayrollView';
 import WorkerLeave from './WorkerLeave';
+import MyDetails from './MyDetails';
 
-type View = 'login' | 'dashboard' | 'progress' | 'payroll' | 'leave';
+type View = 'login' | 'dashboard' | 'progress' | 'payroll' | 'leave' | 'details';
 
 interface Shift {
   id: string;
@@ -71,6 +72,10 @@ const StaffApp: React.FC = () => {
 
   const handleViewAnnualLeave = () => {
     setCurrentView('leave');
+  };
+
+  const handleViewDetails = () => {
+    setCurrentView('details');
   };
 
   if (currentView === 'login') {
@@ -157,6 +162,42 @@ const StaffApp: React.FC = () => {
     );
   }
 
+  if (currentView === 'details') {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#1a1a1a' }}>
+        <div style={{
+          backgroundColor: '#8b5cf6',
+          color: 'white',
+          padding: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px'
+        }}>
+          <button
+            onClick={handleBackToDashboard}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              color: 'white',
+              fontSize: '24px',
+              cursor: 'pointer',
+              borderRadius: '8px',
+              width: '40px',
+              height: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            ←
+          </button>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>My Details</h1>
+        </div>
+        <MyDetails staffId={staffId} staffName={staffName} />
+      </div>
+    );
+  }
+
   return (
     <StaffDashboard 
       staffId={staffId} 
@@ -164,6 +205,7 @@ const StaffApp: React.FC = () => {
       onLogout={handleLogout}
       onViewPayroll={handleViewPayroll}
       onViewAnnualLeave={handleViewAnnualLeave}
+      onViewDetails={handleViewDetails}
     />
   );
 };

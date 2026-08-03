@@ -6,7 +6,7 @@ import bcrypt from 'bcrypt';
 
 type DbLike = any;
 
-const STAFF_SAFE_FIELDS = ['id', 'name', 'username', 'role', 'site', 'status', 'email', 'phone', 'startDate', 'hourlyRate', 'addressLine1', 'addressLine2', 'townCity', 'staffPostcode', 'nextOfKinName', 'nextOfKinRelationship', 'nextOfKinPhone'] as const;
+const STAFF_SAFE_FIELDS = ['id', 'name', 'username', 'role', 'site', 'status', 'email', 'phone', 'startDate', 'standardRate', 'addressLine1', 'addressLine2', 'townCity', 'staffPostcode', 'nextOfKinName', 'nextOfKinRelationship', 'nextOfKinPhone'] as const;
 
 const SAFE_STAFF_COLUMNS = {
   id: staff.id,
@@ -18,7 +18,7 @@ const SAFE_STAFF_COLUMNS = {
   email: staff.email,
   phone: staff.phone,
   startDate: staff.startDate,
-  hourlyRate: staff.hourlyRate,
+  hourlyRate: staff.standardRate,
   addressLine1: staff.addressLine1,
   addressLine2: staff.addressLine2,
   townCity: staff.townCity,
@@ -105,7 +105,7 @@ export function createStaffRouter(database: DbLike): Router {
     try {
       if (!database) return res.status(500).json({ error: 'Database not configured' });
 
-      const { name, username, email, role, site, status, password, startDate, phone, hourlyRate, addressLine1, addressLine2, townCity, staffPostcode, nextOfKinName, nextOfKinRelationship, nextOfKinPhone } = req.body || {};
+      const { name, username, email, role, site, status, password, startDate, phone, hourlyRate: rateFromBody, addressLine1, addressLine2, townCity, staffPostcode, nextOfKinName, nextOfKinRelationship, nextOfKinPhone } = req.body || {};
 
       if (!name || typeof name !== 'string' || !name.trim()) {
         return res.status(400).json({ error: 'Staff name is required' });
@@ -116,8 +116,8 @@ export function createStaffRouter(database: DbLike): Router {
       }
 
       // Validate hourly rate >= 0
-      if (hourlyRate !== undefined && hourlyRate !== null && hourlyRate !== '') {
-        const rate = Number(hourlyRate);
+      if (rateFromBody !== undefined && rateFromBody !== null && rateFromBody !== '') {
+        const rate = Number(rateFromBody);
         if (isNaN(rate) || rate < 0) {
           return res.status(400).json({ error: 'Hourly rate must be zero or greater' });
         }
@@ -148,7 +148,7 @@ export function createStaffRouter(database: DbLike): Router {
         role: role && typeof role === 'string' ? role.trim() : 'Care Worker',
         site: site && typeof site === 'string' ? site.trim() : 'General',
         status: status === 'Inactive' ? 'Inactive' : 'Active',
-        standardRate: '12.50',
+        standardRate: rateFromBody !== undefined && rateFromBody !== null && rateFromBody !== '' ? String(Number(rateFromBody)) : '12.50',
         enhancedRate: '—',
         nightRate: '—',
         rates: '£12.50/h',
@@ -158,7 +158,6 @@ export function createStaffRouter(database: DbLike): Router {
         weeklyHours: 0,
         startDate: startDate && typeof startDate === 'string' && startDate.trim() ? startDate.trim() : new Date().toISOString().split('T')[0],
         phone: phone && typeof phone === 'string' ? phone.trim() : null,
-        hourlyRate: hourlyRate !== undefined && hourlyRate !== null && hourlyRate !== '' ? String(Number(hourlyRate)) : null,
         addressLine1: addressLine1 && typeof addressLine1 === 'string' ? addressLine1.trim() : null,
         addressLine2: addressLine2 && typeof addressLine2 === 'string' ? addressLine2.trim() : null,
         townCity: townCity && typeof townCity === 'string' ? townCity.trim() : null,
