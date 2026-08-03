@@ -111,8 +111,12 @@ function getStoredToken(): string | null {
     const saved = localStorage.getItem('auth');
     if (saved) {
       const parsed = JSON.parse(saved);
-      return parsed?.token || null;
+      if (parsed?.token) return parsed.token;
     }
+  } catch (e) {}
+  try {
+    const staffToken = localStorage.getItem('staff-token');
+    if (staffToken) return staffToken;
   } catch (e) {}
   return null;
 }
@@ -120,13 +124,16 @@ function getStoredToken(): string | null {
 // ==================== STAFF API ====================
 
 export const staffAPI = {
-  // Get all staff
+  // Get all staff via the protected endpoint using the authenticated bearer session token
   async getAll(token?: string | null): Promise<StaffMember[]> {
     const authToken = token || getStoredToken();
     const headers: Record<string, string> = {};
     if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
     const response = await fetch(`${API_BASE_URL}/api/staff`, { headers });
+    if (response.status === 401) {
+      throw new StaffAuthError('Your session has expired. Please log in again.', response.status);
+    }
     if (!response.ok) throw new Error('Failed to fetch staff');
     return response.json();
   },

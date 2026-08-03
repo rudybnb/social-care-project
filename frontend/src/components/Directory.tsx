@@ -86,7 +86,9 @@ const Directory: React.FC = () => {
     setSearchError(null);
     setSearchAuthExpired(false);
     try {
-      const results = await staffAPI.search(query.trim(), token);
+      const results: SafeStaff[] = (query.trim() 
+        ? await staffAPI.search(query.trim(), token) 
+        : await staffAPI.getAll(token)) as SafeStaff[];
       const validResults = (results || []).filter(
         (s) => s && typeof s.name === 'string' && s.name.trim() !== ''
       );
