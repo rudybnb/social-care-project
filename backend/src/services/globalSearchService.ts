@@ -703,17 +703,20 @@ export async function executeGlobalSearch(
   if (runSwaps) {
     const allShifts = await database.select().from(shifts);
 
+    const isSwapFlagSet = (value: unknown): boolean => value === true || value === 'true' || value === 't' || value === 1;
+
     const staffMap = new Map<string, { id: string; name: string }>();
     for (const s of allStaff) {
       staffMap.set(String(s.id).toLowerCase(), { id: s.id, name: s.name });
     }
 
     const filteredSwaps = allShifts.filter((s: any) => {
-      if (!s.isOfferedForSwap && !s.isSwapped) return false;
+      const isCompletedSwap = isSwapFlagSet(s.isSwapped);
+      const isPendingSwap = isSwapFlagSet(s.isOfferedForSwap) && !isCompletedSwap;
+      if (!isCompletedSwap && !isPendingSwap) return false;
 
       // For pending swaps (offered, not yet accepted), staffId is still the original staff
       // For completed swaps, originalStaffId holds the original staff, staffId is the taker
-      const isPendingSwap = s.isOfferedForSwap && !s.isSwapped;
       const requesterId = isPendingSwap ? s.staffId : (s.originalStaffId || s.staffId);
       const requesterInfo = staffMap.get(String(requesterId).toLowerCase());
 
@@ -751,7 +754,8 @@ export async function executeGlobalSearch(
     });
 
     swapResults = filteredSwaps.slice(0, 50).map((s: any) => {
-      const isPendingSwap = s.isOfferedForSwap && !s.isSwapped;
+      const isCompletedSwap = isSwapFlagSet(s.isSwapped);
+      const isPendingSwap = isSwapFlagSet(s.isOfferedForSwap) && !isCompletedSwap;
       const requesterId = isPendingSwap ? s.staffId : (s.originalStaffId || s.staffId);
       const requesterInfo = staffMap.get(String(requesterId).toLowerCase());
       return {
@@ -766,7 +770,7 @@ export async function executeGlobalSearch(
         type: s.type,
         startTime: s.startTime,
         endTime: s.endTime,
-        swapStatus: s.isSwapped ? 'completed' : 'pending',
+        swapStatus: isCompletedSwap ? 'completed' : 'pending',
         approvedBy: null as string | null,
         approvedAt: null as Date | null,
         link: '/admin/rota'
