@@ -288,7 +288,7 @@ const GlobalSearch: React.FC = () => {
   };
 
   const counts = searchData?.counts || { staff: 0, leave: 0, shifts: 0, attendance: 0 };
-  const totalResultsCount = counts.staff + counts.leave + counts.shifts + counts.attendance;
+  const totalResultsCount = counts.leave + counts.shifts + counts.attendance;
 
   return (
     <div style={{ padding: '24px 20px', maxWidth: '1400px', margin: '0 auto', color: 'white' }}>
@@ -339,7 +339,6 @@ const GlobalSearch: React.FC = () => {
                 }}
               >
                 <option value="all">All Sections</option>
-                <option value="staff">Directory / Staff</option>
                 <option value="leave">Annual Leave</option>
                 <option value="shifts">Rota / Shifts / Unscheduled Shifts</option>
                 <option value="attendance">Attendance</option>
@@ -626,71 +625,7 @@ const GlobalSearch: React.FC = () => {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
-              {/* Section 1: Staff */}
-              {searchData.results.staff.length > 0 && (
-                <div>
-                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 14px 0', color: '#c084fc' }}>
-                    👥 Directory / Staff ({searchData.results.staff.length})
-                  </h2>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-                    {searchData.results.staff.map((s) => (
-                      <div
-                        key={s.id}
-                        style={{
-                          backgroundColor: '#262626',
-                          border: '1px solid #3f3f46',
-                          borderRadius: '10px',
-                          padding: '16px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between'
-                        }}
-                      >
-                        <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>{s.name}</span>
-                            <span style={{
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              backgroundColor: s.status === 'Active' ? '#15803d' : '#991b1b',
-                              color: 'white'
-                            }}>
-                              {s.status}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '13px', color: '#a1a1aa', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <div>Role: <strong style={{ color: 'white' }}>{s.role}</strong></div>
-                            <div>Site: <strong style={{ color: 'white' }}>{s.site}</strong></div>
-                            {s.username && <div>Username: <span style={{ color: '#d4d4d8' }}>{s.username}</span></div>}
-                            {s.email && <div>Email: <span style={{ color: '#d4d4d8' }}>{s.email}</span></div>}
-                            {s.startDate && <div>Started: <span style={{ color: '#d4d4d8' }}>{s.startDate}</span></div>}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => navigate(s.link)}
-                          style={{
-                            marginTop: '14px',
-                            padding: '8px 12px',
-                            backgroundColor: '#3f3f46',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            textAlign: 'center'
-                          }}
-                        >
-                          View in Directory →
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Section 1: Leave */}
 
               {/* Section 2: Leave */}
               {searchData.results.leave.length > 0 && (

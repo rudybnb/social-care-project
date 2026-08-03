@@ -24,7 +24,7 @@ const Directory: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'staff' | 'agency'>('staff');
 
   // Staff state & filters
-  const [staffList, setStaffList] = useState<SafeStaff[]>([]);
+  const [staffList, setStaffList] = useState<SafeStaff[]>(() => getStaff() as SafeStaff[]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSite, setSelectedSite] = useState<string>('all');
   const [selectedRole, setSelectedRole] = useState<string>('all');
