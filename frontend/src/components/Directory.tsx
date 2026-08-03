@@ -28,7 +28,7 @@ const Directory: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSite, setSelectedSite] = useState<string>('all');
   const [selectedRole, setSelectedRole] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('Active');
 
   // Dynamic sites list from database
   const [dynamicSites, setDynamicSites] = useState<Site[]>([]);
@@ -725,6 +725,39 @@ const Directory: React.FC = () => {
       {/* Staff Tab Content */}
       {activeTab === 'staff' && (
         <>
+          {/* Status Tab Pills */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+            {[
+              { label: 'Active', value: 'Active' },
+              { label: 'Suspended', value: 'Inactive' },
+              { label: 'All', value: 'all' },
+            ].map((tab) => {
+              const count = tab.value === 'all'
+                ? staffList.length
+                : staffList.filter(s => (s.status || 'Active') === tab.value).length;
+              const isActive = selectedStatus === tab.value;
+              return (
+                <button
+                  key={tab.value}
+                  onClick={() => setSelectedStatus(tab.value)}
+                  style={{
+                    padding: '7px 16px',
+                    borderRadius: '20px',
+                    border: isActive ? '2px solid #9333ea' : '1px solid #3a3a3a',
+                    backgroundColor: isActive ? '#9333ea22' : '#1a1a1a',
+                    color: isActive ? '#c084fc' : '#9ca3af',
+                    fontSize: '13px',
+                    fontWeight: isActive ? '700' : '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {tab.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+
           {/* Search & Filter Staff Controls */}
           <div style={{
             backgroundColor: '#2a2a2a',
@@ -821,30 +854,7 @@ const Directory: React.FC = () => {
                   </select>
                 </div>
 
-                {/* 4. Status Filter */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '6px' }}>
-                    Status
-                  </label>
-                  <select
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      backgroundColor: '#1a1a1a',
-                      color: 'white',
-                      border: '1px solid #3a3a3a',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      outline: 'none'
-                    }}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
+
               </div>
 
               {/* Action Buttons */}
@@ -927,9 +937,11 @@ const Directory: React.FC = () => {
                   color: '#9ca3af'
                 }}>
                   <p style={{ margin: 0, fontSize: '15px' }}>
-                    {searchPerformed || searchQuery || selectedSite !== 'all' || selectedRole !== 'all' || selectedStatus !== 'all'
-                      ? `No staff found matching "${searchQuery}"`
-                      : 'No permanent staff records found.'}
+                    {selectedStatus === 'Inactive'
+                      ? 'No suspended staff found.'
+                      : searchPerformed || searchQuery || selectedSite !== 'all' || selectedRole !== 'all'
+                        ? `No staff found matching "${searchQuery}"`
+                        : 'No permanent staff records found.'}
                   </p>
                 </div>
               ) : (
@@ -941,7 +953,7 @@ const Directory: React.FC = () => {
                     marginBottom: '16px'
                   }}>
                     <h3 style={{ color: 'white', fontSize: '16px', fontWeight: '600', margin: 0 }}>
-                      Permanent Staff Directory ({filteredStaff.length})
+                      {selectedStatus === 'Active' ? 'Active Staff' : selectedStatus === 'Inactive' ? 'Suspended Staff' : 'All Staff'} ({filteredStaff.length})
                     </h3>
                   </div>
 
