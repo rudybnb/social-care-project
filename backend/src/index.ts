@@ -1069,54 +1069,6 @@ app.get('/api/staff/phone-duplicates', async (req: Request, res: Response) => {
   }
 });
 
-// Get own staff details (staff self-view with ownership check)
-app.get('/api/staff/me', async (req: Request, res: Response) => {
-  try {
-    if (!db) return res.status(500).json({ error: 'Database not configured' });
-
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    if (!token.startsWith('staff-')) {
-      return res.status(403).json({ error: 'Invalid staff token' });
-    }
-
-    const tokenStaffId = token.slice('staff-'.length);
-    if (!tokenStaffId) {
-      return res.status(403).json({ error: 'Invalid staff token' });
-    }
-
-    const staffMember = await db
-      .select({
-        id: staff.id,
-        name: staff.name,
-        phone: staff.phone,
-        hourlyRate: staff.standardRate,
-        addressLine1: staff.addressLine1,
-        addressLine2: staff.addressLine2,
-        townCity: staff.townCity,
-        staffPostcode: staff.staffPostcode,
-        nextOfKinName: staff.nextOfKinName,
-        nextOfKinRelationship: staff.nextOfKinRelationship,
-        nextOfKinPhone: staff.nextOfKinPhone
-      })
-      .from(staff)
-      .where(eq(staff.id, tokenStaffId));
-
-    if (staffMember.length === 0) {
-      return res.status(404).json({ error: 'Staff member not found' });
-    }
-
-    res.json(staffMember[0]);
-  } catch (error) {
-    console.error('[Staff Me] Error:', error);
-    res.status(500).json({ error: 'Failed to fetch staff details' });
-  }
-});
-
 // Clock in to a shift
 app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) => {
   try {

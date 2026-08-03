@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { staff } from '../schema.js';
 import { eq, or, sql } from 'drizzle-orm';
 import { createAuthenticateRequest, requireAdmin } from '../middleware/auth.js';
+import { validateSessionToken } from '../services/sessionService.js';
 import bcrypt from 'bcrypt';
 
 type DbLike = any;
@@ -77,6 +78,61 @@ export function createStaffRouter(database: DbLike): Router {
     } catch (error) {
       console.error('Error fetching staff:', error);
       return res.status(500).json({ error: 'Failed to fetch staff' });
+    }
+  });
+
+  // GET /me — return the authenticated staff member's own record only
+  router.get('/me', async (req: Request, res: Response) => {
+    try {
+      if (!database) return res.status(500).json({ error: 'Database not configured' });
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      let tokenStaffId = '';
+
+      if (token.startsWith('staff-')) {
+        tokenStaffId = token.slice('staff-'.length);
+      } else {
+        const authenticated = await validateSessionToken(database, token);
+        if (!authenticated) {
+          return res.status(401).json({ error: 'Invalid staff token' });
+        }
+        tokenStaffId = authenticated.user.staffId;
+      }
+
+      if (!tokenStaffId) {
+        return res.status(401).json({ error: 'Invalid staff token' });
+      }
+
+      const staffMember = await database
+        .select({
+          id: staff.id,
+          name: staff.name,
+          phone: staff.phone,
+          hourlyRate: staff.standardRate,
+          addressLine1: staff.addressLine1,
+          addressLine2: staff.addressLine2,
+          townCity: staff.townCity,
+          staffPostcode: staff.staffPostcode,
+          nextOfKinName: staff.nextOfKinName,
+          nextOfKinRelationship: staff.nextOfKinRelationship,
+          nextOfKinPhone: staff.nextOfKinPhone,
+        })
+        .from(staff)
+        .where(eq(staff.id, tokenStaffId));
+
+      if (staffMember.length === 0) {
+        return res.status(404).json({ error: 'Staff member not found' });
+      }
+
+      return res.json(staffMember[0]);
+    } catch (error) {
+      console.error('[Staff Me] Error:', error);
+      return res.status(500).json({ error: 'Failed to fetch staff details' });
     }
   });
 

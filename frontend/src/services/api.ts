@@ -126,6 +126,12 @@ function getStoredToken(): string | null {
   return null;
 }
 
+export function getStoredStaffBearerToken(): string | null {
+  const staffToken = localStorage.getItem('staff-token');
+  if (staffToken) return staffToken;
+  return getStoredToken();
+}
+
 // ==================== STAFF API ====================
 
 export const staffAPI = {

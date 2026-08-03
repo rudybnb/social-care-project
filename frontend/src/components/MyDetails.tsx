@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SensitiveField from './SensitiveField';
+import { API_URL, getStoredStaffBearerToken } from '../services/api';
 
 interface MyDetailsProps {
   staffId: string;
@@ -28,9 +29,14 @@ const MyDetails: React.FC<MyDetailsProps> = ({ staffId, staffName }) => {
   useEffect(() => {
     const fetchDetails = async () => {
       try {
-        const token = localStorage.getItem('staff-token');
+        const token = getStoredStaffBearerToken();
+        if (!token) {
+          setError('Please log in to view your details.');
+          return;
+        }
+
         const response = await fetch(
-          `${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/me`,
+          `${API_URL}/api/staff/me`,
           {
             headers: {
               'Authorization': `Bearer ${token}`
