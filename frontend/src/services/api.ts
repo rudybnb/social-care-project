@@ -18,7 +18,16 @@ export interface SafeStaff {
   site: string;
   status: string;
   email: string;
+  phone?: string;
   startDate?: string;
+  hourlyRate?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  townCity?: string;
+  staffPostcode?: string;
+  nextOfKinName?: string;
+  nextOfKinRelationship?: string;
+  nextOfKinPhone?: string;
 }
 
 // Thrown when the staff endpoint rejects the bearer session token (401).

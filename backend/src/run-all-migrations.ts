@@ -275,6 +275,14 @@ export async function runAllMigrations(options: MigrationOptions = {}): Promise<
       ADD COLUMN IF NOT EXISTS weekly_hours INTEGER DEFAULT 0,
       ADD COLUMN IF NOT EXISTS days_per_week INTEGER DEFAULT 5,
       ADD COLUMN IF NOT EXISTS start_date TEXT,
+      ADD COLUMN IF NOT EXISTS hourly_rate DECIMAL(10,2),
+      ADD COLUMN IF NOT EXISTS address_line1 TEXT,
+      ADD COLUMN IF NOT EXISTS address_line2 TEXT,
+      ADD COLUMN IF NOT EXISTS town_city TEXT,
+      ADD COLUMN IF NOT EXISTS staff_postcode TEXT,
+      ADD COLUMN IF NOT EXISTS next_of_kin_name TEXT,
+      ADD COLUMN IF NOT EXISTS next_of_kin_relationship TEXT,
+      ADD COLUMN IF NOT EXISTS next_of_kin_phone TEXT,
       ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW(),
       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
     `);

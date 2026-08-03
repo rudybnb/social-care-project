@@ -357,7 +357,6 @@ app.put('/api/staff/:id', async (req: Request, res: Response) => {
     const id = req.params.id as string;
     if (!id) return res.status(400).json({ error: 'ID is required' });
 
-    // Hash password if it's being updated and is not already hashed
     const updateData = { ...req.body, updatedAt: new Date() };
 
     // Trim string fields if present
@@ -368,6 +367,44 @@ app.put('/api/staff/:id', async (req: Request, res: Response) => {
     if (updateData.password && !updateData.password.startsWith('$2b$')) {
       updateData.password = await bcrypt.hash(updateData.password, 10);
     }
+
+    // Validate hourly rate >= 0
+    if (updateData.hourlyRate !== undefined && updateData.hourlyRate !== null && updateData.hourlyRate !== '') {
+      const rate = Number(updateData.hourlyRate);
+      if (isNaN(rate) || rate < 0) {
+        return res.status(400).json({ error: 'Hourly rate must be zero or greater' });
+      }
+      updateData.hourlyRate = String(rate);
+    } else if (updateData.hourlyRate === '' || updateData.hourlyRate === null) {
+      updateData.hourlyRate = null;
+    }
+
+    // Normalize phone: remove spaces and symbols
+    if (updateData.phone && typeof updateData.phone === 'string') {
+      const normalised = updateData.phone.replace(/[\s\-\(\)]/g, '');
+      if (normalised.length > 0 && normalised.length < 10) {
+        return res.status(400).json({ error: 'Phone number must contain at least 10 digits' });
+      }
+      updateData.phone = normalised || null;
+    }
+
+    // Validate next-of-kin: phone required when name is entered
+    if (updateData.nextOfKinName && (!updateData.nextOfKinPhone || !updateData.nextOfKinPhone.trim())) {
+      return res.status(400).json({ error: 'Next of kin phone number is required when a next of kin name is entered' });
+    }
+
+    // Trim optional string fields
+    if (updateData.addressLine1) updateData.addressLine1 = updateData.addressLine1.trim();
+    if (updateData.addressLine2) updateData.addressLine2 = updateData.addressLine2.trim();
+    if (updateData.townCity) updateData.townCity = updateData.townCity.trim();
+    if (updateData.staffPostcode) updateData.staffPostcode = updateData.staffPostcode.trim();
+    if (updateData.nextOfKinName) updateData.nextOfKinName = updateData.nextOfKinName.trim();
+    if (updateData.nextOfKinRelationship) updateData.nextOfKinRelationship = updateData.nextOfKinRelationship.trim();
+    if (updateData.nextOfKinPhone) updateData.nextOfKinPhone = updateData.nextOfKinPhone.trim();
+
+    // Strip fields that should not be updated via this endpoint
+    delete updateData.id;
+    delete updateData.createdAt;
 
     const updated = await db.update(staff)
       .set(updateData)
@@ -964,32 +1001,65 @@ app.post('/api/staff/lookup', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Please provide exactly 4 digits' });
     }
 
-    console.log(`[Lookup] Searching for staff with phone ending in ${phoneDigits} at site ${siteId || 'any'}`);
+    // Normalise: strip spaces/symbols from the input digits
+    const normalised = String(phoneDigits).replace(/\D/g, '');
+    if (normalised.length !== 4) {
+      return res.status(400).json({ error: 'Please provide exactly 4 digits' });
+    }
 
-    // Fetch all staff (since phone is not indexed/normalized well, we filter in memory - optimizing this is a future task)
-    // Ideally we should have a `phoneLast4` column or proper search.
-    const allStaff = await db.select().from(staff);
+    console.log(`[Lookup] Searching for staff with phone ending in ${normalised} at site ${siteId || 'any'}`);
 
-    // Find matching staff
-    const matchingStaff = allStaff.find((s: { phone?: string | null }) =>
-      typeof s.phone === 'string' && s.phone.endsWith(phoneDigits)
-    );
+    // Select only id and name; filter server-side by stripping non-digits from phone
+    const matchingStaff = await db
+      .select({ id: staff.id, name: staff.name })
+      .from(staff)
+      .where(sql`regexp_replace(${staff.phone}, '[^0-9]', '', 'g') LIKE ${'%' + normalised}`);
 
-    if (!matchingStaff) {
-      console.log(`[Lookup] No staff found for ${phoneDigits}`);
+    if (matchingStaff.length === 0) {
+      console.log(`[Lookup] No staff found for ${normalised}`);
       return res.status(404).json({ error: 'No staff member found with these digits.' });
     }
 
-    // Return the staff member
-    console.log(`[Lookup] Found staff: ${matchingStaff.name} (${matchingStaff.id})`);
+    if (matchingStaff.length > 1) {
+      console.log(`[Lookup] WARNING: ${matchingStaff.length} staff members share last 4 digits: ${normalised}`);
+    }
 
-    // Safety: don't return password or sensitive fields
-    const { password, ...safeStaff } = matchingStaff;
-    res.json(safeStaff);
+    const matched = matchingStaff[0];
+    console.log(`[Lookup] Found staff: ${matched.name} (${matched.id})`);
+
+    res.json({ id: matched.id, name: matched.name });
 
   } catch (error) {
     console.error('[Lookup] Error:', error);
     res.status(500).json({ error: 'Failed to lookup staff' });
+  }
+});
+
+// Warn if two active staff share the same last-4 phone digits
+app.get('/api/staff/phone-duplicates', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const allStaff = await db.select().from(staff);
+    const activeStaff = allStaff.filter((s: any) => s.status === 'Active' && s.phone);
+
+    const last4Map: Record<string, string[]> = {};
+    for (const s of activeStaff) {
+      const norm = String(s.phone).replace(/\D/g, '');
+      if (norm.length >= 4) {
+        const last4 = norm.slice(-4);
+        if (!last4Map[last4]) last4Map[last4] = [];
+        last4Map[last4].push(s.name);
+      }
+    }
+
+    const duplicates = Object.entries(last4Map)
+      .filter(([_, names]) => names.length > 1)
+      .map(([digits, names]) => ({ digits, staffNames: names }));
+
+    res.json({ duplicates });
+  } catch (error) {
+    console.error('[Phone Duplicates] Error:', error);
+    res.status(500).json({ error: 'Failed to check phone duplicates' });
   }
 });
 

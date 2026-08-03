@@ -22,6 +22,14 @@ export const staff = pgTable('staff', {
   weeklyHours: integer('weekly_hours').default(0),
   daysPerWeek: integer('days_per_week').default(5),
   startDate: text('start_date'), // Employment start date for leave accrual calculation
+  hourlyRate: decimal('hourly_rate', { precision: 10, scale: 2 }),
+  addressLine1: text('address_line1'),
+  addressLine2: text('address_line2'),
+  townCity: text('town_city'),
+  staffPostcode: text('staff_postcode'),
+  nextOfKinName: text('next_of_kin_name'),
+  nextOfKinRelationship: text('next_of_kin_relationship'),
+  nextOfKinPhone: text('next_of_kin_phone'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
