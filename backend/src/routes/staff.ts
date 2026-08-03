@@ -175,7 +175,7 @@ export function createStaffRouter(database: DbLike): Router {
       const updated = await database
         .update(staff)
         .set({ status })
-        .where(eq(staff.id, id))
+        .where(sql`${staff.id}::text = ${id}`)
         .returning();
 
       if (updated.length === 0) {
