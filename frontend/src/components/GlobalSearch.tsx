@@ -119,8 +119,13 @@ const GlobalSearch: React.FC = () => {
       try {
         const fetchedSites = await sitesAPI.getAll();
         if (isMounted) {
-          // Sort alphabetically by site name
-          const sorted = [...fetchedSites].sort((a, b) => a.name.localeCompare(b.name));
+          // Deduplicate by normalized site name
+          const siteMap = new Map();
+          for (const s of fetchedSites) {
+            const key = s.name ? s.name.trim().toLowerCase() : s.id;
+            if (key && !siteMap.has(key)) siteMap.set(key, s);
+          }
+          const sorted = Array.from(siteMap.values()).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
           setDynamicSites(sorted);
         }
       } catch (err) {
@@ -143,8 +148,13 @@ const GlobalSearch: React.FC = () => {
       try {
         const fetchedStaff = await staffAPI.getAll();
         if (isMounted) {
-          // Sort alphabetically by staff full name
-          const sorted = [...fetchedStaff].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          // Deduplicate by normalized staff name
+          const staffMap = new Map();
+          for (const st of fetchedStaff) {
+            const key = st.name ? st.name.trim().toLowerCase() : st.id;
+            if (key && !staffMap.has(key)) staffMap.set(key, st);
+          }
+          const sorted = Array.from(staffMap.values()).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
           setDynamicStaff(sorted);
         }
       } catch (err) {
@@ -198,7 +208,53 @@ const GlobalSearch: React.FC = () => {
       }
 
       const data: SearchResponse = await res.json();
-      setSearchData(data);
+      
+      // Deduplicate results in each category
+      const uniqueStaffMap = new Map();
+      for (const s of data.results?.staff || []) {
+        const key = s.name ? s.name.trim().toLowerCase() : s.id;
+        if (key && !uniqueStaffMap.has(key)) uniqueStaffMap.set(key, s);
+      }
+      const uniqueStaffResults = Array.from(uniqueStaffMap.values());
+
+      const uniqueLeaveMap = new Map();
+      for (const l of data.results?.leave || []) {
+        const key = l.id || `${l.staffId}_${l.startDate}_${l.endDate}`;
+        if (key && !uniqueLeaveMap.has(key)) uniqueLeaveMap.set(key, l);
+      }
+      const uniqueLeaveResults = Array.from(uniqueLeaveMap.values());
+
+      const uniqueShiftsMap = new Map();
+      for (const sh of data.results?.shifts || []) {
+        const key = sh.id || `${sh.staffId}_${sh.date}_${sh.type}`;
+        if (key && !uniqueShiftsMap.has(key)) uniqueShiftsMap.set(key, sh);
+      }
+      const uniqueShiftsResults = Array.from(uniqueShiftsMap.values());
+
+      const uniqueAttendanceMap = new Map();
+      for (const a of data.results?.attendance || []) {
+        const key = a.id || `${a.shiftId}_${a.issue}`;
+        if (key && !uniqueAttendanceMap.has(key)) uniqueAttendanceMap.set(key, a);
+      }
+      const uniqueAttendanceResults = Array.from(uniqueAttendanceMap.values());
+
+      const cleanData: SearchResponse = {
+        ...data,
+        counts: {
+          staff: uniqueStaffResults.length,
+          leave: uniqueLeaveResults.length,
+          shifts: uniqueShiftsResults.length,
+          attendance: uniqueAttendanceResults.length
+        },
+        results: {
+          staff: uniqueStaffResults,
+          leave: uniqueLeaveResults,
+          shifts: uniqueShiftsResults,
+          attendance: uniqueAttendanceResults
+        }
+      };
+
+      setSearchData(cleanData);
     } catch (err: any) {
       console.error('Global Search Error:', err);
       setError(err.message || 'Failed to fetch search results');

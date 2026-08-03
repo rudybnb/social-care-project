@@ -276,7 +276,16 @@ export async function executeGlobalSearch(
       return true;
     });
 
-    staffResults = filteredStaff.slice(0, 50).map((s: any) => ({
+    const staffMap = new Map();
+    for (const s of filteredStaff) {
+      const key = s.name ? s.name.trim().toLowerCase() : String(s.id).toLowerCase();
+      if (!staffMap.has(key)) {
+        staffMap.set(key, s);
+      }
+    }
+    const uniqueStaffList = Array.from(staffMap.values());
+
+    staffResults = uniqueStaffList.slice(0, 50).map((s: any) => ({
       id: s.id,
       name: s.name,
       username: s.username || null,
