@@ -197,10 +197,17 @@ export const staffAPI = {
   },
 
   // Delete staff member
-  async delete(id: string | number): Promise<void> {
+  async delete(id: string | number, token?: string | null): Promise<void> {
+    const authToken = token || getStoredToken();
+    const headers: Record<string, string> = {};
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const response = await fetch(`${API_BASE_URL}/api/staff/${id}`, {
       method: 'DELETE',
+      headers,
     });
+    if (response.status === 401) {
+      throw new StaffAuthError('Your session has expired. Please log in again.', response.status);
+    }
     if (!response.ok) throw new Error('Failed to delete staff member');
   },
 };

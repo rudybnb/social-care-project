@@ -1,8 +1,10 @@
-import express, { Request, Response, Router } from 'express';
+import express, { Request, Response, NextFunction, Router } from 'express';
 import { db } from '../index.js';
 import { shifts, staff } from '../schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import { sendSystemAlert } from '../services/telegramService.js';
+import { createAuthenticateRequest, requireAdmin } from '../middleware/auth.js';
+import { executeGlobalSearch } from '../services/globalSearchService.js';
 
 const router: Router = express.Router();
 
@@ -277,6 +279,30 @@ router.get('/remove-duplicates', async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Error removing duplicates:', error);
         res.status(500).json({ error: 'Failed to remove duplicates', details: error.message });
+// Middleware to defer database access until request time
+const authenticateRequest = (req: Request, res: Response, next: NextFunction) => {
+    return createAuthenticateRequest(db)(req, res, next);
+};
+
+// Admin Global Search Endpoint
+router.get('/global-search', authenticateRequest, requireAdmin, async (req: Request, res: Response) => {
+    try {
+        if (!db) return res.status(500).json({ error: 'Database not configured' });
+        const options = {
+            q: typeof req.query.q === 'string' ? req.query.q : '',
+            section: typeof req.query.section === 'string' ? req.query.section : 'all',
+            site: typeof req.query.site === 'string' ? req.query.site : 'all',
+            staffId: typeof req.query.staffId === 'string' ? req.query.staffId : 'all',
+            staffName: typeof req.query.staffName === 'string' ? req.query.staffName : 'all',
+            dateFilter: typeof req.query.dateFilter === 'string' ? req.query.dateFilter : 'any',
+            startDate: typeof req.query.startDate === 'string' ? req.query.startDate : undefined,
+            endDate: typeof req.query.endDate === 'string' ? req.query.endDate : undefined,
+        };
+        const searchResults = await executeGlobalSearch(db, options);
+        res.json(searchResults);
+    } catch (error: any) {
+        console.error('Error in admin global search:', error);
+        res.status(500).json({ error: 'Global search failed', details: error.message });
     }
 });
 

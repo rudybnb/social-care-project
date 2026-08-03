@@ -139,5 +139,25 @@ export function createStaffRouter(database: DbLike): Router {
     }
   });
 
+  // DELETE /:id — delete staff member (Admin only)
+  router.delete('/:id', authenticateRequest, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      if (!database) return res.status(500).json({ error: 'Database not configured' });
+
+      const id = req.params.id as string;
+      if (!id) return res.status(400).json({ error: 'ID is required' });
+
+      const deleted = await database.delete(staff).where(eq(staff.id, id)).returning();
+      if (deleted.length === 0) {
+        return res.status(404).json({ error: 'Staff member not found' });
+      }
+
+      return res.json({ success: true, message: 'Staff member deleted', staff: toSafeStaff(deleted[0]) });
+    } catch (error: any) {
+      console.error('Error deleting staff member:', error);
+      return res.status(500).json({ error: 'Failed to delete staff member', details: error.message });
+    }
+  });
+
   return router;
 }

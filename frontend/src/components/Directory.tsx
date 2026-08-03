@@ -206,6 +206,17 @@ const Directory: React.FC = () => {
     }
   };
 
+  const handleDeleteStaff = async (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete staff member "${name}"? This action cannot be undone.`)) {
+      try {
+        await staffAPI.delete(id, token);
+        await fetchStaff(searchQuery);
+      } catch (err: any) {
+        alert(err.message || 'Failed to delete staff member.');
+      }
+    }
+  };
+
   // Filter staffList based on selected dropdown filters
   const filteredStaff = staffList.filter((s) => {
     if (selectedSite !== 'all') {
@@ -1008,27 +1019,48 @@ const Directory: React.FC = () => {
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => handleViewProfile(String(staffMember.id))}
-                          style={{
-                            marginTop: '16px',
-                            padding: '10px 16px',
-                            backgroundColor: '#3a3a3a',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            width: '100%',
-                            textAlign: 'center'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4a4a4a'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3a3a3a'}
-                        >
-                          View Profile
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                          <button
+                            onClick={() => handleViewProfile(String(staffMember.id))}
+                            style={{
+                              flex: 1,
+                              padding: '10px 16px',
+                              backgroundColor: '#3a3a3a',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              fontSize: '13px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              textAlign: 'center'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4a4a4a'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3a3a3a'}
+                          >
+                            View Profile
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStaff(String(staffMember.id), staffMember.name)}
+                            title="Delete staff member"
+                            style={{
+                              padding: '10px 16px',
+                              backgroundColor: '#991b1b',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              fontSize: '13px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              whiteSpace: 'nowrap'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#991b1b'}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
