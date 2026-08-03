@@ -396,8 +396,21 @@ export async function executeGlobalSearch(
   const runReports = section === 'all' || section === 'reports';
   const runQueries = section === 'all' || section === 'queries';
 
-  // Retrieve all staff members for site/staff lookups
-  const allStaff = await database.select().from(staff);
+  // Retrieve only columns used by Global Search. Selecting the whole staff schema
+  // can break search when optional employment-detail columns are not yet present.
+  const allStaff = await database.select({
+    id: staff.id,
+    name: staff.name,
+    username: staff.username,
+    email: staff.email,
+    role: staff.role,
+    site: staff.site,
+    status: staff.status,
+    standardRate: staff.standardRate,
+    rates: staff.rates,
+    startDate: staff.startDate,
+    createdAt: staff.createdAt,
+  }).from(staff);
 
   // Map site staff if site filter is active
   let siteStaffIdSet: Set<string> | null = null;
