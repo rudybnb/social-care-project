@@ -51,7 +51,16 @@ const Directory: React.FC = () => {
     site: '',
     status: 'Active',
     startDate: new Date().toISOString().split('T')[0],
-    password: ''
+    password: '',
+    phone: '',
+    hourlyRate: '',
+    addressLine1: '',
+    addressLine2: '',
+    townCity: '',
+    staffPostcode: '',
+    nextOfKinName: '',
+    nextOfKinRelationship: '',
+    nextOfKinPhone: ''
   });
 
   // Agency state
@@ -162,6 +171,30 @@ const Directory: React.FC = () => {
       return;
     }
 
+    // Validate hourly rate >= 0
+    if (newStaffForm.hourlyRate && newStaffForm.hourlyRate !== '') {
+      const rate = Number(newStaffForm.hourlyRate);
+      if (isNaN(rate) || rate < 0) {
+        setStaffFormError('Hourly rate must be zero or greater.');
+        return;
+      }
+    }
+
+    // Validate phone number length
+    if (newStaffForm.phone) {
+      const norm = newStaffForm.phone.replace(/[\s\-\(\)]/g, '');
+      if (norm.length > 0 && norm.length < 10) {
+        setStaffFormError('Phone number must contain at least 10 digits.');
+        return;
+      }
+    }
+
+    // Validate next-of-kin phone required when name entered
+    if (newStaffForm.nextOfKinName && !newStaffForm.nextOfKinPhone.trim()) {
+      setStaffFormError('Next of kin phone number is required when a next of kin name is entered.');
+      return;
+    }
+
     setIsSubmittingStaff(true);
 
     try {
@@ -173,7 +206,16 @@ const Directory: React.FC = () => {
         site: newStaffForm.site || (dynamicSites.length > 0 ? dynamicSites[0].name : 'General'),
         status: newStaffForm.status as 'Active' | 'Inactive',
         startDate: newStaffForm.startDate,
-        password: newStaffForm.password.trim()
+        password: newStaffForm.password.trim(),
+        phone: newStaffForm.phone.trim() || undefined,
+        hourlyRate: newStaffForm.hourlyRate || undefined,
+        addressLine1: newStaffForm.addressLine1.trim() || undefined,
+        addressLine2: newStaffForm.addressLine2.trim() || undefined,
+        townCity: newStaffForm.townCity.trim() || undefined,
+        staffPostcode: newStaffForm.staffPostcode.trim() || undefined,
+        nextOfKinName: newStaffForm.nextOfKinName.trim() || undefined,
+        nextOfKinRelationship: newStaffForm.nextOfKinRelationship.trim() || undefined,
+        nextOfKinPhone: newStaffForm.nextOfKinPhone.trim() || undefined,
       };
 
       const created = await staffAPI.create(payload, token);
@@ -192,7 +234,16 @@ const Directory: React.FC = () => {
         site: dynamicSites.length > 0 ? dynamicSites[0].name : 'General',
         status: 'Active',
         startDate: new Date().toISOString().split('T')[0],
-        password: ''
+        password: '',
+        phone: '',
+        hourlyRate: '',
+        addressLine1: '',
+        addressLine2: '',
+        townCity: '',
+        staffPostcode: '',
+        nextOfKinName: '',
+        nextOfKinRelationship: '',
+        nextOfKinPhone: ''
       });
 
       setIsAddStaffModalOpen(false);
@@ -679,6 +730,212 @@ const Directory: React.FC = () => {
                       boxSizing: 'border-box'
                     }}
                   />
+                </div>
+
+                {/* 6. Phone Number & Hourly Rate */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={newStaffForm.phone}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, phone: e.target.value })}
+                      placeholder="e.g. 07700 900123"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Hourly Rate (£)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newStaffForm.hourlyRate}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, hourlyRate: e.target.value })}
+                      placeholder="e.g. 13.50"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* 7. Address */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                    Address Line 1
+                  </label>
+                  <input
+                    type="text"
+                    value={newStaffForm.addressLine1}
+                    onChange={(e) => setNewStaffForm({ ...newStaffForm, addressLine1: e.target.value })}
+                    placeholder="e.g. 123 High Street"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#1a1a1a',
+                      color: 'white',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                    Address Line 2
+                  </label>
+                  <input
+                    type="text"
+                    value={newStaffForm.addressLine2}
+                    onChange={(e) => setNewStaffForm({ ...newStaffForm, addressLine2: e.target.value })}
+                    placeholder="e.g. Flat 4B"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#1a1a1a',
+                      color: 'white',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Town/City
+                    </label>
+                    <input
+                      type="text"
+                      value={newStaffForm.townCity}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, townCity: e.target.value })}
+                      placeholder="e.g. London"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Postcode
+                    </label>
+                    <input
+                      type="text"
+                      value={newStaffForm.staffPostcode}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, staffPostcode: e.target.value })}
+                      placeholder="e.g. SE1 9AA"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* 8. Next of Kin */}
+                <div style={{ borderTop: '1px solid #3a3a3a', paddingTop: '14px', marginTop: '4px' }}>
+                  <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '600', marginBottom: '10px' }}>Next of Kin</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        value={newStaffForm.nextOfKinName}
+                        onChange={(e) => setNewStaffForm({ ...newStaffForm, nextOfKinName: e.target.value })}
+                        placeholder="e.g. Jane Smith"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          backgroundColor: '#1a1a1a',
+                          color: 'white',
+                          border: '1px solid #3a3a3a',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                        Relationship
+                      </label>
+                      <input
+                        type="text"
+                        value={newStaffForm.nextOfKinRelationship}
+                        onChange={(e) => setNewStaffForm({ ...newStaffForm, nextOfKinRelationship: e.target.value })}
+                        placeholder="e.g. Spouse"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          backgroundColor: '#1a1a1a',
+                          color: 'white',
+                          border: '1px solid #3a3a3a',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '12px' }}>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={newStaffForm.nextOfKinPhone}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, nextOfKinPhone: e.target.value })}
+                      placeholder="e.g. 07700 900456"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
 

@@ -19,6 +19,10 @@ const ClockInOut: React.FC = () => {
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
   const [isUnscheduled, setIsUnscheduled] = useState(false);
   const [approvalRequested, setApprovalRequested] = useState(false);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [pendingStaffName, setPendingStaffName] = useState('');
+  const [pendingStaffId, setPendingStaffId] = useState('');
+  const [duplicateWarning, setDuplicateWarning] = useState('');
 
   const today = new Date().toLocaleDateString('en-CA');
 
@@ -32,9 +36,9 @@ const ClockInOut: React.FC = () => {
     setIsFetching(true);
     setMessage('');
     setMessageType('');
+    setDuplicateWarning('');
 
     try {
-      // Use new backend lookup endpoint
       const staffResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/lookup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,18 +58,51 @@ const ClockInOut: React.FC = () => {
 
       const staffMember = await staffResponse.json();
 
-      setStaffId(staffMember.id);
-      setStaffName(staffMember.name);
+      // Check for duplicate last-4-digits
+      try {
+        const dupResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/phone-duplicates`);
+        if (dupResponse.ok) {
+          const dupData = await dupResponse.json();
+          const normalised = phoneDigits.replace(/\D/g, '');
+          const match = dupData.duplicates?.find((d: any) => d.digits === normalised);
+          if (match) {
+            setDuplicateWarning(`Warning: ${match.staffNames.length} staff members share these last 4 digits (${match.digits}). Please verify you are the correct person.`);
+          }
+        }
+      } catch (e) {
+        // Non-critical, continue
+      }
 
-      // Now fetch shifts for this staff member
-      const shiftsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${staffMember.id}/shifts`);
+      // Show confirmation before proceeding
+      setPendingStaffName(staffMember.name);
+      setPendingStaffId(staffMember.id);
+      setNeedsConfirmation(true);
+      setMessage(`Is this you: ${staffMember.name}? Confirm to see your shifts.`);
+      setMessageType('success');
+    } catch (error) {
+      console.error('Network error:', error);
+      setMessage('Network error. Please try again.');
+      setMessageType('error');
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const confirmStaff = async () => {
+    setStaffId(pendingStaffId);
+    setStaffName(pendingStaffName);
+    setNeedsConfirmation(false);
+    setMessage('');
+    setMessageType('');
+
+    try {
+      const shiftsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${pendingStaffId}/shifts`);
       if (shiftsResponse.ok) {
         const data = await shiftsResponse.json();
-        // Filter for today's shifts at this site using local date
-        const todayLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+        const todayLocal = new Date().toLocaleDateString('en-CA');
 
         const todayShifts = data.filter((s: Shift) =>
-          s.siteId === siteId && 
+          s.siteId === siteId &&
           (s.date === todayLocal || (s.clockedIn && !s.clockedOut))
         );
         setShifts(todayShifts);
@@ -73,12 +110,10 @@ const ClockInOut: React.FC = () => {
         if (todayShifts.length === 0) {
           setIsUnscheduled(true);
 
-          // Check if there's already an approved request for today (using local date)
           try {
-            const approvedRequest = await approvalAPI.checkApprovedRequest(staffMember.id, siteId!, todayLocal);
+            const approvedRequest = await approvalAPI.checkApprovedRequest(pendingStaffId, siteId!, todayLocal);
             if (approvedRequest) {
-              // Refetch shifts
-              const refreshedShifts = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${staffMember.id}/shifts`);
+              const refreshedShifts = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${pendingStaffId}/shifts`);
               if (refreshedShifts.ok) {
                 const refreshedData = await refreshedShifts.json();
                 const refreshedTodayShifts = refreshedData.filter((s: Shift) => s.date === todayLocal && s.siteId === siteId);
@@ -86,26 +121,26 @@ const ClockInOut: React.FC = () => {
                 if (refreshedTodayShifts.length > 0) {
                   setShifts(refreshedTodayShifts);
                   setIsUnscheduled(false);
-                  setMessage(`Welcome ${staffMember.name}! Your unscheduled shift has been approved.`);
+                  setMessage(`Welcome ${pendingStaffName}! Your unscheduled shift has been approved.`);
                   setMessageType('success');
                 } else {
-                  setMessage(`Hello ${staffMember.name}! Your unscheduled shift has been approved. You may clock in.`);
+                  setMessage(`Hello ${pendingStaffName}! Your unscheduled shift has been approved. You may clock in.`);
                   setMessageType('success');
                   setApprovalRequested(true);
                 }
               }
             } else {
-              setMessage(`Hello ${staffMember.name}! You are not scheduled to work today at this site.`);
+              setMessage(`Hello ${pendingStaffName}! You are not scheduled to work today at this site.`);
               setMessageType('error');
             }
           } catch (err) {
             console.error('Error checking approval:', err);
-            setMessage(`Hello ${staffMember.name}! You are not scheduled to work today at this site.`);
+            setMessage(`Hello ${pendingStaffName}! You are not scheduled to work today at this site.`);
             setMessageType('error');
           }
         } else {
           setIsUnscheduled(false);
-          setMessage(`Welcome ${staffMember.name}!`);
+          setMessage(`Welcome ${pendingStaffName}!`);
           setMessageType('success');
         }
       } else {
@@ -116,8 +151,6 @@ const ClockInOut: React.FC = () => {
       console.error('Network error:', error);
       setMessage('Network error. Please try again.');
       setMessageType('error');
-    } finally {
-      setIsFetching(false);
     }
   };
 
@@ -242,7 +275,7 @@ const ClockInOut: React.FC = () => {
         )}
 
         {/* Staff ID Input */}
-        {shifts.length === 0 && (
+        {shifts.length === 0 && !needsConfirmation && (
           <div style={{
             backgroundColor: '#1a1a1a',
             borderRadius: '16px',
@@ -303,6 +336,77 @@ const ClockInOut: React.FC = () => {
             >
               {isFetching ? 'Loading...' : 'Find My Shifts'}
             </button>
+          </div>
+        )}
+
+        {/* Confirmation Dialog */}
+        {needsConfirmation && (
+          <div style={{
+            backgroundColor: '#1a1a1a',
+            borderRadius: '16px',
+            padding: '24px',
+            marginBottom: '24px',
+            border: '2px solid #3b82f6'
+          }}>
+            <div style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
+              Confirm Your Identity
+            </div>
+            <div style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '16px' }}>
+              Is this you: <strong style={{ color: 'white' }}>{pendingStaffName}</strong>?
+            </div>
+            {duplicateWarning && (
+              <div style={{
+                backgroundColor: '#f59e0b20',
+                border: '1px solid #f59e0b',
+                borderRadius: '8px',
+                padding: '12px',
+                marginBottom: '16px',
+                color: '#f59e0b',
+                fontSize: '13px'
+              }}>
+                ⚠️ {duplicateWarning}
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <button
+                onClick={() => {
+                  setNeedsConfirmation(false);
+                  setPendingStaffName('');
+                  setPendingStaffId('');
+                  setPhoneDigits('');
+                  setMessage('');
+                  setMessageType('');
+                  setDuplicateWarning('');
+                }}
+                style={{
+                  backgroundColor: '#3a3a3a',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                No, Not Me
+              </button>
+              <button
+                onClick={confirmStaff}
+                style={{
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                Yes, That's Me
+              </button>
+            </div>
           </div>
         )}
 

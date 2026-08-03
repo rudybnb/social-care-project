@@ -276,7 +276,7 @@ test('list returns exactly the allowed fields', async () => {
   assert.equal(res.statusCode, 200);
   const staffMember = res.payload[0];
 
-  const allowedFields = ['email', 'id', 'name', 'role', 'site', 'status', 'username'];
+  const allowedFields = ['addressLine1', 'addressLine2', 'email', 'hourlyRate', 'id', 'name', 'nextOfKinName', 'nextOfKinPhone', 'nextOfKinRelationship', 'phone', 'role', 'site', 'staffPostcode', 'startDate', 'status', 'townCity', 'username'];
   assert.deepEqual(Object.keys(staffMember).sort(), allowedFields);
 
   for (const absent of [
@@ -289,10 +289,8 @@ test('list returns exactly the allowed fields', async () => {
     'deductions',
     'tax',
     'telegramChatId',
-    'phone',
     'weeklyHours',
     'daysPerWeek',
-    'startDate',
     'createdAt',
     'updatedAt',
   ]) {
@@ -320,7 +318,7 @@ test('get-by-id returns exactly the allowed fields', async () => {
   assert.equal(res.statusCode, 200);
   const staffMember = res.payload;
 
-  const allowedFields = ['email', 'id', 'name', 'role', 'site', 'status', 'username'];
+  const allowedFields = ['addressLine1', 'addressLine2', 'email', 'hourlyRate', 'id', 'name', 'nextOfKinName', 'nextOfKinPhone', 'nextOfKinRelationship', 'phone', 'role', 'site', 'staffPostcode', 'startDate', 'status', 'townCity', 'username'];
   assert.deepEqual(Object.keys(staffMember).sort(), allowedFields);
 
   for (const absent of [
@@ -333,10 +331,8 @@ test('get-by-id returns exactly the allowed fields', async () => {
     'deductions',
     'tax',
     'telegramChatId',
-    'phone',
     'weeklyHours',
     'daysPerWeek',
-    'startDate',
     'createdAt',
     'updatedAt',
   ]) {
