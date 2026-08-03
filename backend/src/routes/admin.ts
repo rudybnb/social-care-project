@@ -279,6 +279,9 @@ router.get('/remove-duplicates', async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Error removing duplicates:', error);
         res.status(500).json({ error: 'Failed to remove duplicates', details: error.message });
+    }
+});
+
 // Middleware to defer database access until request time
 const authenticateRequest = (req: Request, res: Response, next: NextFunction) => {
     return createAuthenticateRequest(db)(req, res, next);
