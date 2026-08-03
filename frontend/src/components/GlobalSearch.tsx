@@ -169,10 +169,13 @@ const GlobalSearch: React.FC = () => {
     };
   }, []);
 
+  const [hasSearched, setHasSearched] = useState(false);
+
   // Fetch search results from backend API
   const executeSearch = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setHasSearched(true);
     try {
       const queryParams = new URLSearchParams();
       if (query.trim()) queryParams.set('q', query.trim());
@@ -263,11 +266,6 @@ const GlobalSearch: React.FC = () => {
     }
   }, [query, section, site, selectedStaff, dateFilter, startDate, endDate, token]);
 
-  // Initial load
-  useEffect(() => {
-    executeSearch();
-  }, [executeSearch]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     executeSearch();
@@ -281,6 +279,8 @@ const GlobalSearch: React.FC = () => {
     setStartDate('');
     setEndDate('');
     setQuery('');
+    setHasSearched(false);
+    setSearchData(null);
   };
 
   const counts = searchData?.counts || { staff: 0, leave: 0, shifts: 0, attendance: 0 };
@@ -565,8 +565,42 @@ const GlobalSearch: React.FC = () => {
         </div>
       )}
 
-      {/* Results or Empty State */}
-      {!loading && !error && searchData && (
+      {/* Initial state prompt before user submits a search */}
+      {!hasSearched && !loading && !error && (
+        <div style={{
+          backgroundColor: '#262626',
+          border: '1px solid #3f3f46',
+          borderRadius: '12px',
+          padding: '48px 24px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '36px', marginBottom: '12px' }}>🔍</div>
+          <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: 'white', margin: '0 0 8px 0' }}>
+            Global Operational Search
+          </h3>
+          <p style={{ fontSize: '14px', color: '#9ca3af', margin: '0 auto 20px auto', maxWidth: '540px' }}>
+            Select your filter options above (Section, Site, Staff Member, Date Range) or enter search keywords, then click <strong>Search</strong> to query operational records.
+          </p>
+          <button
+            onClick={() => navigate('/admin/directory')}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#3f3f46',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontWeight: '600',
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            Go to Staff Directory →
+          </button>
+        </div>
+      )}
+
+      {/* Results or Empty State after search execution */}
+      {hasSearched && !loading && !error && searchData && (
         <div>
           {totalResultsCount === 0 ? (
             /* No Results Found Banner */
