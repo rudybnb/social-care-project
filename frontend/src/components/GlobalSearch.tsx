@@ -279,16 +279,21 @@ const GlobalSearch: React.FC = () => {
     }
   }, [query, section, site, selectedStaff, dateFilter, startDate, endDate, token]);
 
-  const handleDeleteStaff = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete staff member "${name}"? This action cannot be undone.`)) {
+  const handleToggleStatus = async (id: string, name: string, currentStatus: string) => {
+    const isSuspending = currentStatus === 'Active';
+    const newStatus = isSuspending ? 'Inactive' : 'Active';
+    const action = isSuspending ? 'suspend' : 'reactivate';
+    if (window.confirm(`${isSuspending ? 'Suspend' : 'Reactivate'} staff member "${name}"?`)) {
       try {
-        await staffAPI.delete(id, token);
-        setDynamicStaff(prev => prev.filter(st => String(st.id) !== String(id)));
+        await staffAPI.setStatus(id, newStatus, token);
+        setDynamicStaff(prev =>
+          prev.map(st => String(st.id) === String(id) ? { ...st, status: newStatus } : st)
+        );
         if (hasSearched) {
           executeSearch();
         }
       } catch (err: any) {
-        alert(err.message || 'Failed to delete staff member');
+        alert(err.message || `Failed to ${action} staff member`);
       }
     }
   };
@@ -731,11 +736,11 @@ const GlobalSearch: React.FC = () => {
                             View in Directory →
                           </button>
                           <button
-                            onClick={() => handleDeleteStaff(st.id, st.name)}
-                            title="Delete staff member"
+                            onClick={() => handleToggleStatus(st.id, st.name, st.status || 'Active')}
+                            title={st.status === 'Inactive' ? 'Reactivate staff member' : 'Suspend staff member'}
                             style={{
                               padding: '8px 12px',
-                              backgroundColor: '#991b1b',
+                              backgroundColor: st.status === 'Inactive' ? '#15803d' : '#92400e',
                               color: 'white',
                               border: 'none',
                               borderRadius: '6px',
@@ -746,7 +751,7 @@ const GlobalSearch: React.FC = () => {
                               whiteSpace: 'nowrap'
                             }}
                           >
-                            🗑️ Delete
+                            {st.status === 'Inactive' ? '▶ Reactivate' : '⏸ Suspend'}
                           </button>
                         </div>
                       </div>

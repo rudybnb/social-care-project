@@ -159,5 +159,35 @@ export function createStaffRouter(database: DbLike): Router {
     }
   });
 
+  // PATCH /:id/status — suspend or reactivate a staff member (Admin only)
+  router.patch('/:id/status', authenticateRequest, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      if (!database) return res.status(500).json({ error: 'Database not configured' });
+
+      const id = req.params.id as string;
+      if (!id) return res.status(400).json({ error: 'ID is required' });
+
+      const { status } = req.body || {};
+      if (status !== 'Active' && status !== 'Inactive') {
+        return res.status(400).json({ error: 'Status must be "Active" or "Inactive"' });
+      }
+
+      const updated = await database
+        .update(staff)
+        .set({ status })
+        .where(eq(staff.id, id))
+        .returning();
+
+      if (updated.length === 0) {
+        return res.status(404).json({ error: 'Staff member not found' });
+      }
+
+      return res.json({ success: true, staff: toSafeStaff(updated[0]) });
+    } catch (error: any) {
+      console.error('Error updating staff status:', error);
+      return res.status(500).json({ error: 'Failed to update staff status', details: error.message });
+    }
+  });
+
   return router;
 }

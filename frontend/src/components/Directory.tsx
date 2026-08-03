@@ -206,13 +206,16 @@ const Directory: React.FC = () => {
     }
   };
 
-  const handleDeleteStaff = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete staff member "${name}"? This action cannot be undone.`)) {
+  const handleToggleStatus = async (id: string, name: string, currentStatus: string) => {
+    const isSuspending = currentStatus === 'Active';
+    const newStatus: 'Active' | 'Inactive' = isSuspending ? 'Inactive' : 'Active';
+    const action = isSuspending ? 'Suspend' : 'Reactivate';
+    if (window.confirm(`${action} staff member "${name}"?`)) {
       try {
-        await staffAPI.delete(id, token);
+        await staffAPI.setStatus(id, newStatus, token);
         await fetchStaff(searchQuery);
       } catch (err: any) {
-        alert(err.message || 'Failed to delete staff member.');
+        alert(err.message || `Failed to ${action.toLowerCase()} staff member.`);
       }
     }
   };
@@ -1041,11 +1044,11 @@ const Directory: React.FC = () => {
                             View Profile
                           </button>
                           <button
-                            onClick={() => handleDeleteStaff(String(staffMember.id), staffMember.name)}
-                            title="Delete staff member"
+                            onClick={() => handleToggleStatus(String(staffMember.id), staffMember.name, staffMember.status || 'Active')}
+                            title={staffMember.status === 'Inactive' ? 'Reactivate staff member' : 'Suspend staff member'}
                             style={{
                               padding: '10px 16px',
-                              backgroundColor: '#991b1b',
+                              backgroundColor: staffMember.status === 'Inactive' ? '#15803d' : '#92400e',
                               color: 'white',
                               border: 'none',
                               borderRadius: '8px',
@@ -1055,10 +1058,10 @@ const Directory: React.FC = () => {
                               transition: 'all 0.2s',
                               whiteSpace: 'nowrap'
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#991b1b'}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = staffMember.status === 'Inactive' ? '#16a34a' : '#b45309'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = staffMember.status === 'Inactive' ? '#15803d' : '#92400e'}
                           >
-                            🗑️ Delete
+                            {staffMember.status === 'Inactive' ? '▶ Reactivate' : '⏸ Suspend'}
                           </button>
                         </div>
                       </div>

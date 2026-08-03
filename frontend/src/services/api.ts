@@ -210,6 +210,23 @@ export const staffAPI = {
     }
     if (!response.ok) throw new Error('Failed to delete staff member');
   },
+
+  // Suspend or reactivate a staff member (sets status field)
+  async setStatus(id: string | number, status: 'Active' | 'Inactive', token?: string | null): Promise<any> {
+    const authToken = token || getStoredToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const response = await fetch(`${API_BASE_URL}/api/staff/${id}/status`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ status }),
+    });
+    if (response.status === 401) {
+      throw new StaffAuthError('Your session has expired. Please log in again.', response.status);
+    }
+    if (!response.ok) throw new Error(`Failed to ${status === 'Inactive' ? 'suspend' : 'reactivate'} staff member`);
+    return response.json();
+  },
 };
 
 // ==================== SITES API ====================
