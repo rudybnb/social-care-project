@@ -395,34 +395,7 @@ const GlobalSearch: React.FC = () => {
           </div>
         </form>
 
-        {/* Quick Suggestion Chips */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginBottom: '20px' }}>
-          <span style={{ fontSize: '12px', color: '#a1a1aa', fontWeight: '600', marginRight: '4px' }}>Quick Searches:</span>
-          {[
-            'Lauren leave available',
-            'missed shifts yesterday',
-            'unfilled shifts next week',
-            'active workers at Thamesmead',
-            'staff absent last week'
-          ].map((chipText) => (
-            <button
-              key={chipText}
-              onClick={() => handleQuickChip(chipText)}
-              style={{
-                padding: '6px 12px',
-                backgroundColor: '#27272a',
-                border: '1px solid #3f3f46',
-                borderRadius: '20px',
-                color: '#d4d4d8',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              {chipText}
-            </button>
-          ))}
-        </div>
+
 
         {/* Structured Filters Controls */}
         <div style={{
