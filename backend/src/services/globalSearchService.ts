@@ -336,6 +336,18 @@ export async function executeGlobalSearch(
 
   const todayStr = formatDateLocal(now);
 
+  const selectOptionalTable = async (table: any, tableName: string): Promise<any[]> => {
+    try {
+      return await database.select().from(table);
+    } catch (error: any) {
+      if (error?.code === '42P01' || /relation .* does not exist/i.test(error?.message || '')) {
+        console.warn(`Global Search optional table "${tableName}" is unavailable; returning no ${tableName} results.`);
+        return [];
+      }
+      throw error;
+    }
+  };
+
   // Compute explicit dateRange based on dateFilter option or parsed text
   let dateRange: { start: string; end: string } | null = null;
   if (dateFilter === 'today') {
@@ -918,8 +930,8 @@ export async function executeGlobalSearch(
   // 9. Room Scans Search
   let roomScanResults: RoomScansSearchResult[] = [];
   if (runRoomScans) {
-    const allScans = await database.select().from(roomScans);
-    const allRooms = await database.select().from(rooms);
+    const allScans = await selectOptionalTable(roomScans, 'room_scans');
+    const allRooms = await selectOptionalTable(rooms, 'rooms');
     const allSites = await database.select().from(sites);
 
     const roomMap = new Map<string, { name: string; siteId: string }>();
@@ -1135,7 +1147,7 @@ export async function executeGlobalSearch(
   // 13. Reports Search (queries table)
   let reportResults: ReportsSearchResult[] = [];
   if (runReports) {
-    const allQueries = await database.select().from(queries);
+    const allQueries = await selectOptionalTable(queries, 'queries');
 
     const filteredReports = allQueries.filter((q: any) => {
       if (cleanLower) {
@@ -1171,8 +1183,8 @@ export async function executeGlobalSearch(
   // 14. Queries Search (queries + query_messages tables)
   let queryResults: QueriesSearchResult[] = [];
   if (runQueries) {
-    const allQueries = await database.select().from(queries);
-    const allMessages = await database.select().from(queryMessages);
+    const allQueries = await selectOptionalTable(queries, 'queries');
+    const allMessages = await selectOptionalTable(queryMessages, 'query_messages');
 
     const messagesByQuery = new Map<string, any[]>();
     for (const m of allMessages) {
