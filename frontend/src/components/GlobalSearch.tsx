@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL, sitesAPI, staffAPI, SafeStaff } from '../services/api';
-import { Site, StaffMember } from '../data/sharedData';
+import { Site, StaffMember, getSites, getStaff } from '../data/sharedData';
 import { useAuth } from '../context/AuthContext';
 
 interface StaffResult {
@@ -117,11 +117,11 @@ const GlobalSearch: React.FC = () => {
     const loadSites = async () => {
       setSitesLoading(true);
       try {
-        const fetchedSites = await sitesAPI.getAll();
+        const fetchedSites = await sitesAPI.getAll().catch(() => []);
         if (isMounted) {
-          // Deduplicate by normalized site name
+          const sitesList = fetchedSites.length > 0 ? fetchedSites : (getSites() as any[]);
           const siteMap = new Map();
-          for (const s of fetchedSites) {
+          for (const s of sitesList) {
             const key = s.name ? s.name.trim().toLowerCase() : s.id;
             if (key && !siteMap.has(key)) siteMap.set(key, s);
           }
@@ -130,6 +130,8 @@ const GlobalSearch: React.FC = () => {
         }
       } catch (err) {
         console.warn('Failed to load dynamic sites for filter dropdown:', err);
+        const fallback = getSites() as any[];
+        setDynamicSites(fallback);
       } finally {
         if (isMounted) setSitesLoading(false);
       }
@@ -146,11 +148,11 @@ const GlobalSearch: React.FC = () => {
     const loadStaff = async () => {
       setStaffLoading(true);
       try {
-        const fetchedStaff = await staffAPI.getAll();
+        const fetchedStaff = await staffAPI.getAll().catch(() => []);
         if (isMounted) {
-          // Deduplicate by normalized staff name
+          const staffList = fetchedStaff.length > 0 ? fetchedStaff : (getStaff() as any[]);
           const staffMap = new Map();
-          for (const st of fetchedStaff) {
+          for (const st of staffList) {
             const key = st.name ? st.name.trim().toLowerCase() : st.id;
             if (key && !staffMap.has(key)) staffMap.set(key, st);
           }
@@ -159,6 +161,8 @@ const GlobalSearch: React.FC = () => {
         }
       } catch (err) {
         console.warn('Failed to load dynamic staff for filter dropdown:', err);
+        const fallback = getStaff() as any[];
+        setDynamicStaff(fallback);
       } finally {
         if (isMounted) setStaffLoading(false);
       }

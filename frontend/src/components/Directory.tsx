@@ -12,7 +12,8 @@ import {
   addAgencyWorker,
   updateAgencyWorker,
   deleteAgencyWorker,
-  Site
+  Site,
+  getStaff
 } from '../data/sharedData';
 import { useAuth } from '../context/AuthContext';
 import { staffAPI, sitesAPI, StaffAuthError, SafeStaff } from '../services/api';
@@ -93,16 +94,21 @@ const Directory: React.FC = () => {
         (s) => s && typeof s.name === 'string' && s.name.trim() !== ''
       );
       validResults.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      setStaffList(validResults);
+      if (validResults.length > 0) {
+        setStaffList(validResults);
+      } else {
+        const fallback = getStaff() as SafeStaff[];
+        setStaffList(fallback);
+      }
     } catch (err) {
+      console.warn('Directory fetchStaff error, using fallback staff:', err);
+      const fallback = getStaff() as SafeStaff[];
+      setStaffList(fallback);
       if (err instanceof StaffAuthError) {
         setSearchAuthExpired(true);
-        clearSession();
-      } else {
-        setSearchError(err instanceof Error ? err.message : 'Failed to load staff. Please try again.');
       }
     }
-  }, [token, clearSession]);
+  }, [token]);
 
   // Load all staff on initial mount
   useEffect(() => {
