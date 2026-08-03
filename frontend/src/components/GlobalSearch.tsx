@@ -70,6 +70,144 @@ interface AttendanceResult {
   link: string;
 }
 
+interface SwapsResult {
+  id: string;
+  shiftId: string;
+  requesterId: string;
+  requesterName: string;
+  takerId: string;
+  takerName: string;
+  siteName: string;
+  date: string;
+  type: string;
+  startTime: string;
+  endTime: string;
+  swapStatus: 'pending' | 'completed';
+  approvedBy: string | null;
+  approvedAt: string | null;
+  link: string;
+}
+
+interface ApprovalsResult {
+  id: string;
+  staffId: string;
+  staffName: string;
+  siteId: string;
+  siteName: string;
+  date: string;
+  requestTime: string;
+  status: 'pending' | 'approved' | 'rejected';
+  approvedBy: string | null;
+  approvedAt: string | null;
+  notes: string | null;
+  link: string;
+}
+
+interface QuotesResult {
+  id: string;
+  childInitials: string;
+  quoteStatus: string | null;
+  providerName: string | null;
+  placementType: string | null;
+  createdDate: string | null;
+  createdAt: string;
+  link: string;
+}
+
+interface RemittancesResult {
+  id: string;
+  paymentNo: string;
+  paymentDate: string;
+  siteName: string | null;
+  payeeName: string;
+  description: string;
+  datesCovered: string;
+  hoursWorked: string;
+  hourlyRate: string;
+  paymentTotal: string;
+  status: string;
+  createdAt: string;
+  link: string;
+}
+
+interface RoomScansResult {
+  id: string;
+  roomId: string;
+  roomName: string | null;
+  siteName: string | null;
+  userId: string;
+  staffName: string | null;
+  shiftId: string | null;
+  scannedAt: string;
+  taskCompleted: boolean | null;
+  notes: string | null;
+  link: string;
+}
+
+interface SitesResult {
+  id: string;
+  name: string;
+  location: string | null;
+  postcode: string | null;
+  address: string | null;
+  status: string;
+  color: string | null;
+  link: string;
+}
+
+interface UnscheduledResult {
+  id: string;
+  staffId: string;
+  staffName: string;
+  siteId: string;
+  siteName: string;
+  date: string;
+  requestTime: string;
+  status: string;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  notes: string | null;
+  link: string;
+}
+
+interface PayrollResult {
+  id: string;
+  staffId: string;
+  staffName: string;
+  siteName: string;
+  date: string;
+  type: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  clockedIn: boolean | null;
+  clockedOut: boolean | null;
+  hourlyRate: string | null;
+  link: string;
+}
+
+interface ReportsResult {
+  id: string;
+  siteId: string;
+  userId: string;
+  category: string | null;
+  status: string;
+  createdAt: string;
+  link: string;
+}
+
+interface QueriesResult {
+  id: string;
+  siteId: string;
+  userId: string;
+  category: string | null;
+  status: string;
+  messageCount: number;
+  lastMessage: string | null;
+  createdAt: string;
+  link: string;
+}
+
 interface SearchResponse {
   query: string;
   counts: {
@@ -77,12 +215,32 @@ interface SearchResponse {
     leave: number;
     shifts: number;
     attendance: number;
+    swaps: number;
+    approvals: number;
+    quotes: number;
+    remittances: number;
+    roomScans: number;
+    sites: number;
+    unscheduled: number;
+    payroll: number;
+    reports: number;
+    queries: number;
   };
   results: {
     staff: StaffResult[];
     leave: LeaveResult[];
     shifts: ShiftResult[];
     attendance: AttendanceResult[];
+    swaps: SwapsResult[];
+    approvals: ApprovalsResult[];
+    quotes: QuotesResult[];
+    remittances: RemittancesResult[];
+    roomScans: RoomScansResult[];
+    sites: SitesResult[];
+    unscheduled: UnscheduledResult[];
+    payroll: PayrollResult[];
+    reports: ReportsResult[];
+    queries: QueriesResult[];
   };
 }
 
@@ -254,19 +412,109 @@ const GlobalSearch: React.FC = () => {
       }
       const uniqueAttendanceResults = Array.from(uniqueAttendanceMap.values());
 
+      const uniqueSwapsMap = new Map();
+      for (const sw of data.results?.swaps || []) {
+        const key = sw.id || `${sw.shiftId}_${sw.requesterId}`;
+        if (key && !uniqueSwapsMap.has(key)) uniqueSwapsMap.set(key, sw);
+      }
+      const uniqueSwapsResults = Array.from(uniqueSwapsMap.values());
+
+      const uniqueApprovalsMap = new Map();
+      for (const a of data.results?.approvals || []) {
+        const key = a.id || `${a.staffId}_${a.date}`;
+        if (key && !uniqueApprovalsMap.has(key)) uniqueApprovalsMap.set(key, a);
+      }
+      const uniqueApprovalsResults = Array.from(uniqueApprovalsMap.values());
+
+      const uniqueQuotesMap = new Map();
+      for (const q of data.results?.quotes || []) {
+        const key = q.id || q.childInitials;
+        if (key && !uniqueQuotesMap.has(key)) uniqueQuotesMap.set(key, q);
+      }
+      const uniqueQuotesResults = Array.from(uniqueQuotesMap.values());
+
+      const uniqueRemittancesMap = new Map();
+      for (const r of data.results?.remittances || []) {
+        const key = r.id || r.paymentNo;
+        if (key && !uniqueRemittancesMap.has(key)) uniqueRemittancesMap.set(key, r);
+      }
+      const uniqueRemittancesResults = Array.from(uniqueRemittancesMap.values());
+
+      const uniqueRoomScansMap = new Map();
+      for (const rs of data.results?.roomScans || []) {
+        const key = rs.id;
+        if (key && !uniqueRoomScansMap.has(key)) uniqueRoomScansMap.set(key, rs);
+      }
+      const uniqueRoomScansResults = Array.from(uniqueRoomScansMap.values());
+
+      const uniqueSitesMap = new Map();
+      for (const s of data.results?.sites || []) {
+        const key = s.id;
+        if (key && !uniqueSitesMap.has(key)) uniqueSitesMap.set(key, s);
+      }
+      const uniqueSitesResults = Array.from(uniqueSitesMap.values());
+
+      const uniqueUnscheduledMap = new Map();
+      for (const u of data.results?.unscheduled || []) {
+        const key = u.id;
+        if (key && !uniqueUnscheduledMap.has(key)) uniqueUnscheduledMap.set(key, u);
+      }
+      const uniqueUnscheduledResults = Array.from(uniqueUnscheduledMap.values());
+
+      const uniquePayrollMap = new Map();
+      for (const p of data.results?.payroll || []) {
+        const key = p.id;
+        if (key && !uniquePayrollMap.has(key)) uniquePayrollMap.set(key, p);
+      }
+      const uniquePayrollResults = Array.from(uniquePayrollMap.values());
+
+      const uniqueReportsMap = new Map();
+      for (const r of data.results?.reports || []) {
+        const key = r.id;
+        if (key && !uniqueReportsMap.has(key)) uniqueReportsMap.set(key, r);
+      }
+      const uniqueReportsResults = Array.from(uniqueReportsMap.values());
+
+      const uniqueQueriesMap = new Map();
+      for (const q of data.results?.queries || []) {
+        const key = q.id;
+        if (key && !uniqueQueriesMap.has(key)) uniqueQueriesMap.set(key, q);
+      }
+      const uniqueQueriesResults = Array.from(uniqueQueriesMap.values());
+
       const cleanData: SearchResponse = {
         ...data,
         counts: {
           staff: uniqueStaffResults.length,
           leave: uniqueLeaveResults.length,
           shifts: uniqueShiftsResults.length,
-          attendance: uniqueAttendanceResults.length
+          attendance: uniqueAttendanceResults.length,
+          swaps: uniqueSwapsResults.length,
+          approvals: uniqueApprovalsResults.length,
+          quotes: uniqueQuotesResults.length,
+          remittances: uniqueRemittancesResults.length,
+          roomScans: uniqueRoomScansResults.length,
+          sites: uniqueSitesResults.length,
+          unscheduled: uniqueUnscheduledResults.length,
+          payroll: uniquePayrollResults.length,
+          reports: uniqueReportsResults.length,
+          queries: uniqueQueriesResults.length
         },
         results: {
           staff: uniqueStaffResults,
           leave: uniqueLeaveResults,
           shifts: uniqueShiftsResults,
-          attendance: uniqueAttendanceResults
+          attendance: uniqueAttendanceResults,
+          swaps: uniqueSwapsResults,
+          approvals: uniqueApprovalsResults,
+          quotes: uniqueQuotesResults,
+          remittances: uniqueRemittancesResults,
+          roomScans: uniqueRoomScansResults,
+          sites: uniqueSitesResults,
+          unscheduled: uniqueUnscheduledResults,
+          payroll: uniquePayrollResults,
+          reports: uniqueReportsResults,
+          queries: uniqueQueriesResults
         }
       };
 
@@ -315,7 +563,10 @@ const GlobalSearch: React.FC = () => {
   };
 
   const totalResultsCount = searchData ? (
-    searchData.counts.staff + searchData.counts.leave + searchData.counts.shifts + searchData.counts.attendance
+    searchData.counts.staff + searchData.counts.leave + searchData.counts.shifts + searchData.counts.attendance +
+    searchData.counts.swaps + searchData.counts.approvals + searchData.counts.quotes + searchData.counts.remittances +
+    searchData.counts.roomScans + searchData.counts.sites + searchData.counts.unscheduled +
+    searchData.counts.payroll + searchData.counts.reports + searchData.counts.queries
   ) : 0;
 
   return (
@@ -335,7 +586,7 @@ const GlobalSearch: React.FC = () => {
           </h1>
         </div>
         <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.9)', fontSize: '14px', maxWidth: '800px', lineHeight: '1.5' }}>
-          Search across Staff Directory, Annual Leave, Rota / Shifts, and Attendance. Use plain English or quick filters.
+          Search across all operational sections: Staff, Shifts, Unscheduled, Attendance, Approvals, Room Scans, Annual Leave, Payroll, Reports, Queries, Swaps, Sites, Quotes, and Remittances.
         </p>
       </div>
 
@@ -450,11 +701,21 @@ const GlobalSearch: React.FC = () => {
                   outline: 'none'
                 }}
               >
-                <option value="all">All Categories</option>
-                <option value="staff">Staff Directory</option>
-                <option value="leave">Annual Leave</option>
-                <option value="shifts">Rota / Shifts</option>
+                <option value="all">All Sections</option>
+                <option value="directory">Directory / Staff</option>
+                <option value="rota">Rota / Shifts</option>
+                <option value="unscheduled">Unscheduled</option>
                 <option value="attendance">Attendance</option>
+                <option value="approvals">Approvals</option>
+                <option value="room-scans">Room Scans</option>
+                <option value="annual-leave">Annual Leave</option>
+                <option value="payroll">Payroll</option>
+                <option value="reports">Reports</option>
+                <option value="queries">Queries</option>
+                <option value="swaps">Swaps</option>
+                <option value="sites">Sites</option>
+                <option value="quotes">Quotes</option>
+                <option value="remittances">Remittances</option>
               </select>
             </div>
 
@@ -643,11 +904,21 @@ const GlobalSearch: React.FC = () => {
               {searchData.query && <span> for &quot;<strong style={{ color: '#c084fc' }}>{searchData.query}</strong>&quot;</span>}
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '12px', flexWrap: 'wrap' }}>
               <span style={{ color: '#60a5fa' }}>👥 Staff ({searchData.counts.staff})</span>
-              <span style={{ color: '#4ade80' }}>🏖️ Leave ({searchData.counts.leave})</span>
               <span style={{ color: '#facc15' }}>📅 Shifts ({searchData.counts.shifts})</span>
               <span style={{ color: '#f87171' }}>⏱️ Attendance ({searchData.counts.attendance})</span>
+              <span style={{ color: '#c084fc' }}>🔄 Swaps ({searchData.counts.swaps})</span>
+              <span style={{ color: '#fb923c' }}>✅ Approvals ({searchData.counts.approvals})</span>
+              <span style={{ color: '#34d399' }}>📷 Room Scans ({searchData.counts.roomScans})</span>
+              <span style={{ color: '#4ade80' }}>🏖️ Leave ({searchData.counts.leave})</span>
+              <span style={{ color: '#a78bfa' }}>💰 Payroll ({searchData.counts.payroll})</span>
+              <span style={{ color: '#38bdf8' }}>💬 Quotes ({searchData.counts.quotes})</span>
+              <span style={{ color: '#fbbf24' }}>🏢 Sites ({searchData.counts.sites})</span>
+              <span style={{ color: '#f472b6' }}>🚨 Unscheduled ({searchData.counts.unscheduled})</span>
+              <span style={{ color: '#94a3b8' }}>📋 Reports ({searchData.counts.reports})</span>
+              <span style={{ color: '#818cf8' }}>📩 Queries ({searchData.counts.queries})</span>
+              <span style={{ color: '#e879f9' }}>💸 Remittances ({searchData.counts.remittances})</span>
             </div>
           </div>
 
@@ -960,6 +1231,670 @@ const GlobalSearch: React.FC = () => {
                           }}
                         >
                           View Attendance →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section 5: Swaps */}
+              {searchData.results.swaps.length > 0 && (
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 14px 0', color: '#c084fc' }}>
+                    🔄 Shift Swaps ({searchData.results.swaps.length})
+                  </h2>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                    {searchData.results.swaps.map((sw) => (
+                      <div
+                        key={sw.id}
+                        style={{
+                          backgroundColor: '#262626',
+                          border: '1px solid #3f3f46',
+                          borderRadius: '10px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>{sw.requesterName}</span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              backgroundColor: sw.swapStatus === 'completed' ? '#15803d' : '#b45309',
+                              color: 'white'
+                            }}>
+                              {sw.swapStatus === 'completed' ? 'Completed' : 'Pending'}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '13px', color: '#a1a1aa', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div>Swapped from: <strong style={{ color: 'white' }}>{sw.requesterName}</strong></div>
+                            <div>Swapped to: <strong style={{ color: sw.takerName === 'Not yet accepted' ? '#facc15' : 'white' }}>{sw.takerName}</strong></div>
+                            <div>Site: <strong style={{ color: 'white' }}>{sw.siteName}</strong></div>
+                            <div>Shift: <strong style={{ color: 'white' }}>{sw.date}</strong> ({sw.type}, {sw.startTime} - {sw.endTime})</div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => navigate(sw.link)}
+                          style={{
+                            marginTop: '14px',
+                            padding: '8px 12px',
+                            backgroundColor: '#3f3f46',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          View in Rota →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section 6: Approvals */}
+              {searchData.results.approvals.length > 0 && (
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 14px 0', color: '#fb923c' }}>
+                    ✅ Approval Requests ({searchData.results.approvals.length})
+                  </h2>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                    {searchData.results.approvals.map((a) => (
+                      <div
+                        key={a.id}
+                        style={{
+                          backgroundColor: '#262626',
+                          border: '1px solid #3f3f46',
+                          borderRadius: '10px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>{a.staffName}</span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              backgroundColor: a.status === 'approved' ? '#15803d' : a.status === 'rejected' ? '#991b1b' : '#b45309',
+                              color: 'white'
+                            }}>
+                              {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '13px', color: '#a1a1aa', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div>Site: <strong style={{ color: 'white' }}>{a.siteName}</strong></div>
+                            <div>Date: <strong style={{ color: 'white' }}>{a.date}</strong></div>
+                            {a.approvedBy && <div>Approved by: <span style={{ color: '#d4d4d8' }}>{a.approvedBy}</span></div>}
+                            {a.notes && <div>Notes: <span style={{ color: '#d4d4d8' }}>{a.notes}</span></div>}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => navigate(a.link)}
+                          style={{
+                            marginTop: '14px',
+                            padding: '8px 12px',
+                            backgroundColor: '#3f3f46',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          View Approvals →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section 7: Social Care Quotes */}
+              {searchData.results.quotes.length > 0 && (
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 14px 0', color: '#38bdf8' }}>
+                    💬 Social Care Quotes ({searchData.results.quotes.length})
+                  </h2>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                    {searchData.results.quotes.map((q) => (
+                      <div
+                        key={q.id}
+                        style={{
+                          backgroundColor: '#262626',
+                          border: '1px solid #3f3f46',
+                          borderRadius: '10px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>{q.childInitials}</span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              backgroundColor: q.quoteStatus === 'Final Quote' ? '#15803d' : '#b45309',
+                              color: 'white'
+                            }}>
+                              {q.quoteStatus || 'Unknown'}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '13px', color: '#a1a1aa', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {q.providerName && <div>Provider: <strong style={{ color: 'white' }}>{q.providerName}</strong></div>}
+                            {q.placementType && <div>Placement: <span style={{ color: '#d4d4d8' }}>{q.placementType}</span></div>}
+                            {q.createdDate && <div>Created: <span style={{ color: '#d4d4d8' }}>{q.createdDate}</span></div>}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => navigate(q.link)}
+                          style={{
+                            marginTop: '14px',
+                            padding: '8px 12px',
+                            backgroundColor: '#3f3f46',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          View Quotes →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section 8: Remittances */}
+              {searchData.results.remittances.length > 0 && (
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 14px 0', color: '#a78bfa' }}>
+                    💰 Payroll / Remittances ({searchData.results.remittances.length})
+                  </h2>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                    {searchData.results.remittances.map((r) => (
+                      <div
+                        key={r.id}
+                        style={{
+                          backgroundColor: '#262626',
+                          border: '1px solid #3f3f46',
+                          borderRadius: '10px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>{r.payeeName}</span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              backgroundColor: r.status === 'sent' ? '#15803d' : '#b45309',
+                              color: 'white'
+                            }}>
+                              {r.status === 'sent' ? 'Sent' : 'Saved'}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '13px', color: '#a1a1aa', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div>Payment: <strong style={{ color: 'white' }}>#{r.paymentNo}</strong> — <span style={{ color: '#4ade80' }}>£{r.paymentTotal}</span></div>
+                            {r.siteName && <div>Site: <strong style={{ color: 'white' }}>{r.siteName}</strong></div>}
+                            <div>Dates: <span style={{ color: '#d4d4d8' }}>{r.datesCovered}</span></div>
+                            <div>Hours: <span style={{ color: '#d4d4d8' }}>{r.hoursWorked}h @ £{r.hourlyRate}/hr</span></div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => navigate(r.link)}
+                          style={{
+                            marginTop: '14px',
+                            padding: '8px 12px',
+                            backgroundColor: '#3f3f46',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          View Payroll →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section 9: Room Scans */}
+              {searchData.results.roomScans.length > 0 && (
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 14px 0', color: '#34d399' }}>
+                    📷 Room Scans ({searchData.results.roomScans.length})
+                  </h2>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                    {searchData.results.roomScans.map((rs) => (
+                      <div
+                        key={rs.id}
+                        style={{
+                          backgroundColor: '#262626',
+                          border: '1px solid #3f3f46',
+                          borderRadius: '10px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>{rs.roomName || 'Unknown Room'}</span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              backgroundColor: rs.taskCompleted ? '#15803d' : '#b45309',
+                              color: 'white'
+                            }}>
+                              {rs.taskCompleted ? 'Completed' : 'Pending'}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '13px', color: '#a1a1aa', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {rs.siteName && <div>Site: <strong style={{ color: 'white' }}>{rs.siteName}</strong></div>}
+                            {rs.staffName && <div>Scanned by: <span style={{ color: '#d4d4d8' }}>{rs.staffName}</span></div>}
+                            <div>Time: <span style={{ color: '#d4d4d8' }}>{new Date(rs.scannedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>
+                            {rs.notes && <div>Notes: <span style={{ color: '#d4d4d8' }}>{rs.notes}</span></div>}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => navigate(rs.link)}
+                          style={{
+                            marginTop: '14px',
+                            padding: '8px 12px',
+                            backgroundColor: '#3f3f46',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          View Room Scans →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section 10: Sites */}
+              {searchData.results.sites.length > 0 && (
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 14px 0', color: '#fbbf24' }}>
+                    🏢 Sites ({searchData.results.sites.length})
+                  </h2>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                    {searchData.results.sites.map((s) => (
+                      <div
+                        key={s.id}
+                        style={{
+                          backgroundColor: '#262626',
+                          border: '1px solid #3f3f46',
+                          borderRadius: '10px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>{s.name}</span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              backgroundColor: s.status === 'Active' ? '#15803d' : '#3f3f46',
+                              color: 'white'
+                            }}>
+                              {s.status}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '13px', color: '#a1a1aa', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {s.location && <div>Location: <strong style={{ color: 'white' }}>{s.location}</strong></div>}
+                            {s.address && <div>Address: <span style={{ color: '#d4d4d8' }}>{s.address}</span></div>}
+                            {s.postcode && <div>Postcode: <span style={{ color: '#d4d4d8' }}>{s.postcode}</span></div>}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => navigate(s.link)}
+                          style={{
+                            marginTop: '14px',
+                            padding: '8px 12px',
+                            backgroundColor: '#3f3f46',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          View Sites →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section 11: Unscheduled */}
+              {searchData.results.unscheduled.length > 0 && (
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 14px 0', color: '#f472b6' }}>
+                    🚨 Unscheduled Clock-Ins ({searchData.results.unscheduled.length})
+                  </h2>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                    {searchData.results.unscheduled.map((u) => (
+                      <div
+                        key={u.id}
+                        style={{
+                          backgroundColor: '#262626',
+                          border: '1px solid #3f3f46',
+                          borderRadius: '10px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>{u.staffName}</span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              backgroundColor: '#b45309',
+                              color: 'white'
+                            }}>
+                              Pending Approval
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '13px', color: '#a1a1aa', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div>Site: <strong style={{ color: 'white' }}>{u.siteName}</strong></div>
+                            <div>Date: <strong style={{ color: 'white' }}>{u.date}</strong></div>
+                            <div>Requested: <span style={{ color: '#d4d4d8' }}>{new Date(u.requestTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span></div>
+                            {u.notes && <div>Notes: <span style={{ color: '#d4d4d8' }}>{u.notes}</span></div>}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => navigate(u.link)}
+                          style={{
+                            marginTop: '14px',
+                            padding: '8px 12px',
+                            backgroundColor: '#3f3f46',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          Review Unscheduled →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section 12: Payroll */}
+              {searchData.results.payroll.length > 0 && (
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 14px 0', color: '#a78bfa' }}>
+                    💰 Payroll - Clocked Shifts ({searchData.results.payroll.length})
+                  </h2>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                    {searchData.results.payroll.map((p) => (
+                      <div
+                        key={p.id}
+                        style={{
+                          backgroundColor: '#262626',
+                          border: '1px solid #3f3f46',
+                          borderRadius: '10px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>{p.staffName}</span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              backgroundColor: p.clockedOut ? '#15803d' : '#b45309',
+                              color: 'white'
+                            }}>
+                              {p.clockedOut ? 'Completed' : 'Clocked In'}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '13px', color: '#a1a1aa', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div>Site: <strong style={{ color: 'white' }}>{p.siteName}</strong></div>
+                            <div>Date: <strong style={{ color: 'white' }}>{p.date}</strong> ({p.type})</div>
+                            <div>Hours: <span style={{ color: '#d4d4d8' }}>{p.startTime} - {p.endTime} ({p.duration}h)</span></div>
+                            {p.hourlyRate && <div>Rate: <span style={{ color: '#4ade80' }}>£{p.hourlyRate}/hr</span></div>}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => navigate(p.link)}
+                          style={{
+                            marginTop: '14px',
+                            padding: '8px 12px',
+                            backgroundColor: '#3f3f46',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          View Payroll →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section 13: Reports */}
+              {searchData.results.reports.length > 0 && (
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 14px 0', color: '#94a3b8' }}>
+                    📋 Reports ({searchData.results.reports.length})
+                  </h2>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                    {searchData.results.reports.map((r) => (
+                      <div
+                        key={r.id}
+                        style={{
+                          backgroundColor: '#262626',
+                          border: '1px solid #3f3f46',
+                          borderRadius: '10px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>{r.category || 'General'}</span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              backgroundColor: r.status === 'open' ? '#15803d' : '#3f3f46',
+                              color: 'white'
+                            }}>
+                              {r.status}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '13px', color: '#a1a1aa', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div>Created: <span style={{ color: '#d4d4d8' }}>{new Date(r.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => navigate(r.link)}
+                          style={{
+                            marginTop: '14px',
+                            padding: '8px 12px',
+                            backgroundColor: '#3f3f46',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          View Reports →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section 14: Queries */}
+              {searchData.results.queries.length > 0 && (
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 14px 0', color: '#818cf8' }}>
+                    📩 Queries ({searchData.results.queries.length})
+                  </h2>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                    {searchData.results.queries.map((q) => (
+                      <div
+                        key={q.id}
+                        style={{
+                          backgroundColor: '#262626',
+                          border: '1px solid #3f3f46',
+                          borderRadius: '10px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>{q.category || 'General Query'}</span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              backgroundColor: q.status === 'open' ? '#15803d' : '#3f3f46',
+                              color: 'white'
+                            }}>
+                              {q.status}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '13px', color: '#a1a1aa', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div>Messages: <strong style={{ color: 'white' }}>{q.messageCount}</strong></div>
+                            {q.lastMessage && <div>Last: <span style={{ color: '#d4d4d8' }}>{q.lastMessage.slice(0, 80)}{q.lastMessage.length > 80 ? '...' : ''}</span></div>}
+                            <div>Created: <span style={{ color: '#d4d4d8' }}>{new Date(q.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => navigate(q.link)}
+                          style={{
+                            marginTop: '14px',
+                            padding: '8px 12px',
+                            backgroundColor: '#3f3f46',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          View Queries →
                         </button>
                       </div>
                     ))}
