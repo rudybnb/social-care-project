@@ -66,6 +66,7 @@ const UNIT_MEASURES = [
   { value: '', label: 'Select Unit' },
   { value: 'day', label: 'Day', desc: 'Items/services provided on a daily basis (any portion of 24hr period)' },
   { value: 'hour', label: 'Hour', desc: 'Items/services provided on an hourly basis' },
+  { value: 'night', label: 'Night', desc: 'Items/services provided on a nightly basis (overnight period)' },
   { value: 'session', label: 'Session', desc: 'Fixed price regardless of duration (typically 3-4 hrs)' },
   { value: 'week', label: 'Week', desc: 'Package that cannot be less than daily, 7 days per week' },
   { value: 'miles', label: 'Miles', desc: 'Transport - where charged by mile' },
