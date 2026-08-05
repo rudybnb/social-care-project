@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Shift } from '../data/sharedData';
+import { formatUkTime, getUkDate } from '../utils/ukDateTime';
 
 
 const Attendance: React.FC = () => {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA'));
+  const [selectedDate, setSelectedDate] = useState(getUkDate());
   const [selectedSite, setSelectedSite] = useState('all');
   const [sites, setSites] = useState<any[]>([]);
 
@@ -55,7 +56,7 @@ const Attendance: React.FC = () => {
     : todayShifts.filter(s => s.siteId === selectedSite);
 
   // Check if selected date is today or in the future
-  const today = new Date().toLocaleDateString('en-CA');
+  const today = getUkDate();
   const isToday = selectedDate === today;
   const isFuture = selectedDate > today;
   const isPast = selectedDate < today;
@@ -68,7 +69,7 @@ const Attendance: React.FC = () => {
 
   const formatTime = (timestamp?: string) => {
     if (!timestamp) return 'N/A';
-    return new Date(timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return formatUkTime(timestamp);
   };
 
   const calculateDuration = (clockIn?: string, clockOut?: string) => {
@@ -137,7 +138,7 @@ const Attendance: React.FC = () => {
 
   const handleEditClockTime = async (shiftId: string, type: 'in' | 'out', currentTime?: string) => {
     const timeType = type === 'in' ? 'Clock In' : 'Clock Out';
-    const currentTimeStr = currentTime ? new Date(currentTime).toLocaleString('en-GB') : 'Not set';
+    const currentTimeStr = currentTime ? `${getUkDate(new Date(currentTime))} ${formatUkTime(currentTime)}` : 'Not set';
     const newTime = prompt(`Edit ${timeType} time\n\nCurrent: ${currentTimeStr}\n\nEnter new time (YYYY-MM-DD HH:MM format):\nExample: 2025-12-22 08:30`);
 
     if (!newTime) return;

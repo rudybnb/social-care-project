@@ -1170,7 +1170,12 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
           autoDuration = Math.round((autoDiffMs / (1000 * 60 * 60)) * 100) / 100;
         }
 
-        const autoEndTime = `${String(autoNow.getHours()).padStart(2, '0')}:${String(autoNow.getMinutes()).padStart(2, '0')}`;
+        const autoEndTime = autoNow.toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23',
+          timeZone: 'Europe/London'
+        });
 
         await db.update(shifts)
           .set({
@@ -1271,7 +1276,12 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
     }
 
     // Calculate actual end time
-    const actualEndTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const actualEndTime = now.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+      timeZone: 'Europe/London'
+    });
 
     // Update shift with clock-out time and actual duration
     const updated = await db.update(shifts)

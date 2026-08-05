@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ApprovalRequest } from '../types/approvalTypes';
 import { approvalAPI } from '../services/approvalAPI';
+import { formatUkTime } from '../utils/ukDateTime';
 
 const ApprovalRequests: React.FC = () => {
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
@@ -69,10 +70,7 @@ const ApprovalRequests: React.FC = () => {
   };
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatUkTime(timestamp);
   };
 
   const getStatusColor = (status: string) => {

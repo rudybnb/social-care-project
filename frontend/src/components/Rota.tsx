@@ -4,6 +4,7 @@ import { getSites, getStaff, subscribeToSitesChange, Site as SharedSite, StaffMe
 import { shiftsAPI, leaveAPI } from '../services/api';
 import { calculateDuration, calculateEndTime } from '../utils/calculateDuration';
 import { exportToExcel } from '../utils/excelExport';
+import { formatUkTime } from '../utils/ukDateTime';
 
 
 const Rota: React.FC = () => {
@@ -1207,8 +1208,8 @@ const Rota: React.FC = () => {
         'Date': shift.date,
         'Scheduled Start': shift.startTime,
         'Scheduled End': shift.endTime || calculateEndTime(shift.startTime, shift.duration),
-        'Clock In': shift.clockInTime ? new Date(shift.clockInTime).toLocaleTimeString() : '',
-        'Clock Out': shift.clockOutTime ? new Date(shift.clockOutTime).toLocaleTimeString() : '',
+        'Clock In': shift.clockInTime ? formatUkTime(shift.clockInTime) : '',
+        'Clock Out': shift.clockOutTime ? formatUkTime(shift.clockOutTime) : '',
         'Clocked Duration (Hrs)': shift.clockInTime && shift.clockOutTime
           ? ((new Date(shift.clockOutTime).getTime() - new Date(shift.clockInTime).getTime()) / (1000 * 60 * 60)).toFixed(2)
           : 'In Progress',
@@ -1720,8 +1721,8 @@ const Rota: React.FC = () => {
                                   </div>
                                   {shift.clockedIn && (
                                     <div style={{ fontSize: '10px', marginTop: '2px', display: 'flex', gap: '4px' }}>
-                                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>In: {new Date(shift.clockInTime!).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
-                                      {shift.clockedOut && <span style={{ color: '#10b981', fontWeight: 'bold' }}>Out: {new Date(shift.clockOutTime!).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>}
+                                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>In: {formatUkTime(shift.clockInTime!)}</span>
+                                      {shift.clockedOut && <span style={{ color: '#10b981', fontWeight: 'bold' }}>Out: {formatUkTime(shift.clockOutTime!)}</span>}
                                     </div>
                                   )}
                                   {shift.is24Hour && (
@@ -1959,8 +1960,8 @@ const Rota: React.FC = () => {
                                   </div>
                                   {shift.clockedIn && (
                                     <div style={{ fontSize: '10px', marginTop: '2px', display: 'flex', gap: '4px' }}>
-                                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>In: {new Date(shift.clockInTime!).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
-                                      {shift.clockedOut && <span style={{ color: '#10b981', fontWeight: 'bold' }}>Out: {new Date(shift.clockOutTime!).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>}
+                                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>In: {formatUkTime(shift.clockInTime!)}</span>
+                                      {shift.clockedOut && <span style={{ color: '#10b981', fontWeight: 'bold' }}>Out: {formatUkTime(shift.clockOutTime!)}</span>}
                                     </div>
                                   )}
                                   {shift.is24Hour && (

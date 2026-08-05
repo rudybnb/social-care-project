@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Shift } from '../data/sharedData';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { approvalAPI } from '../services/approvalAPI';
+import { formatUkTime, getUkDate } from '../utils/ukDateTime';
 
 
 const ClockInOut: React.FC = () => {
@@ -24,7 +25,7 @@ const ClockInOut: React.FC = () => {
   const [pendingStaffId, setPendingStaffId] = useState('');
   const [duplicateWarning, setDuplicateWarning] = useState('');
 
-  const today = new Date().toLocaleDateString('en-CA');
+  const today = getUkDate();
 
   const fetchShifts = async () => {
     if (!phoneDigits || phoneDigits.length !== 4) {
@@ -99,7 +100,8 @@ const ClockInOut: React.FC = () => {
       const shiftsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${pendingStaffId}/shifts`);
       if (shiftsResponse.ok) {
         const data = await shiftsResponse.json();
-        const todayLocal = new Date().toLocaleDateString('en-CA');
+        // Filter for today's shifts at this site using local date
+        const todayLocal = getUkDate();
 
         const todayShifts = data.filter((s: Shift) =>
           s.siteId === siteId &&
@@ -223,7 +225,7 @@ const ClockInOut: React.FC = () => {
 
   const formatTime = (timestamp?: string) => {
     if (!timestamp) return 'N/A';
-    return new Date(timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return formatUkTime(timestamp);
   };
 
   return (

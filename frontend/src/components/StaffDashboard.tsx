@@ -6,6 +6,7 @@ import QRScanner from './QRScanner';
 import StaffCalendar from './StaffCalendar';
 import ShiftDetailsModal from './ShiftDetailsModal';
 import StaffAttendance from './StaffAttendance';
+import { formatUkTime } from '../utils/ukDateTime';
 
 
 interface StaffDashboardProps {
@@ -595,7 +596,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ staffId, staffName, onL
               </div>
 
               <div style={{ color: '#6b7280', fontSize: '13px', marginBottom: '12px' }}>
-                Clocked in at: {activeShift.clockInTime ? new Date(activeShift.clockInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                Clocked in at: {activeShift.clockInTime ? formatUkTime(activeShift.clockInTime) : 'N/A'}
               </div>
 
               <IonButton
