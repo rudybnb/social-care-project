@@ -976,42 +976,86 @@ body::before {
 .card:nth-child(7) { animation-delay: 300ms; }
 .card:nth-child(8) { animation-delay: 350ms; }
 
-/* ---- Responsive ---- */
+/* ---- Responsive (PC, Laptop, Tablet, Mobile Phone) ---- */
 @media (max-width: 768px) {
   .app-container {
-    padding: 12px 10px 40px;
+    padding: 8px 8px 30px;
   }
 
-  .grand-total-banner {
+  .sticky-header-wrapper {
+    padding: 10px 10px 12px;
+    margin: -8px -8px 16px -8px;
+  }
+
+  .grand-total-banner.eclesia-style-banner {
     flex-direction: column;
-    gap: 8px;
+  }
+
+  .grand-total-banner.eclesia-style-banner .label {
     text-align: center;
-    padding: 16px 20px;
+    padding: 10px 12px;
+    font-size: 0.95rem;
   }
 
-  .grand-total-banner .amount {
-    font-size: 1.8rem;
-  }
-
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .form-grid-2 {
-    grid-template-columns: 1fr;
-  }
-
-  .detail-panels {
-    grid-template-columns: 1fr;
+  .grand-total-banner.eclesia-style-banner .amount {
+    font-size: 1.4rem;
+    min-width: auto;
+    padding: 8px 12px;
   }
 
   .app-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 10px;
   }
 
-  .retainer-grid {
+  .app-header h1 {
+    font-size: 1.2rem;
+  }
+
+  .header-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .header-actions #profileLoader {
+    grid-column: 1 / -1;
+    max-width: 100% !important;
+  }
+
+  .btn {
+    justify-content: center;
+    padding: 8px 6px;
+    font-size: 0.75rem;
+    letter-spacing: 0;
+  }
+
+  .category-totals-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .category-total-item {
+    padding: 5px 4px;
+  }
+
+  .category-total-item .cat-label {
+    font-size: 0.65rem;
+  }
+
+  .category-total-item .cat-value {
+    font-size: 0.92rem;
+  }
+
+  .form-grid, .form-grid-2, .detail-panels, .retainer-grid {
     grid-template-columns: 1fr;
+  }
+
+  .table-wrapper {
+    border-radius: var(--radius-sm);
   }
 }
 
