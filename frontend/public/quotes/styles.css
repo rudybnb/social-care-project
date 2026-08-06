@@ -83,6 +83,8 @@
 html {
   font-size: 14px;
   scroll-behavior: smooth;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 body {
@@ -92,6 +94,8 @@ body {
   line-height: 1.5;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 /* Background pattern */
@@ -116,6 +120,9 @@ body::before {
   max-width: 1400px;
   margin: 0 auto;
   padding: 24px 20px 60px;
+  overflow-x: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ---- Grand Total Banner ---- */
@@ -1020,21 +1027,44 @@ body::before {
   display: none !important;
 }
 
-/* ---- Print Styles ---- */
+/* ---- Print & A4 Export Styles ---- */
+@page {
+  size: A4 portrait;
+  margin: 10mm 10mm 12mm 10mm;
+}
+
 @media print {
-  body {
-    background: #fff;
-    color: #111;
-    font-size: 11px;
+  html, body {
+    background: #ffffff !important;
+    color: #111111 !important;
+    font-size: 10pt !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   body::before {
-    display: none;
+    display: none !important;
   }
 
   .app-container {
-    max-width: 100%;
-    padding: 0;
+    width: 100% !important;
+    max-width: 210mm !important; /* A4 Portrait width */
+    margin: 0 auto !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  /* Page break rules for clean A4 printing */
+  .card, .table-wrapper, .invoice-header, .invoice-footer, .summary-table, .data-table, .oneoff-table, .retainer-grid {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .table-wrapper {
+    overflow: visible !important;
+    border: none !important;
   }
 
   /* Compact the Form Headers so Page 1 doesn't drag out */
