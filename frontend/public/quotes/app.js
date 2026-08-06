@@ -703,21 +703,24 @@ async function syncLocalProfilesToDB() {
   if (!stored) return;
   try {
     const localProfiles = JSON.parse(stored);
-    for (const initials of Object.keys(localProfiles)) {
+    const keys = Object.keys(localProfiles);
+    for (const initials of keys) {
       const p = localProfiles[initials];
-      if (p && initials) {
-        fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body: JSON.stringify({
-            childInitials: initials.trim(),
-            quoteStatus: p.quoteStatus || 'Draft Quote',
-            providerName: p.providerName || 'Eclesia Family Centre',
-            placementType: p.placementType || '',
-            date: p.date || new Date().toISOString().split('T')[0],
-            stateData: p
-          })
-        }).catch(e => console.log('Auto-sync profile background notice:', e));
+      if (p && initials && initials.trim() !== '') {
+        try {
+          await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({
+              childInitials: initials.trim(),
+              quoteStatus: p.quoteStatus || 'Draft Quote',
+              providerName: p.providerName || 'Eclesia Family Centre',
+              placementType: p.placementType || '',
+              date: p.date || new Date().toISOString().split('T')[0],
+              stateData: p
+            })
+          });
+        } catch(e) {}
       }
     }
   } catch(e) {}
@@ -730,13 +733,15 @@ async function saveToLocalStorage() {
     return;
   }
   
+  const initials = state.childInitials.trim();
+
   // Backup locally
   let profiles = {};
   const stored = localStorage.getItem('eclesia_profiles');
   if (stored) {
     try { profiles = JSON.parse(stored); } catch(e){}
   }
-  profiles[state.childInitials.trim()] = state;
+  profiles[initials] = state;
   localStorage.setItem('eclesia_profiles', JSON.stringify(profiles));
   localStorage.setItem('quoteSheetState', JSON.stringify(state));
   
@@ -746,7 +751,7 @@ async function saveToLocalStorage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({
-        childInitials: state.childInitials.trim(),
+        childInitials: initials,
         quoteStatus: state.quoteStatus,
         providerName: state.providerName,
         placementType: state.placementType,
@@ -760,8 +765,8 @@ async function saveToLocalStorage() {
     showToast('✓ Patient Profile saved locally (offline)');
   }
   
-  syncLocalProfilesToDB();
-  populateProfileLoader();
+  await syncLocalProfilesToDB();
+  await populateProfileLoader();
 }
 
 async function loadProfile(initials) {
@@ -803,22 +808,22 @@ async function populateProfileLoader() {
   const loader = document.getElementById('profileLoader');
   if (!loader) return;
   
-  loader.innerHTML = '<option value="">-- Load Patient Profile --</option>';
-  
   const profilesMap = new Map();
 
-  // 1. Load local profiles first
+  // 1. Load local profiles first from localStorage
   const stored = localStorage.getItem('eclesia_profiles');
   if (stored) {
     try {
       const localProfiles = JSON.parse(stored);
       Object.keys(localProfiles).forEach(key => {
         const p = localProfiles[key];
-        profilesMap.set(key, {
-          childInitials: key,
-          quoteStatus: p.quoteStatus || 'Draft',
-          source: 'local'
-        });
+        if (key && key.trim() !== '') {
+          profilesMap.set(key.trim(), {
+            childInitials: key.trim(),
+            quoteStatus: p.quoteStatus || 'Draft',
+            source: 'local'
+          });
+        }
       });
     } catch(e){}
   }
@@ -828,21 +833,26 @@ async function populateProfileLoader() {
     const response = await fetch(API_URL, { headers: getAuthHeaders() });
     if (response.ok) {
       const dbQuotes = await response.json();
-      dbQuotes.forEach(q => {
-        if (q.childInitials) {
-          profilesMap.set(q.childInitials, {
-            childInitials: q.childInitials,
-            quoteStatus: q.quoteStatus || 'Draft',
-            source: 'db'
-          });
-        }
-      });
+      if (Array.isArray(dbQuotes)) {
+        dbQuotes.forEach(q => {
+          if (q.childInitials && q.childInitials.trim() !== '') {
+            profilesMap.set(q.childInitials.trim(), {
+              childInitials: q.childInitials.trim(),
+              quoteStatus: q.quoteStatus || 'Draft',
+              source: 'db'
+            });
+          }
+        });
+      }
     }
   } catch(e) {
-    console.log('Using combined local & remote profile loader');
+    console.log('Error fetching remote profiles:', e);
   }
 
-  // 3. Populate dropdown with all unique profiles
+  // 3. Rebuild loader select options
+  const count = profilesMap.size;
+  loader.innerHTML = `<option value="">-- Load Patient Profile (${count}) --</option>`;
+
   profilesMap.forEach((val, key) => {
     loader.innerHTML += `<option value="${key}">${key} (${val.quoteStatus})</option>`;
   });
@@ -1051,6 +1061,8 @@ async function init() {
   // Bind all inputs
   bindInputs();
   
+  // Sync any local profiles to DB on startup
+  await syncLocalProfilesToDB();
   await populateProfileLoader();
   document.getElementById('profileLoader')?.addEventListener('change', (e) => {
     loadProfile(e.target.value);
