@@ -698,6 +698,31 @@ function getAuthHeaders() {
 }
 
 // ---- Storage & Sync ----
+async function syncLocalProfilesToDB() {
+  const stored = localStorage.getItem('eclesia_profiles');
+  if (!stored) return;
+  try {
+    const localProfiles = JSON.parse(stored);
+    for (const initials of Object.keys(localProfiles)) {
+      const p = localProfiles[initials];
+      if (p && initials) {
+        fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({
+            childInitials: initials.trim(),
+            quoteStatus: p.quoteStatus || 'Draft Quote',
+            providerName: p.providerName || 'Eclesia Family Centre',
+            placementType: p.placementType || '',
+            date: p.date || new Date().toISOString().split('T')[0],
+            stateData: p
+          })
+        }).catch(e => console.log('Auto-sync profile background notice:', e));
+      }
+    }
+  } catch(e) {}
+}
+
 async function saveToLocalStorage() {
   gatherInputState();
   if (!state.childInitials || state.childInitials.trim() === '') {
@@ -735,6 +760,7 @@ async function saveToLocalStorage() {
     showToast('✓ Patient Profile saved locally (offline)');
   }
   
+  syncLocalProfilesToDB();
   populateProfileLoader();
 }
 
@@ -779,31 +805,47 @@ async function populateProfileLoader() {
   
   loader.innerHTML = '<option value="">-- Load Patient Profile --</option>';
   
-  let remoteLoaded = false;
+  const profilesMap = new Map();
+
+  // 1. Load local profiles first
+  const stored = localStorage.getItem('eclesia_profiles');
+  if (stored) {
+    try {
+      const localProfiles = JSON.parse(stored);
+      Object.keys(localProfiles).forEach(key => {
+        const p = localProfiles[key];
+        profilesMap.set(key, {
+          childInitials: key,
+          quoteStatus: p.quoteStatus || 'Draft',
+          source: 'local'
+        });
+      });
+    } catch(e){}
+  }
+
+  // 2. Fetch remote DB profiles and merge
   try {
     const response = await fetch(API_URL, { headers: getAuthHeaders() });
     if (response.ok) {
-      const quotes = await response.json();
-      quotes.forEach(q => {
-        loader.innerHTML += `<option value="${q.childInitials}">${q.childInitials} (${q.quoteStatus || 'Draft'})</option>`;
+      const dbQuotes = await response.json();
+      dbQuotes.forEach(q => {
+        if (q.childInitials) {
+          profilesMap.set(q.childInitials, {
+            childInitials: q.childInitials,
+            quoteStatus: q.quoteStatus || 'Draft',
+            source: 'db'
+          });
+        }
       });
-      remoteLoaded = true;
     }
   } catch(e) {
-    console.log('Using local fallback for profiles');
+    console.log('Using combined local & remote profile loader');
   }
 
-  if (!remoteLoaded) {
-    const stored = localStorage.getItem('eclesia_profiles');
-    if (stored) {
-      try {
-        const profiles = JSON.parse(stored);
-        Object.keys(profiles).forEach(key => {
-          loader.innerHTML += `<option value="${key}">${key} (${profiles[key].quoteStatus || 'Draft'}) - Local</option>`;
-        });
-      } catch(e){}
-    }
-  }
+  // 3. Populate dropdown with all unique profiles
+  profilesMap.forEach((val, key) => {
+    loader.innerHTML += `<option value="${key}">${key} (${val.quoteStatus})</option>`;
+  });
 }
 
 
