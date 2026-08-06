@@ -64,8 +64,10 @@ const ONEOFF_TYPES = [
 
 const UNIT_MEASURES = [
   { value: '', label: 'Select Unit' },
+  { value: 'day-per-hour', label: 'Day per Hour', desc: 'Items/services provided on a day per hour basis' },
   { value: 'day', label: 'Day', desc: 'Items/services provided on a daily basis (any portion of 24hr period)' },
   { value: 'hour', label: 'Hour', desc: 'Items/services provided on an hourly basis' },
+  { value: 'night-per-hour', label: 'Night per Hour', desc: 'Items/services provided on a night per hour basis' },
   { value: 'night', label: 'Night', desc: 'Items/services provided on a nightly basis (overnight period)' },
   { value: 'session', label: 'Session', desc: 'Fixed price regardless of duration (typically 3-4 hrs)' },
   { value: 'week', label: 'Week', desc: 'Package that cannot be less than daily, 7 days per week' },
@@ -124,6 +126,7 @@ let state = {
   unitPostCode: '',
   placementType: '',
   invoiceSchedule: 'MONTHLY',
+  communityComments: '',
 
   // Core costs
   coreCosts: {
@@ -435,22 +438,17 @@ function bindInputs() {
   bindField('unitTown', 'unitTown');
   bindField('unitCounty', 'unitCounty');
   bindField('unitPostCode', 'unitPostCode');
+  bindField('unitCommunityComments', 'communityComments');
   const ptEl = document.getElementById('placementType');
   if (ptEl) {
     ptEl.addEventListener('change', (e) => {
       state.placementType = e.target.value;
+      const editBtn = document.getElementById('btnEditCommunity');
       if (e.target.value === 'Community') {
-        const nameNo = prompt("Enter Name/House No. for Community placement:");
-        const street = prompt("Enter Street:");
-        const town = prompt("Enter Town:");
-        const post = prompt("Enter Postcode:");
-        setVal('unitHouseNo', nameNo || ''); state.unitHouseNo = nameNo || '';
-        setVal('unitStreet', street || ''); state.unitStreet = street || '';
-        setVal('unitTown', town || ''); state.unitTown = town || '';
-        setVal('unitCounty', 'Temp Info'); state.unitCounty = 'Temp Info';
-        setVal('unitPostCode', post || ''); state.unitPostCode = post || '';
-        const presetSelect = document.getElementById('presetAddressSelect');
-        if(presetSelect) presetSelect.value = '';
+        if (editBtn) editBtn.style.display = 'inline';
+        openCommunityModal();
+      } else {
+        if (editBtn) editBtn.style.display = 'none';
       }
     });
   }
@@ -828,6 +826,55 @@ function clearSavedData() {
   }
 }
 
+function openCommunityModal() {
+  const modal = document.getElementById('communityModal');
+  if (!modal) return;
+  setVal('commHouseNo', state.unitHouseNo || '');
+  setVal('commStreet', state.unitStreet || '');
+  setVal('commTown', state.unitTown || '');
+  setVal('commCounty', state.unitCounty || '');
+  setVal('commPostCode', state.unitPostCode || '');
+  setVal('commComments', state.communityComments || '');
+  modal.style.display = 'flex';
+}
+
+function closeCommunityModal() {
+  const modal = document.getElementById('communityModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function saveCommunityModal() {
+  const houseNo = document.getElementById('commHouseNo')?.value || '';
+  const street = document.getElementById('commStreet')?.value || '';
+  const town = document.getElementById('commTown')?.value || '';
+  const county = document.getElementById('commCounty')?.value || '';
+  const postCode = document.getElementById('commPostCode')?.value || '';
+  const comments = document.getElementById('commComments')?.value || '';
+
+  state.unitHouseNo = houseNo;
+  state.unitStreet = street;
+  state.unitTown = town;
+  state.unitCounty = county;
+  state.unitPostCode = postCode;
+  state.communityComments = comments;
+
+  setVal('unitHouseNo', houseNo);
+  setVal('unitStreet', street);
+  setVal('unitTown', town);
+  setVal('unitCounty', county);
+  setVal('unitPostCode', postCode);
+  setVal('unitCommunityComments', comments);
+
+  const presetSelect = document.getElementById('presetAddressSelect');
+  if (presetSelect) presetSelect.value = '';
+
+  const editBtn = document.getElementById('btnEditCommunity');
+  if (editBtn) editBtn.style.display = 'inline';
+
+  closeCommunityModal();
+  showToast('✓ Community Placement details saved');
+}
+
 function gatherInputState() {
   // Gather text fields
   const textFields = ['childInitials', 'localAuthority', 'quoteStatus', 'providerName', 'headHouseNo', 'headStreet', 'headTown',
@@ -843,6 +890,8 @@ function gatherInputState() {
   if (ptEl) state.placementType = ptEl.value;
   const isEl = document.getElementById('invoiceSchedule');
   if (isEl) state.invoiceSchedule = isEl.value;
+  const commComms = document.getElementById('unitCommunityComments');
+  if (commComms) state.communityComments = commComms.value;
 }
 
 function restoreInputState() {
@@ -866,6 +915,12 @@ function restoreInputState() {
   setVal('unitPostCode', state.unitPostCode);
   setVal('placementType', state.placementType);
   setVal('invoiceSchedule', state.invoiceSchedule);
+  setVal('unitCommunityComments', state.communityComments || '');
+
+  const editBtn = document.getElementById('btnEditCommunity');
+  if (editBtn) {
+    editBtn.style.display = state.placementType === 'Community' ? 'inline' : 'none';
+  }
 
   // Weeks
   setVal('careWeeks', state.careWeeks);
@@ -970,6 +1025,12 @@ async function init() {
   document.getElementById('btnExport')?.addEventListener('click', exportPDF);
   document.getElementById('btnExportInvoice')?.addEventListener('click', exportInvoice);
   document.getElementById('btnClear')?.addEventListener('click', clearSavedData);
+
+  // Community Modal buttons
+  document.getElementById('btnCloseCommunityModal')?.addEventListener('click', closeCommunityModal);
+  document.getElementById('btnCancelCommunity')?.addEventListener('click', closeCommunityModal);
+  document.getElementById('btnSaveCommunity')?.addEventListener('click', saveCommunityModal);
+  document.getElementById('btnEditCommunity')?.addEventListener('click', openCommunityModal);
 
   // ---- Dynamic Print Hiding Hooks ----
   window.addEventListener('beforeprint', () => {
@@ -1225,7 +1286,10 @@ function buildPage() {
 
         <div class="form-grid-2" style="margin-top:16px">
           <div class="form-group">
-            <label class="form-label">Placement Type</label>
+            <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
+              <span>Placement Type</span>
+              <button type="button" id="btnEditCommunity" style="display:none;background:none;border:none;color:var(--primary-400);font-size:0.75rem;cursor:pointer;text-decoration:underline;padding:0">✏️ Edit Details & Comments</button>
+            </label>
             <select class="form-select" id="placementType">
               <option value="">Select type...</option>
               ${PLACEMENT_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
@@ -1237,6 +1301,11 @@ function buildPage() {
               ${INVOICE_SCHEDULES.map(s => `<option value="${s}">${s}</option>`).join('')}
             </select>
           </div>
+        </div>
+
+        <div class="form-group full-width" style="margin-top:16px" id="communityCommentsGroup">
+          <label class="form-label">Placement Comments / Notes</label>
+          <textarea class="form-input" id="unitCommunityComments" rows="3" placeholder="Enter comments or notes regarding this placement..."></textarea>
         </div>
       </div>
     </div>
@@ -1560,6 +1629,49 @@ function buildPage() {
         <span><strong>Phone:</strong> <span id="printPhone"></span></span>
         <span><strong>Address:</strong> <span id="printAddress"></span></span>
         <span><strong>E-mail:</strong> management@eclesia-limited.org</span>
+      </div>
+    </div>
+
+    <!-- Community Placement Form Modal -->
+    <div class="quote-modal-overlay" id="communityModal" style="display:none">
+      <div class="quote-modal-card">
+        <div class="quote-modal-header">
+          <h3>🏡 Community Placement Details & Comments</h3>
+          <button type="button" class="quote-modal-close" id="btnCloseCommunityModal">&times;</button>
+        </div>
+        <div class="quote-modal-body">
+          <p class="modal-desc">Please fill out the placement address details and comments for this Community Placement:</p>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">House Name / No.</label>
+              <input type="text" class="form-input" id="commHouseNo" placeholder="e.g. 65 or Flat 4" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Street Name</label>
+              <input type="text" class="form-input" id="commStreet" placeholder="e.g. Niclby Close" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Town</label>
+              <input type="text" class="form-input" id="commTown" placeholder="e.g. Thamesmead" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">County</label>
+              <input type="text" class="form-input" id="commCounty" placeholder="e.g. Kent" />
+            </div>
+            <div class="form-group full-width">
+              <label class="form-label">Post Code</label>
+              <input type="text" class="form-input" id="commPostCode" placeholder="e.g. SE28 8LY" />
+            </div>
+            <div class="form-group full-width">
+              <label class="form-label">Placement Comments / Notes</label>
+              <textarea class="form-input" id="commComments" rows="3" placeholder="Enter any specific placement details or comments..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="quote-modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCancelCommunity">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnSaveCommunity">💾 Save Placement Details</button>
+        </div>
       </div>
     </div>
 
