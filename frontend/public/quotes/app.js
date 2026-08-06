@@ -391,6 +391,13 @@ function updateDisplay() {
   // Retainer
   setMoney('retainerFinalCost', calc.retainerFinal);
 
+  // Category totals bar (sticky header)
+  setMoney('barTotalCore', calc.totalCoreNet);
+  setMoney('barTotalStaffing', calc.totalStaffingNet);
+  setMoney('barTotalTransport', calc.totalTransportNet);
+  setMoney('barTotalOther', calc.totalOtherNet);
+  setMoney('barTotalRetainer', calc.retainerFinal);
+
   // One-off costs
   for (let i = 0; i < ONEOFF_ROWS; i++) {
     setMoney(`oneoffNet_${i}`, calc.oneoffResults[i].net);
@@ -1058,31 +1065,57 @@ function buildPage() {
       </div>
     </div>
 
-    <!-- Grand Total Banner -->
-    <div class="grand-total-banner eclesia-style-banner">
-      <div class="label">Total cost per week (excluding one-off costs)</div>
-      <div class="amount"><span class="currency">£</span><span id="grandTotalAmount">0.00</span></div>
-    </div>
-    
-    <div class="print-disclaimer">
-      <p>If there is an error or omission in the cost information entered below, the price above and related cell(s) will show red. Please check the information entered and ensure it is complete and accurate prior to submitting this form.</p>
-      <p>Enter Core Costs, Additional Costs and One-off Costs as applicable in the tables below</p>
-    </div>
+    <!-- Sticky Header (Static pinned top bar on scroll) -->
+    <div class="sticky-header-wrapper">
+      <!-- Grand Total Banner -->
+      <div class="grand-total-banner eclesia-style-banner">
+        <div class="label">Total cost per week (excluding one-off costs)</div>
+        <div class="amount"><span class="currency">£</span><span id="grandTotalAmount">0.00</span></div>
+      </div>
+      
+      <div class="print-disclaimer">
+        <p>If there is an error or omission in the cost information entered below, the price above and related cell(s) will show red. Please check the information entered and ensure it is complete and accurate prior to submitting this form. Enter Core Costs, Additional Costs and One-off Costs as applicable in the tables below</p>
+      </div>
 
-    <!-- App Header -->
-    <div class="app-header">
-      <h1>
-        <span class="icon">📋</span>
-        Social Care Placement Cost Quote Sheet
-      </h1>
-      <div class="header-actions">
-        <select class="form-select" id="profileLoader" style="max-width: 200px; border-color: var(--primary-500); cursor: pointer; color: var(--text-primary); background-color: var(--bg-card);">
-          <option value="">-- Load Profile --</option>
-        </select>
-        <button class="btn btn-primary" id="btnSave">💾 Save Profile</button>
-        <button class="btn btn-secondary" id="btnExport">📄 Export Quote</button>
-        <button class="btn btn-secondary" id="btnExportInvoice">📄 Generate Invoice</button>
-        <button class="btn btn-danger" id="btnClear">🗑 Clear All</button>
+      <!-- App Header -->
+      <div class="app-header">
+        <h1>
+          <span class="icon">📋</span>
+          Social Care Placement Cost Quote Sheet
+        </h1>
+        <div class="header-actions">
+          <select class="form-select" id="profileLoader" style="max-width: 200px; border-color: var(--primary-500); cursor: pointer; color: var(--text-primary); background-color: var(--bg-card);">
+            <option value="">-- Load Patient Profile --</option>
+          </select>
+          <button class="btn btn-primary" id="btnSave">💾 SAVE PROFILE</button>
+          <button class="btn btn-secondary" id="btnExport">📄 EXPORT QUOTE</button>
+          <button class="btn btn-secondary" id="btnExportInvoice">📄 GENERATE INVOICE</button>
+          <button class="btn btn-danger" id="btnClear">🗑 CLEAR ALL</button>
+        </div>
+      </div>
+
+      <!-- Category Totals Summary Bar (Sticky Red Box Area) -->
+      <div class="category-totals-bar">
+        <div class="category-total-item">
+          <span class="cat-label">Core Costs — Weekly</span>
+          <span class="cat-value" id="barTotalCore">£ 0.00</span>
+        </div>
+        <div class="category-total-item">
+          <span class="cat-label">Additional Costs — Staffing</span>
+          <span class="cat-value" id="barTotalStaffing">£ 0.00</span>
+        </div>
+        <div class="category-total-item">
+          <span class="cat-label">Additional Costs — Transport</span>
+          <span class="cat-value" id="barTotalTransport">£ 0.00</span>
+        </div>
+        <div class="category-total-item">
+          <span class="cat-label">Additional Costs — Other</span>
+          <span class="cat-value" id="barTotalOther">£ 0.00</span>
+        </div>
+        <div class="category-total-item">
+          <span class="cat-label">Retainer</span>
+          <span class="cat-value" id="barTotalRetainer">£ 0.00</span>
+        </div>
       </div>
     </div>
 
