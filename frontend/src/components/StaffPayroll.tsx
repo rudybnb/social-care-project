@@ -86,12 +86,21 @@ const StaffPayroll: React.FC<StaffPayrollProps> = ({ staffId, staffName, onBack 
     let nightHours = 0;
 
     staffShifts.forEach(shift => {
-      const hours = shift.extended ? shift.duration + (shift.extensionHours || 0) : shift.duration;
-      totalHours += hours;
-      if (shift.type === 'Day') {
-        dayHours += hours;
+      let hours = 0;
+      if (shift.clockedIn && shift.clockedOut && shift.clockInTime && shift.clockOutTime) {
+        const start = new Date(shift.clockInTime);
+        const end = new Date(shift.clockOutTime);
+        hours = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
       } else {
+        hours = shift.extended ? shift.duration + (shift.extensionHours || 0) : shift.duration;
+      }
+
+      totalHours += hours;
+      const isNight = shift.type?.toLowerCase().includes('night');
+      if (isNight) {
         nightHours += hours;
+      } else {
+        dayHours += hours;
       }
     });
 
@@ -109,20 +118,24 @@ const StaffPayroll: React.FC<StaffPayrollProps> = ({ staffId, staffName, onBack 
       standardPay = dayHours * agencyRate;
       nightPay = nightHours * agencyRate;
     } else if (staffMember) {
-      // PERMANENT STAFF: Flat rate calculation
-      // Irina Mitrovici: £14/hour for all hours
-      // Everyone else: £12.50/hour for all hours
+      // PERMANENT STAFF: Tiered rate calculation
       const standardRate = parseFloat(staffMember.standardRate) || 12.50;
-      
-      // Simple flat rate: all hours at standard rate (day or night)
-      totalPay = totalHours * standardRate;
-      standardPay = totalPay;
-      
-      // Keep these for display purposes (but not used in calculation)
-      first20Hours = Math.min(totalHours, 20);
-      remainingHours = Math.max(0, totalHours - 20);
-      enhancedPay = 0;
-      nightPay = 0;
+      const nightRateRaw = (staffMember as any).nightRate;
+      const nightRate = (nightRateRaw && nightRateRaw !== '—')
+        ? parseFloat(nightRateRaw) || standardRate
+        : standardRate;
+      const enhancedRateRaw = (staffMember as any).enhancedRate;
+      const enhancedRate = (enhancedRateRaw && enhancedRateRaw !== '—')
+        ? parseFloat(enhancedRateRaw) || standardRate
+        : standardRate;
+
+      first20Hours = Math.min(dayHours, 20);
+      remainingHours = Math.max(0, dayHours - 20);
+
+      standardPay = first20Hours * standardRate;
+      enhancedPay = remainingHours * enhancedRate;
+      nightPay = nightHours * nightRate;
+      totalPay = standardPay + enhancedPay + nightPay;
     }
 
     return {

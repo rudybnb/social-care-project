@@ -402,24 +402,36 @@ async function sendWeeklyPayrollReports() {
         ));
 
       if (weekShifts.length > 0 && staffMember.email) {
-        // Calculate hours and pay
+        // Calculate hours and pay — mirrors payrollAuditService logic
         let totalHours = 0;
         let dayHours = 0;
         let nightHours = 0;
 
         for (const shift of weekShifts) {
-          const hours = shift.duration || 12; // Default 12 hours
+          // Use actual clock times if available, fall back to duration/12h
+          let hours = shift.duration || 12;
+          if (shift.clockInTime && shift.clockOutTime) {
+            const diffMs = new Date(shift.clockOutTime).getTime() - new Date(shift.clockInTime).getTime();
+            hours = Math.max(0, diffMs / (1000 * 60 * 60));
+          }
           totalHours += hours;
-          if (shift.type === 'Night Shift') {
+          if (shift.type?.toLowerCase().includes('night')) {
             nightHours += hours;
           } else {
             dayHours += hours;
           }
         }
 
-        const standardRate = parseFloat(staffMember.standardRate) || 12.50;
-        const enhancedRate = parseFloat(staffMember.enhancedRate) || 14.00;
-        const nightRate = parseFloat(staffMember.nightRate) || 15.00;
+        const standardRate = parseFloat(staffMember.standardRate as string) || 12.50;
+        // Match payrollAuditService fallback: use standardRate if enhanced/night not set
+        const enhancedRateRaw = staffMember.enhancedRate;
+        const enhancedRate = (enhancedRateRaw && enhancedRateRaw !== '—')
+          ? parseFloat(enhancedRateRaw as string) || standardRate
+          : standardRate;
+        const nightRateRaw = staffMember.nightRate;
+        const nightRate = (nightRateRaw && nightRateRaw !== '—')
+          ? parseFloat(nightRateRaw as string) || standardRate
+          : standardRate;
 
         const first20Hours = Math.min(dayHours, 20);
         const after20Hours = Math.max(dayHours - 20, 0);
@@ -497,35 +509,44 @@ export async function triggerDeclinedShiftAlert(shift: any) {
 }
 
 // Agent 9: Audit Recent Shifts
+// Finds ALL completed shifts whose notes do NOT already contain '[Audited]'.
+// This ensures:
+//   - Shifts auto-closed at midnight by autoClockOutPastShifts are never missed
+//   - The 35-minute rolling window vulnerability is eliminated
 async function auditRecentShifts() {
   try {
-    const now = new Date();
-    // Look back 35 minutes to catch shifts clocked out since last run (every 30 mins)
-    // with a 5 minute buffer.
-    const lookback = new Date(now.getTime() - 35 * 60000);
-    const lookbackStr = lookback.toISOString(); // or keep as date object if drizzle supports it? 
-    // Drizzle timestamps are usually Date objects in node-postgres? 
-    // Schema says timestamp('clock_out_time'), so it expects Date.
+    // Find all clocked-out shifts that have not yet been audited
+    // We mark audited shifts by appending '[Audited]' to their notes field.
+    const completedShifts = await db.select().from(shifts)
+      .where(
+        eq(shifts.clockedOut, true)
+      );
 
-    // Find shifts clocked out recently
-    const recentShifts = await db.select().from(shifts)
-      .where(and(
-        eq(shifts.clockedOut, true),
-        gte(shifts.clockOutTime, lookback)
-      ));
+    // Filter in-memory: exclude any already marked as audited
+    const unaudited = completedShifts.filter((s: any) =>
+      !s.notes?.includes('[Audited]')
+    );
 
-    if (recentShifts.length > 0) {
-      console.log(`🔎 Found ${recentShifts.length} recently completed shifts to audit.`);
-      for (const shift of recentShifts) {
+    if (unaudited.length > 0) {
+      console.log(`🔎 Agent 9: Found ${unaudited.length} unaudited completed shifts.`);
+      for (const shift of unaudited) {
         try {
           const auditData = await auditSingleShift(shift.id);
-          // Send to Admin (or Accounts email if distinct)
           await sendShiftAuditAlert(ACCOUNTS_EMAIL, auditData);
+
+          // Mark the shift as audited so it is not re-processed
+          await db.update(shifts).set({
+            notes: ((shift.notes || '') + ' [Audited]').trim(),
+            updatedAt: new Date()
+          }).where(eq(shifts.id, shift.id));
+
           console.log(`✅ Audited shift ${shift.id} for ${shift.staffName}`);
         } catch (err) {
           console.error(`❌ Failed to audit shift ${shift.id}:`, err);
         }
       }
+    } else {
+      console.log('✅ Agent 9: No unaudited shifts found.');
     }
   } catch (error) {
     console.error('❌ Error in auditRecentShifts:', error);

@@ -107,20 +107,29 @@ const Payroll: React.FC = () => {
   };
 
   // Calculate payroll for each staff member
-  // IMPORTANT: Only counts shifts that have been clocked in AND clocked out
+  // Rules:
+  //  - Completed shifts (clockedIn + clockedOut): use actual clock-in/out times
+  //  - Accepted shifts not yet clocked out (future/ongoing): use scheduled times
+  //  - Declined / cancelled shifts: excluded entirely
+  //  - No-shows (accepted, past, never clocked in): excluded from hours/pay
   const getPayrollData = (startDate: Date, endDate: Date) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+
     return staff.map(staffMember => {
-      // Filter to only include COMPLETED shifts (clocked in AND clocked out)
       const staffShifts = shifts.filter(shift =>
         shift.staffName === staffMember.name &&
         shift.staffName !== 'Bank Management' &&
         shift.staffName !== 'Agency' &&
         shift.staffName !== 'BANK (Placeholder)' &&
         new Date(shift.date) >= startDate &&
-        new Date(shift.date) >= startDate &&
-        new Date(shift.date) <= endDate
-        // shift.clockedIn === true &&
-        // shift.clockedOut === true // REMOVED: Now including ALL scheduled shifts regardless of clock status
+        new Date(shift.date) <= endDate &&
+        // Exclude declined/cancelled shifts
+        shift.staffStatus !== 'declined' &&
+        shift.staffStatus !== 'cancelled' &&
+        // Exclude pending shifts that haven't been accepted
+        !(shift.staffStatus === 'pending' && !shift.clockedIn) &&
+        // Exclude past no-shows (accepted but never clocked in)
+        !(shift.date < todayStr && !shift.clockedIn)
       );
 
       let totalHours = 0;
@@ -128,31 +137,38 @@ const Payroll: React.FC = () => {
       let nightHours = 0;
 
       staffShifts.forEach(shift => {
-        // Use SCHEDULED times for payroll calculation as per new rules
-        // Calculate duration from start/end time strings (HH:MM)
         let hours = 0;
-        if (shift.startTime && shift.endTime) {
-          const dateStr = shift.date; // YYYY-MM-DD
+        const dateStr = shift.date; // YYYY-MM-DD
+
+        if (shift.clockedIn && shift.clockedOut && shift.clockInTime && shift.clockOutTime) {
+          // ✅ COMPLETED SHIFT: use actual clock times for accuracy
+          const start = new Date(shift.clockInTime);
+          const end = new Date(shift.clockOutTime);
+          const diffMs = end.getTime() - start.getTime();
+          hours = diffMs / (1000 * 60 * 60);
+          hours = Math.max(0, hours);
+        } else if (shift.startTime && shift.endTime) {
+          // 🕐 SCHEDULED / ONGOING SHIFT: use scheduled times
           const start = new Date(`${dateStr}T${shift.startTime}:00`);
           let end = new Date(`${dateStr}T${shift.endTime}:00`);
-
           // Handle overnight shifts
           if (end < start) {
             end.setDate(end.getDate() + 1);
           }
-
           const diffMs = end.getTime() - start.getTime();
           hours = diffMs / (1000 * 60 * 60);
           hours = Math.max(0, hours);
         } else {
-          // Fallback to duration if times missing (shouldn't happen on valid shifts)
+          // Fallback to stored duration field
           hours = shift.duration || 0;
         }
+
         totalHours += hours;
-        if (shift.type === 'Day') {
-          dayHours += hours;
-        } else {
+        const isNightShift = shift.type?.toLowerCase().includes('night');
+        if (isNightShift) {
           nightHours += hours;
+        } else {
+          dayHours += hours;
         }
       });
 
@@ -168,7 +184,6 @@ const Payroll: React.FC = () => {
 
       let leaveHours = 0;
       staffLeave.forEach(leave => {
-        // Calculate overlapping days
         const leaveStart = new Date(Math.max(new Date(leave.startDate).getTime(), startDate.getTime()));
         const leaveEnd = new Date(Math.min(new Date(leave.endDate).getTime(), endDate.getTime()));
         const days = Math.ceil((leaveEnd.getTime() - leaveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -197,25 +212,31 @@ const Payroll: React.FC = () => {
         });
 
         totalPay = totalHours * agencyRate;
-
-        // For display purposes, show day hours as "standard" and night hours as "night"
         standardPay = dayHours * agencyRate;
         nightPay = nightHours * agencyRate;
-        enhancedPay = 0; // Agency workers don't have enhanced rate
-      } else {
-        // PERMANENT STAFF: Flat rate calculation
-        // Irina Mitrovici: £14/hour for all hours
-        // Everyone else: £12.50/hour for all hours
-        const standardRate = parseFloat(staffMember.standardRate) || 12.50;
-
-        // Simple flat rate: all hours at standard rate (day or night)
-        const workPay = (dayHours + nightHours) * standardRate;
-        const leavePay = leaveHours * 12.50; // Fixed rate for all leave pay
-
-        totalPay = workPay + leavePay;
-        standardPay = totalPay;
         enhancedPay = 0;
-        nightPay = 0;
+      } else {
+        // PERMANENT STAFF: tiered rate calculation matching backend payrollAuditService
+        const standardRate = parseFloat(staffMember.standardRate) || 12.50;
+        // Night rate: use staff nightRate if set, otherwise fall back to standardRate
+        const nightRateRaw = (staffMember as any).nightRate;
+        const nightRate = (nightRateRaw && nightRateRaw !== '—')
+          ? parseFloat(nightRateRaw) || standardRate
+          : standardRate;
+        // Enhanced rate (for day hours > 20h/week): fall back to standardRate if not set
+        const enhancedRateRaw = (staffMember as any).enhancedRate;
+        const enhancedRate = (enhancedRateRaw && enhancedRateRaw !== '—')
+          ? parseFloat(enhancedRateRaw) || standardRate
+          : standardRate;
+
+        const first20 = Math.min(dayHours, 20);
+        const after20 = Math.max(dayHours - 20, 0);
+        const leavePay = leaveHours * standardRate;
+
+        standardPay = first20 * standardRate;
+        enhancedPay = after20 * enhancedRate;
+        nightPay = nightHours * nightRate;
+        totalPay = standardPay + enhancedPay + nightPay + leavePay;
       }
 
       return {
@@ -226,12 +247,12 @@ const Payroll: React.FC = () => {
         dayHours,
         nightHours,
         leaveHours,
-        first20Hours: isAgency ? 0 : (dayHours <= 20 ? dayHours : 20),
-        remainingHours: isAgency ? 0 : (dayHours > 20 ? dayHours - 20 : 0),
+        first20Hours: isAgency ? 0 : Math.min(dayHours, 20),
+        remainingHours: isAgency ? 0 : Math.max(dayHours - 20, 0),
         standardPay,
         enhancedPay,
         nightPay,
-        leavePay: isAgency ? 0 : (leaveHours * 12.50), // Fixed £12.50 rate for all leave pay
+        leavePay: isAgency ? 0 : leaveHours * ((staffMember as any).standardRate ? parseFloat((staffMember as any).standardRate) || 12.50 : 12.50),
         totalPay,
         shifts: staffShifts.length
       };

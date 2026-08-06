@@ -100,10 +100,11 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
         overtimeHours += (hours - 12);
       }
 
-      if (shift.type === 'Day') {
-        dayHours += hours;
-      } else {
+      const isNight = shift.type?.toLowerCase().includes('night');
+      if (isNight) {
         nightHours += hours;
+      } else {
+        dayHours += hours;
       }
     });
 
