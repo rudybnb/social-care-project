@@ -406,7 +406,7 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Page Content */}
-        <div style={{ flex: 1, overflowY: 'auto', backgroundColor: '#1a1a1a' }}>
+        <div style={{ flex: 1, overflowY: currentPage === 'quotes' ? 'hidden' : 'auto', backgroundColor: '#1a1a1a', height: '100%' }}>
           {renderPage()}
         </div>
       </div>
