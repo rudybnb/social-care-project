@@ -698,21 +698,51 @@ function getAuthHeaders() {
 }
 
 // ---- Storage & Sync ----
+function getAllLocalStorageItems() {
+  const items = [];
+  const storageKeys = ['eclesia_profiles', 'quoteSheetState', 'quotes_profiles', 'patient_profiles', 'saved_quotes'];
+  
+  const sources = [window.localStorage];
+  try { if (window.parent && window.parent.localStorage) sources.push(window.parent.localStorage); } catch(e){}
+
+  sources.forEach(store => {
+    if (!store) return;
+    storageKeys.forEach(sKey => {
+      try {
+        const val = store.getItem(sKey);
+        if (val) items.push(val);
+      } catch(e){}
+    });
+  });
+  return items;
+}
+
 async function syncLocalProfilesToDB() {
-  const stored = localStorage.getItem('eclesia_profiles');
-  if (!stored) return;
-  try {
-    const localProfiles = JSON.parse(stored);
-    const keys = Object.keys(localProfiles);
-    for (const initials of keys) {
-      const p = localProfiles[initials];
-      if (p && initials && initials.trim() !== '') {
+  const rawItems = getAllLocalStorageItems();
+  for (const raw of rawItems) {
+    try {
+      const parsed = JSON.parse(raw);
+      const profilesToSync = [];
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.childInitials && parsed.childInitials.trim() !== '') {
+          profilesToSync.push(parsed);
+        } else {
+          Object.values(parsed).forEach(p => {
+            if (p && typeof p === 'object' && p.childInitials && p.childInitials.trim() !== '') {
+              profilesToSync.push(p);
+            }
+          });
+        }
+      }
+
+      for (const p of profilesToSync) {
+        const initials = p.childInitials.trim();
         try {
           await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
             body: JSON.stringify({
-              childInitials: initials.trim(),
+              childInitials: initials,
               quoteStatus: p.quoteStatus || 'Draft Quote',
               providerName: p.providerName || 'Eclesia Family Centre',
               placementType: p.placementType || '',
@@ -722,8 +752,8 @@ async function syncLocalProfilesToDB() {
           });
         } catch(e) {}
       }
-    }
-  } catch(e) {}
+    } catch(e){}
+  }
 }
 
 async function saveToLocalStorage() {
@@ -790,15 +820,24 @@ async function loadProfile(initials) {
   }
 
   // Fallback to local
-  const stored = localStorage.getItem('eclesia_profiles');
-  if (stored) {
+  const rawItems = getAllLocalStorageItems();
+  for (const raw of rawItems) {
     try {
-      const profiles = JSON.parse(stored);
-      if (profiles[initials]) {
-        state = { ...state, ...profiles[initials] };
-        restoreInputState();
-        updateDisplay();
-        showToast('✓ Profile loaded (local fallback)');
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.childInitials && parsed.childInitials.trim() === initials) {
+          state = { ...state, ...parsed };
+          restoreInputState();
+          updateDisplay();
+          showToast('✓ Profile loaded from local storage');
+          return;
+        } else if (parsed[initials]) {
+          state = { ...state, ...parsed[initials] };
+          restoreInputState();
+          updateDisplay();
+          showToast('✓ Profile loaded from local storage');
+          return;
+        }
       }
     } catch(e){}
   }
@@ -810,25 +849,37 @@ async function populateProfileLoader() {
   
   const profilesMap = new Map();
 
-  // 1. Load local profiles first from localStorage
-  const stored = localStorage.getItem('eclesia_profiles');
-  if (stored) {
+  // 1. Check all local storage keys from both iframe and parent windows
+  const rawItems = getAllLocalStorageItems();
+  rawItems.forEach(raw => {
     try {
-      const localProfiles = JSON.parse(stored);
-      Object.keys(localProfiles).forEach(key => {
-        const p = localProfiles[key];
-        if (key && key.trim() !== '') {
-          profilesMap.set(key.trim(), {
-            childInitials: key.trim(),
-            quoteStatus: p.quoteStatus || 'Draft',
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.childInitials && parsed.childInitials.trim() !== '') {
+          const key = parsed.childInitials.trim();
+          profilesMap.set(key, {
+            childInitials: key,
+            quoteStatus: parsed.quoteStatus || 'Draft',
             source: 'local'
           });
+        } else {
+          Object.keys(parsed).forEach(k => {
+            const p = parsed[k];
+            if (p && typeof p === 'object' && p.childInitials && p.childInitials.trim() !== '') {
+              const key = p.childInitials.trim();
+              profilesMap.set(key, {
+                childInitials: key,
+                quoteStatus: p.quoteStatus || 'Draft',
+                source: 'local'
+              });
+            }
+          });
         }
-      });
+      }
     } catch(e){}
-  }
+  });
 
-  // 2. Fetch remote DB profiles and merge
+  // 2. Fetch from remote PostgreSQL database
   try {
     const response = await fetch(API_URL, { headers: getAuthHeaders() });
     if (response.ok) {
@@ -836,8 +887,9 @@ async function populateProfileLoader() {
       if (Array.isArray(dbQuotes)) {
         dbQuotes.forEach(q => {
           if (q.childInitials && q.childInitials.trim() !== '') {
-            profilesMap.set(q.childInitials.trim(), {
-              childInitials: q.childInitials.trim(),
+            const key = q.childInitials.trim();
+            profilesMap.set(key, {
+              childInitials: key,
               quoteStatus: q.quoteStatus || 'Draft',
               source: 'db'
             });
@@ -851,11 +903,14 @@ async function populateProfileLoader() {
 
   // 3. Rebuild loader select options
   const count = profilesMap.size;
-  loader.innerHTML = `<option value="">-- Load Patient Profile (${count}) --</option>`;
-
-  profilesMap.forEach((val, key) => {
-    loader.innerHTML += `<option value="${key}">${key} (${val.quoteStatus})</option>`;
-  });
+  if (count === 0) {
+    loader.innerHTML = '<option value="">-- Load Patient Profile (0 Saved) --</option>';
+  } else {
+    loader.innerHTML = `<option value="">-- Load Patient Profile (${count} Available) --</option>`;
+    profilesMap.forEach((val, key) => {
+      loader.innerHTML += `<option value="${key}">${key} (${val.quoteStatus})</option>`;
+    });
+  }
 }
 
 
