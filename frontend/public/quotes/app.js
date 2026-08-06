@@ -682,7 +682,9 @@ function buildOneoffRows(count) {
 }
 
 // ---- API Config ----
-const API_URL = window.location.origin.includes('localhost') ? 'http://localhost:4000/api/quotes' : '/api/quotes';
+const API_URL = window.location.origin.includes('localhost') 
+  ? 'http://localhost:4000/api/quotes' 
+  : 'https://social-care-backend.onrender.com/api/quotes';
 
 function getAuthHeaders() {
   let authHeader = {};
