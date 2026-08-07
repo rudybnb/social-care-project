@@ -92,6 +92,41 @@ app.get('/api/staff-start-dates', async (req: Request, res: Response) => {
   }
 });
 
+app.post('/api/admin/clean-test-staff', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const allStaff = await db.select().from(staff);
+
+    const testStaff = allStaff.filter((s: any) => {
+      const name = String(s.name || '').toLowerCase();
+      const username = String(s.username || '').toLowerCase();
+      return (
+        name.includes('test') ||
+        name.includes('unauthorized') ||
+        name.includes('slash') ||
+        name.includes('debug') ||
+        username.includes('test') ||
+        username.includes('unauthorized') ||
+        username.includes('slash') ||
+        username.includes('debug')
+      );
+    });
+
+    const deletedNames: string[] = [];
+    for (const s of testStaff) {
+      await db.delete(shifts).where(eq(shifts.staffId, s.id));
+      await db.delete(staff).where(eq(staff.id, s.id));
+      deletedNames.push(s.name);
+    }
+
+    console.log(`[Clean Test Staff] Deleted ${deletedNames.length} staff records:`, deletedNames);
+    res.json({ success: true, count: deletedNames.length, deletedNames });
+  } catch (error: any) {
+    console.error('[Clean Test Staff] Error:', error);
+    res.status(500).json({ error: 'Failed to delete test staff', details: error.message });
+  }
+});
+
 app.get('/api/staff/phone-duplicates', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
