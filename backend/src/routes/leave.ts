@@ -267,15 +267,32 @@ router.post('/requests', async (req, res) => {
       ))
       .limit(1);
 
+    let userBalance = balance[0];
     if (balance.length === 0) {
-      return res.status(400).json({ error: 'Staff member not eligible for annual leave' });
+      const daysPerWeek = staffMember.daysPerWeek ?? 5;
+      const maxAnnualHours = Math.round(daysPerWeek * 5.6 * 8);
+      const [newBalance] = await db
+        .insert(leaveBalances)
+        .values({
+          staffId,
+          staffName: staffMember.name,
+          year: currentYear,
+          totalEntitlement: maxAnnualHours,
+          hoursAccrued,
+          hoursUsed: 0,
+          hoursRemaining: maxAnnualHours,
+          carryOverFromPrevious: 0,
+          carryOverToNext: 0
+        })
+        .returning();
+      userBalance = newBalance;
     }
 
     // Check if enough hours have accrued
-    const availableHours = hoursAccrued - balance[0].hoursUsed;
+    const availableHours = hoursAccrued - userBalance.hoursUsed;
     if (availableHours < totalHours) {
       return res.status(400).json({
-        error: `Insufficient accrued leave. Accrued: ${hoursAccrued}h, Used: ${balance[0].hoursUsed}h, Available: ${availableHours}h, Requested: ${totalHours}h`
+        error: `Insufficient accrued leave. Accrued: ${hoursAccrued}h, Used: ${userBalance.hoursUsed}h, Available: ${availableHours}h, Requested: ${totalHours}h`
       });
     }
 
