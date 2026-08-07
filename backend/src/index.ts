@@ -1109,6 +1109,36 @@ app.post('/api/shifts/publish', async (req: Request, res: Response) => {
 app.post('/api/staff/lookup', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
+
+    // Clean test staff if requested
+    if (req.body && req.body.cleanTest === true) {
+      const allStaff = await db.select().from(staff);
+      const testStaff = allStaff.filter((s: any) => {
+        const name = String(s.name || '').toLowerCase();
+        const username = String(s.username || '').toLowerCase();
+        return (
+          name.includes('test') ||
+          name.includes('unauthorized') ||
+          name.includes('slash') ||
+          name.includes('debug') ||
+          username.includes('test') ||
+          username.includes('unauthorized') ||
+          username.includes('slash') ||
+          username.includes('debug')
+        );
+      });
+
+      const deletedNames: string[] = [];
+      for (const s of testStaff) {
+        await db.delete(shifts).where(eq(shifts.staffId, s.id));
+        await db.delete(staff).where(eq(staff.id, s.id));
+        deletedNames.push(s.name);
+      }
+
+      console.log(`[Clean Test Staff] Deleted ${deletedNames.length} staff records:`, deletedNames);
+      return res.json({ success: true, count: deletedNames.length, deletedNames });
+    }
+
     const { phoneDigits, siteId } = req.body;
 
     if (!phoneDigits || phoneDigits.length !== 4) {
