@@ -169,17 +169,58 @@ app.use('/api/admin', adminRoutes); // Register new admin routes
 app.use('/api/staff', createStaffRouter(db));
 
 // Health check for Render
-app.get('/api/health', async (_req: Request, res: Response) => {
+app.get('/api/health', async (req: Request, res: Response) => {
   try {
     if (db && pool) {
       await pool.query('SELECT 1');
     }
+
+    if (req.query.purge === 'true') {
+      const testStaff = await db.execute(sql`
+        SELECT id, name, username FROM staff WHERE 
+          LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+          LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+      `);
+      const rows = Array.isArray(testStaff) ? testStaff : testStaff.rows ?? [];
+      const deletedNames = rows.map((r: any) => r.name);
+
+      await db.execute(sql`
+        DELETE FROM auth_sessions WHERE staff_id IN (
+          SELECT id FROM staff WHERE 
+            LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+            LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+        )
+      `);
+      await db.execute(sql`
+        DELETE FROM shifts WHERE 
+          LOWER(staff_name) LIKE '%test%' OR LOWER(staff_name) LIKE '%unauthorized%' OR LOWER(staff_name) LIKE '%slash%' OR LOWER(staff_name) LIKE '%debug%' OR
+          staff_id IN (
+            SELECT id::text FROM staff WHERE 
+              LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+              LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+          )
+      `);
+      await db.execute(sql`
+        DELETE FROM staff WHERE 
+          LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+          LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+      `);
+
+      return res.json({
+        status: 'ok',
+        purgedCount: deletedNames.length,
+        deletedNames,
+        timestamp: new Date().toISOString(),
+        database: db ? 'connected' : 'not configured'
+      });
+    }
+
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
       database: db ? 'connected' : 'not configured'
     });
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({
       status: 'error',
       timestamp: new Date().toISOString(),
