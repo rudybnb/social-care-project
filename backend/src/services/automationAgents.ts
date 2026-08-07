@@ -776,6 +776,27 @@ export async function runPostShiftBugSweep() {
       }
     }
 
+    // 4. Automatic Test & Debug Staff Cleanup
+    const allStaffRecords = await db.select().from(staff);
+    for (const s of allStaffRecords) {
+      const name = String(s.name || '').toLowerCase();
+      const username = String(s.username || '').toLowerCase();
+      if (
+        name.includes('test') ||
+        name.includes('unauthorized') ||
+        name.includes('slash') ||
+        name.includes('debug') ||
+        username.includes('test') ||
+        username.includes('unauthorized') ||
+        username.includes('slash') ||
+        username.includes('debug')
+      ) {
+        console.log(`🧹 Auto-purging test staff record: ${s.name} (${s.id})`);
+        await db.delete(shifts).where(eq(shifts.staffId, s.id));
+        await db.delete(staff).where(eq(staff.id, s.id));
+      }
+    }
+
     if (issues.length > 0) {
       console.log(`⚠️ Bug Sweep found ${issues.length} potential operational issues.`);
       const alertMsg = `🧹 **BUG SWEEP ALERT (${todayStr}):**\n` + issues.join('\n');
