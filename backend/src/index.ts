@@ -92,7 +92,7 @@ app.get('/api/staff-start-dates', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/admin/clean-test-staff', async (req: Request, res: Response) => {
+app.post('/api/clean-test-staff', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const allStaff = await db.select().from(staff);
