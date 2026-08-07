@@ -7,7 +7,7 @@ import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { users, staff, sites, shifts, approvalRequests, quotes, remittances, remittanceWorkers } from './schema.js';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, or, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import { createAuthRouter } from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
@@ -45,6 +45,34 @@ const pool = new Pool({
 });
 
 export const db = drizzle(pool);
+
+// Unauthenticated kiosk endpoint for checking phone duplicates
+app.get('/api/staff/phone-duplicates', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const allStaff = await db.select().from(staff);
+    const activeStaff = allStaff.filter((s: any) => s.status === 'Active' && s.phone);
+
+    const last4Map: Record<string, string[]> = {};
+    for (const s of activeStaff) {
+      const norm = String(s.phone).replace(/\D/g, '');
+      if (norm.length >= 4) {
+        const last4 = norm.slice(-4);
+        if (!last4Map[last4]) last4Map[last4] = [];
+        last4Map[last4].push(s.name);
+      }
+    }
+
+    const duplicates = Object.entries(last4Map)
+      .filter(([_, names]) => names.length > 1)
+      .map(([digits, names]) => ({ digits, staffNames: names }));
+
+    res.json({ duplicates });
+  } catch (error) {
+    console.error('[Phone Duplicates] Error:', error);
+    res.status(500).json({ error: 'Failed to check phone duplicates' });
+  }
+});
 
 // Auth routes
 app.use('/api/auth', createAuthRouter(db));
@@ -928,14 +956,14 @@ app.get('/api/staff/:staffId/shifts', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Staff ID required' });
     }
 
-    // Get all published shifts for this staff member
-    // Using sql to handle potential NULLs for legacy data (though we should migrate them)
-    // We treat NULL as published=true for backward compatibility initially, OR we can strict filter.
-    // Let's go strict: published = true.
+    // Get all published or accepted shifts for this staff member
     const staffShifts = await db.select().from(shifts).where(
       and(
         eq(shifts.staffId, staffId),
-        eq(shifts.published, true)
+        or(
+          eq(shifts.published, true),
+          eq(shifts.staffStatus, 'accepted')
+        )
       )
     );
     res.json(staffShifts);
@@ -1041,33 +1069,7 @@ app.post('/api/staff/lookup', async (req: Request, res: Response) => {
   }
 });
 
-// Warn if two active staff share the same last-4 phone digits
-app.get('/api/staff/phone-duplicates', async (req: Request, res: Response) => {
-  try {
-    if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const allStaff = await db.select().from(staff);
-    const activeStaff = allStaff.filter((s: any) => s.status === 'Active' && s.phone);
 
-    const last4Map: Record<string, string[]> = {};
-    for (const s of activeStaff) {
-      const norm = String(s.phone).replace(/\D/g, '');
-      if (norm.length >= 4) {
-        const last4 = norm.slice(-4);
-        if (!last4Map[last4]) last4Map[last4] = [];
-        last4Map[last4].push(s.name);
-      }
-    }
-
-    const duplicates = Object.entries(last4Map)
-      .filter(([_, names]) => names.length > 1)
-      .map(([digits, names]) => ({ digits, staffNames: names }));
-
-    res.json({ duplicates });
-  } catch (error) {
-    console.error('[Phone Duplicates] Error:', error);
-    res.status(500).json({ error: 'Failed to check phone duplicates' });
-  }
-});
 
 // Clock in to a shift
 app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) => {

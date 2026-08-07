@@ -231,6 +231,12 @@ export async function initializeAgents() {
     await removeDuplicateShifts();
   });
 
+  // Agent 13: Pre-Shift & Post-Shift Automated Bug Sweep (Every 30 minutes)
+  cron.schedule('*/30 * * * *', async () => {
+    console.log('🧹 Running: Automated Bug Sweep Agent');
+    await runPostShiftBugSweep();
+  });
+
   console.log('✅ All automation agents initialized');
   console.log('📋 Active agents:');
   console.log('   - Daily Email Reminders (7:00 AM)');
@@ -245,6 +251,7 @@ export async function initializeAgents() {
   console.log('   - Daily Payroll Report (07:30)');
   console.log('   - System Sentinel (Hourly)');
   console.log('   - Weekly Duplicate Cleanup (Sun 11PM)');
+  console.log('   - Automated Bug Sweep Agent (Every 30 min)');
 }
 
 // Agent 1: Send daily shift reminders
@@ -705,7 +712,81 @@ async function sendDailyPayrollOverview() {
   }
 }
 
+// Agent 13: Pre-Shift & Post-Shift Automated Bug Sweep Agent
+// Scans for unpublished rotas, missing phone numbers, phone collisions, and clocking anomalies
+export async function runPostShiftBugSweep() {
+  try {
+    console.log('🧹 Running: Pre-Shift & Post-Shift Automated Bug Sweep Agent');
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const currentHHMM = now.toTimeString().split(' ')[0].substring(0, 5);
 
-// End of file
+    const issues: string[] = [];
+
+    // 1. Unpublished Rota Check for Today's Scheduled Shifts
+    const todayShifts = await db.select().from(shifts).where(eq(shifts.date, todayStr));
+    for (const shift of todayShifts) {
+      if ((shift.staffId || shift.staffStatus === 'accepted') && !shift.published) {
+        issues.push(`🚨 UNPUBLISHED SHIFT: ${shift.staffName || 'Staff'} at ${shift.siteName} (${shift.startTime}-${shift.endTime}) is UNPUBLISHED (published=false).`);
+      }
+    }
+
+    // 2. Active Staff Phone Number Collision Check
+    const activeStaff = await db.select().from(staff).where(eq(staff.status, 'Active'));
+    const phoneMap: Record<string, string[]> = {};
+    const missingPhoneStaff: string[] = [];
+
+    for (const s of activeStaff) {
+      if (!s.phone) {
+        missingPhoneStaff.push(s.name);
+        continue;
+      }
+      const norm = String(s.phone).replace(/\D/g, '');
+      if (norm.length >= 4) {
+        const last4 = norm.slice(-4);
+        if (!phoneMap[last4]) phoneMap[last4] = [];
+        phoneMap[last4].push(s.name);
+      }
+    }
+
+    const collisions = Object.entries(phoneMap).filter(([_, names]) => names.length > 1);
+    for (const [last4, names] of collisions) {
+      issues.push(`⚠️ PHONE COLLISION: Staff members [${names.join(', ')}] share phone ending in ${last4}. Kiosk lookup collision possible!`);
+    }
+
+    // Check if any worker working today is missing phone number
+    for (const shift of todayShifts) {
+      if (shift.staffName && missingPhoneStaff.includes(shift.staffName)) {
+        issues.push(`⚠️ MISSING PHONE: ${shift.staffName} is scheduled today but has no phone number in profile.`);
+      }
+    }
+
+    // 3. Post-Shift Unclosed Clock-In Check
+    for (const shift of todayShifts) {
+      if (shift.clockedIn && !shift.clockedOut) {
+        const [endHour, endMin] = shift.endTime.split(':').map(Number);
+        const [nowHour, nowMin] = currentHHMM.split(':').map(Number);
+        const endMinutes = endHour * 60 + endMin;
+        const nowMinutes = nowHour * 60 + nowMin;
+
+        // If shift ended > 30 mins ago and worker has not clocked out
+        if (nowMinutes > endMinutes + 30) {
+          issues.push(`❓ UNCLOSED SHIFT: ${shift.staffName} at ${shift.siteName} scheduled end was ${shift.endTime}, but worker is still clocked in.`);
+        }
+      }
+    }
+
+    if (issues.length > 0) {
+      console.log(`⚠️ Bug Sweep found ${issues.length} potential operational issues.`);
+      const alertMsg = `🧹 **BUG SWEEP ALERT (${todayStr}):**\n` + issues.join('\n');
+      await sendSystemAlert(alertMsg);
+    } else {
+      console.log('✅ Bug Sweep: All shifts, rotas, and phone lookups are clean and bug-free.');
+    }
+  } catch (error) {
+    console.error('❌ Error in runPostShiftBugSweep:', error);
+  }
+}
+
 
 
