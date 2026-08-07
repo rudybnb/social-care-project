@@ -46,6 +46,47 @@ const pool = new Pool({
 
 export const db = drizzle(pool);
 
+app.get('/api/purge-now', async (_req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+
+    const testStaff = await db.execute(sql`
+      SELECT id, name, username FROM staff WHERE 
+        LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+        LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+    `);
+    const rows = Array.isArray(testStaff) ? testStaff : testStaff.rows ?? [];
+    const deletedNames = rows.map((r: any) => r.name);
+
+    await db.execute(sql`
+      DELETE FROM auth_sessions WHERE staff_id IN (
+        SELECT id FROM staff WHERE 
+          LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+          LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+      )
+    `);
+    await db.execute(sql`
+      DELETE FROM shifts WHERE 
+        LOWER(staff_name) LIKE '%test%' OR LOWER(staff_name) LIKE '%unauthorized%' OR LOWER(staff_name) LIKE '%slash%' OR LOWER(staff_name) LIKE '%debug%' OR
+        staff_id IN (
+          SELECT id::text FROM staff WHERE 
+            LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+            LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+        )
+    `);
+    await db.execute(sql`
+      DELETE FROM staff WHERE 
+        LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+        LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+    `);
+
+    return res.json({ success: true, count: deletedNames.length, deletedNames });
+  } catch (error: any) {
+    console.error('[Purge Now] Error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // Unauthenticated kiosk endpoint for checking phone duplicates
 app.get('/api/phone-duplicates', async (req: Request, res: Response) => {
   try {
