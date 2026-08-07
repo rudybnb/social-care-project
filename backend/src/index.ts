@@ -47,6 +47,33 @@ const pool = new Pool({
 export const db = drizzle(pool);
 
 // Unauthenticated kiosk endpoint for checking phone duplicates
+app.get('/api/phone-duplicates', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const allStaff = await db.select().from(staff);
+    const activeStaff = allStaff.filter((s: any) => s.status === 'Active' && s.phone);
+
+    const last4Map: Record<string, string[]> = {};
+    for (const s of activeStaff) {
+      const norm = String(s.phone).replace(/\D/g, '');
+      if (norm.length >= 4) {
+        const last4 = norm.slice(-4);
+        if (!last4Map[last4]) last4Map[last4] = [];
+        last4Map[last4].push(s.name);
+      }
+    }
+
+    const duplicates = Object.entries(last4Map)
+      .filter(([_, names]) => names.length > 1)
+      .map(([digits, names]) => ({ digits, staffNames: names }));
+
+    res.json({ duplicates });
+  } catch (error) {
+    console.error('[Phone Duplicates] Error:', error);
+    res.status(500).json({ error: 'Failed to check phone duplicates' });
+  }
+});
+
 app.get('/api/staff/phone-duplicates', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });

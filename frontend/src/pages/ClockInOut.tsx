@@ -61,7 +61,7 @@ const ClockInOut: React.FC = () => {
 
       // Check for duplicate last-4-digits
       try {
-        const dupResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/phone-duplicates`);
+        const dupResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/phone-duplicates`);
         if (dupResponse.ok) {
           const dupData = await dupResponse.json();
           const normalised = phoneDigits.replace(/\D/g, '');
