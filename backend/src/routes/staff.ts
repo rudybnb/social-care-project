@@ -268,7 +268,16 @@ export function createStaffRouter(database: DbLike): Router {
       const id = req.params.id as string;
       if (!id) return res.status(400).json({ error: 'ID is required' });
 
-      const deleted = await database.delete(staff).where(eq(staff.id, id)).returning();
+      // Delete associated shifts and auth sessions first to prevent foreign key errors
+      try {
+        await database.execute(sql`DELETE FROM auth_sessions WHERE staff_id::text = ${id}`);
+        await database.execute(sql`DELETE FROM shifts WHERE staff_id = ${id}`);
+      } catch (relErr) {
+        console.warn('[Delete Staff] Relation cleanup warning:', relErr);
+      }
+
+      // Delete staff member using text comparison to support string IDs
+      const deleted = await database.delete(staff).where(sql`${staff.id}::text = ${id}`).returning();
       if (deleted.length === 0) {
         return res.status(404).json({ error: 'Staff member not found' });
       }

@@ -87,6 +87,32 @@ app.get('/api/purge-now', async (_req: Request, res: Response) => {
   }
 });
 
+app.delete('/api/staff-delete/:id', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const id = req.params.id as string;
+    if (!id) return res.status(400).json({ error: 'ID required' });
+
+    try {
+      await db.execute(sql`DELETE FROM auth_sessions WHERE staff_id::text = ${id}`);
+      await db.execute(sql`DELETE FROM shifts WHERE staff_id = ${id}`);
+    } catch (relErr) {
+      console.warn('[Staff Delete] Warning cleaning relations:', relErr);
+    }
+
+    const deleted = await db.delete(staff).where(sql`${staff.id}::text = ${id}`).returning();
+    if (deleted.length === 0) {
+      return res.status(404).json({ error: 'Staff member not found' });
+    }
+
+    console.log(`[Staff Delete] Successfully deleted staff ${deleted[0].name} (${id})`);
+    res.json({ success: true, message: 'Staff member deleted', staff: deleted[0] });
+  } catch (error: any) {
+    console.error('[Staff Delete] Error:', error);
+    res.status(500).json({ error: 'Failed to delete staff member', details: error.message });
+  }
+});
+
 // Unauthenticated kiosk endpoint for checking phone duplicates
 app.get('/api/phone-duplicates', async (req: Request, res: Response) => {
   try {

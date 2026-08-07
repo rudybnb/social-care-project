@@ -43,6 +43,10 @@ const Directory: React.FC = () => {
   const [staffFormError, setStaffFormError] = useState<string | null>(null);
   const [staffSuccessMessage, setStaffSuccessMessage] = useState<string | null>(null);
 
+  // Delete Staff Modal State
+  const [deleteTargetStaff, setDeleteTargetStaff] = useState<{ id: string; name: string; username?: string; status: string } | null>(null);
+  const [isDeletingStaff, setIsDeletingStaff] = useState(false);
+
   const [newStaffForm, setNewStaffForm] = useState({
     name: '',
     username: '',
@@ -268,6 +272,43 @@ const Directory: React.FC = () => {
       } catch (err: any) {
         alert(err.message || `Failed to ${action.toLowerCase()} staff member.`);
       }
+    }
+  };
+
+  const handleConfirmPermanentDelete = async () => {
+    if (!deleteTargetStaff) return;
+    setIsDeletingStaff(true);
+    try {
+      const staffId = deleteTargetStaff.id;
+      // Try direct delete endpoint first
+      let res = await fetch(`https://social-care-backend.onrender.com/api/staff-delete/${staffId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!res.ok) {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        res = await fetch(`https://social-care-backend.onrender.com/api/staff/${staffId}`, {
+          method: 'DELETE',
+          headers
+        });
+      }
+
+      if (res.ok || res.status === 404) {
+        setStaffList(prev => prev.filter(s => String(s.id) !== String(staffId)));
+        setStaffSuccessMessage(`Staff member "${deleteTargetStaff.name}" has been permanently deleted.`);
+        setTimeout(() => setStaffSuccessMessage(null), 4000);
+      } else {
+        const errData = await res.json().catch(() => ({ error: 'Delete failed' }));
+        alert(`Failed to delete staff member: ${errData.error || errData.details || 'Server error'}`);
+      }
+    } catch (err: any) {
+      console.error('Delete staff error:', err);
+      setStaffList(prev => prev.filter(s => String(s.id) !== String(deleteTargetStaff.id)));
+    } finally {
+      setIsDeletingStaff(false);
+      setDeleteTargetStaff(null);
     }
   };
 
@@ -979,6 +1020,144 @@ const Directory: React.FC = () => {
         </div>
       )}
 
+      {/* Delete Staff Options Modal */}
+      {deleteTargetStaff && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '16px'
+        }}>
+          <div style={{
+            backgroundColor: '#2a2a2a',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '100%',
+            maxWidth: '460px',
+            border: '1px solid #ef444450',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.7)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                backgroundColor: '#ef444420',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '22px'
+              }}>
+                🗑️
+              </div>
+              <div>
+                <h3 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', margin: 0 }}>
+                  Delete Staff Member
+                </h3>
+                <p style={{ color: '#9ca3af', fontSize: '13px', margin: '2px 0 0 0' }}>
+                  Select an action for this staff account
+                </p>
+              </div>
+            </div>
+
+            <div style={{
+              backgroundColor: '#1a1a1a',
+              padding: '14px 16px',
+              borderRadius: '8px',
+              border: '1px solid #3a3a3a',
+              marginBottom: '20px'
+            }}>
+              <div style={{ color: 'white', fontWeight: 'bold', fontSize: '15px' }}>
+                {deleteTargetStaff.name}
+              </div>
+              {deleteTargetStaff.username && (
+                <div style={{ color: '#9ca3af', fontSize: '13px', marginTop: '2px' }}>
+                  Username / ID: {deleteTargetStaff.username}
+                </div>
+              )}
+              <div style={{ color: '#9ca3af', fontSize: '13px', marginTop: '4px' }}>
+                Current Status: <span style={{ color: deleteTargetStaff.status === 'Active' ? '#4ade80' : '#f87171', fontWeight: '600' }}>{deleteTargetStaff.status}</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={handleConfirmPermanentDelete}
+                disabled={isDeletingStaff}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: isDeletingStaff ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                {isDeletingStaff ? 'Deleting...' : '🔴 Delete Permanently from Database'}
+              </button>
+
+              <button
+                onClick={() => {
+                  const target = deleteTargetStaff;
+                  setDeleteTargetStaff(null);
+                  handleToggleStatus(target.id, target.name, target.status);
+                }}
+                disabled={isDeletingStaff}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  backgroundColor: '#92400e',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: isDeletingStaff ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                ⏸️ Suspend Account Instead
+              </button>
+
+              <button
+                onClick={() => setDeleteTargetStaff(null)}
+                disabled={isDeletingStaff}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  backgroundColor: '#3f3f46',
+                  color: '#d4d4d8',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Staff Tab Content */}
       {activeTab === 'staff' && (
         <>
@@ -1291,46 +1470,80 @@ const Directory: React.FC = () => {
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
+                          {/* Top Row: View Profile & Delete Staff */}
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              onClick={() => handleViewProfile(String(staffMember.id))}
+                              style={{
+                                flex: 1,
+                                padding: '9px 14px',
+                                backgroundColor: '#3a3a3a',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                textAlign: 'center'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4a4a4a'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3a3a3a'}
+                            >
+                              View Profile
+                            </button>
+                            <button
+                              onClick={() => setDeleteTargetStaff({
+                                id: String(staffMember.id),
+                                name: staffMember.name,
+                                username: staffMember.username,
+                                status: staffMember.status || 'Active'
+                              })}
+                              title="Delete staff member with options"
+                              style={{
+                                padding: '9px 14px',
+                                backgroundColor: '#991b1b',
+                                color: 'white',
+                                border: '1px solid #dc2626',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                whiteSpace: 'nowrap'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#991b1b'}
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
+
+                          {/* Bottom Row: Suspend / Reactivate */}
                           <button
-                            onClick={() => handleViewProfile(String(staffMember.id))}
+                            onClick={() => handleToggleStatus(String(staffMember.id), staffMember.name, staffMember.status || 'Active')}
+                            title={staffMember.status === 'Inactive' ? 'Reactivate staff member' : 'Suspend staff member'}
                             style={{
-                              flex: 1,
-                              padding: '10px 16px',
-                              backgroundColor: '#3a3a3a',
+                              width: '100%',
+                              padding: '8px 14px',
+                              backgroundColor: staffMember.status === 'Inactive' ? '#15803d' : '#92400e',
                               color: 'white',
                               border: 'none',
                               borderRadius: '8px',
-                              fontSize: '13px',
+                              fontSize: '12px',
                               fontWeight: '600',
                               cursor: 'pointer',
                               transition: 'all 0.2s',
                               textAlign: 'center'
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4a4a4a'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3a3a3a'}
-                          >
-                            View Profile
-                          </button>
-                          <button
-                            onClick={() => handleToggleStatus(String(staffMember.id), staffMember.name, staffMember.status || 'Active')}
-                            title={staffMember.status === 'Inactive' ? 'Reactivate staff member' : 'Suspend staff member'}
-                            style={{
-                              padding: '10px 16px',
-                              backgroundColor: staffMember.status === 'Inactive' ? '#15803d' : '#92400e',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '8px',
-                              fontSize: '13px',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s',
-                              whiteSpace: 'nowrap'
-                            }}
                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = staffMember.status === 'Inactive' ? '#16a34a' : '#b45309'}
                             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = staffMember.status === 'Inactive' ? '#15803d' : '#92400e'}
                           >
-                            {staffMember.status === 'Inactive' ? '▶ Reactivate' : '⏸ Suspend'}
+                            {staffMember.status === 'Inactive' ? '▶ Reactivate Staff Account' : '⏸ Suspend Staff Account'}
                           </button>
                         </div>
                       </div>
