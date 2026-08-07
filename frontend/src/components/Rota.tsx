@@ -919,21 +919,23 @@ const Rota: React.FC = () => {
   };
 
   const clearDay = async (date: string, siteId: string, siteName: string) => {
-    const dayShift = getShiftForSlot(date, siteId, 'Day');
-    const nightShift = getShiftForSlot(date, siteId, 'Night');
-    const shiftCount = (dayShift ? 1 : 0) + (nightShift ? 1 : 0);
+    const dayShifts = getShiftsForSlot(date, siteId, 'Day');
+    const nightShifts = getShiftsForSlot(date, siteId, 'Night');
+    const totalDayShifts = [...dayShifts, ...nightShifts];
+    const shiftCount = totalDayShifts.length;
 
     if (shiftCount === 0) {
       alert('No shifts to clear for this day.');
       return;
     }
 
+    const workerList = totalDayShifts.map(s => `• ${s.type} Shift (${s.staffName})`).join('\n');
+
     const confirmed = window.confirm(
       `⚠️ CLEAR ALL SHIFTS\n\n` +
       `This will remove ${shiftCount} shift(s) at ${siteName} on ${new Date(date).toLocaleDateString('en-GB')}:\n\n` +
-      `${dayShift ? '• Day Shift (' + dayShift.staffName + ')\n' : ''}` +
-      `${nightShift ? '• Night Shift (' + nightShift.staffName + ')\n' : ''}` +
-      `\nAre you sure you want to continue?`
+      `${workerList}\n\n` +
+      `Are you sure you want to continue?`
     );
 
     if (!confirmed) return;
@@ -950,8 +952,9 @@ const Rota: React.FC = () => {
       const result = await response.json();
 
       // Remove shifts from database and local state
-      if (dayShift) await removeShift(dayShift.id);
-      if (nightShift) await removeShift(nightShift.id);
+      for (const s of totalDayShifts) {
+        await removeShift(s.id);
+      }
       setShifts(getShifts());
 
       alert(`✅ ${result.message}`);
@@ -969,6 +972,15 @@ const Rota: React.FC = () => {
       return dateMatch && siteMatch && typeMatch;
     });
     return matchingShifts[0];
+  };
+
+  const getShiftsForSlot = (date: string, siteId: string, type: 'Day' | 'Night') => {
+    return shifts.filter(s => {
+      const dateMatch = s.date === date;
+      const siteMatch = String(s.siteId) === String(siteId);
+      const typeMatch = s.type === type;
+      return dateMatch && siteMatch && typeMatch;
+    });
   };
 
   const getStaffRotationBalance = (staffId: string | number) => {
@@ -1527,9 +1539,10 @@ const Rota: React.FC = () => {
                           )}
                           {/* Coverage Badge and Clear Day Button */}
                           {(() => {
-                            const dayShift = getShiftForSlot(date, site.id, 'Day');
-                            const nightShift = getShiftForSlot(date, site.id, 'Night');
-                            const coverage = (dayShift ? 1 : 0) + (nightShift ? 1 : 0);
+                            const dayShifts = getShiftsForSlot(date, site.id, 'Day');
+                            const nightShifts = getShiftsForSlot(date, site.id, 'Night');
+                            const coverage = (dayShifts.length > 0 ? 1 : 0) + (nightShifts.length > 0 ? 1 : 0);
+                            const totalWorkers = dayShifts.length + nightShifts.length;
                             const bgColor = coverage === 2 ? '#10b98120' : coverage === 1 ? '#f59e0b20' : '#ef444420';
                             const textColor = coverage === 2 ? '#10b981' : coverage === 1 ? '#f59e0b' : '#ef4444';
                             return (
@@ -1542,10 +1555,10 @@ const Rota: React.FC = () => {
                                   display: 'inline-block'
                                 }}>
                                   <span style={{ color: textColor, fontSize: '10px', fontWeight: '700' }}>
-                                    {coverage}/2
+                                    {coverage}/2 {totalWorkers > 2 ? `(${totalWorkers} staff)` : ''}
                                   </span>
                                 </div>
-                                {coverage > 0 && (
+                                {totalWorkers > 0 && (
                                   <button
                                     onClick={() => clearDay(date, site.id, site.name)}
                                     onTouchEnd={(e) => {
@@ -1583,245 +1596,249 @@ const Rota: React.FC = () => {
                             DAY
                           </div>
                           {(() => {
-                            const shift = getShiftForSlot(date, site.id, 'Day');
-                            return shift ? (
-                              <div>
-                                <div style={{
-                                  backgroundColor: shift.isSwapped ? '#f9731620' : shift.staffStatus === 'accepted' ? '#10b98120' : shift.staffStatus === 'declined' ? '#ef444420' : `${site.color}20`,
-                                  padding: '6px 8px',
-                                  borderRadius: '6px',
-                                  border: shift.published === false
-                                    ? '2px dashed #fbbf24' // Draft style
-                                    : shift.isSwapped ? '2px solid #f97316' : shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
-                                  marginBottom: '6px',
-                                  opacity: shift.published === false ? 0.8 : 1
-                                }}
-                                title={shift.isSwapped ? `Swapped shift. Originally assigned to: ${shift.originalStaffId || 'Another worker'}` : undefined}
-                                >
-                                  <div style={{
-                                    color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'),
-                                    fontSize: '12px',
-                                    fontWeight: '600',
-                                    marginBottom: '2px'
-                                  }}>
-                                    {shift.isBank ? '🏦 ' : ''}{shift.staffName}
-                                    {shift.isSwapped && (
-                                      <span style={{
-                                        marginLeft: '4px',
-                                        padding: '1px 4px',
-                                        backgroundColor: '#f9731630',
-                                        border: '1px solid #f97316',
-                                        borderRadius: '3px',
-                                        fontSize: '9px',
-                                        fontWeight: '700',
-                                        letterSpacing: '0.3px',
-                                        color: '#f97316'
+                            const slotShifts = getShiftsForSlot(date, site.id, 'Day');
+                            return slotShifts.length > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {slotShifts.map((shift) => (
+                                  <div key={shift.id}>
+                                    <div style={{
+                                      backgroundColor: shift.isSwapped ? '#f9731620' : shift.staffStatus === 'accepted' ? '#10b98120' : shift.staffStatus === 'declined' ? '#ef444420' : `${site.color}20`,
+                                      padding: '6px 8px',
+                                      borderRadius: '6px',
+                                      border: shift.published === false
+                                        ? '2px dashed #fbbf24' // Draft style
+                                        : shift.isSwapped ? '2px solid #f97316' : shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
+                                      marginBottom: '6px',
+                                      opacity: shift.published === false ? 0.8 : 1
+                                    }}
+                                    title={shift.isSwapped ? `Swapped shift. Originally assigned to: ${shift.originalStaffId || 'Another worker'}` : undefined}
+                                    >
+                                      <div style={{
+                                        color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'),
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        marginBottom: '2px'
                                       }}>
-                                        🔄 SWAPPED
-                                      </span>
-                                    )}
-                                    {shift.published === false && (
-                                      <span style={{
-                                        marginLeft: '4px',
-                                        padding: '1px 4px',
-                                        backgroundColor: '#fbbf2420',
-                                        border: '1px solid #fbbf24',
-                                        borderRadius: '3px',
-                                        fontSize: '9px',
-                                        fontWeight: '700',
-                                        letterSpacing: '0.3px',
-                                        color: '#fbbf24'
-                                      }}>
-                                        DRAFT
-                                      </span>
-                                    )}
-                                    {shift.isBank && (() => {
-                                      const shiftDate = new Date(shift.date);
-                                      const tomorrow = new Date();
-                                      tomorrow.setDate(tomorrow.getDate() + 1);
-                                      tomorrow.setHours(0, 0, 0, 0);
-                                      const isUrgent = shiftDate <= tomorrow;
-                                      return (
-                                        <span style={{
-                                          marginLeft: '4px',
-                                          padding: '1px 4px',
-                                          backgroundColor: isUrgent ? '#ef444420' : '#f59e0b20',
-                                          border: `1px solid ${isUrgent ? '#ef4444' : '#f59e0b'}`,
-                                          borderRadius: '3px',
-                                          fontSize: '9px',
-                                          fontWeight: '700',
-                                          letterSpacing: '0.3px',
-                                          color: isUrgent ? '#ef4444' : '#f59e0b'
-                                        }}>
-                                          {isUrgent ? '⚠️ URGENT' : 'PENDING'}
-                                        </span>
-                                      );
-                                    })()}
-                                    {!shift.isBank && shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) && (
-                                      <span style={{
-                                        marginLeft: '4px',
-                                        padding: '1px 4px',
-                                        backgroundColor: '#10b98130',
-                                        borderRadius: '3px',
-                                        fontSize: '9px',
-                                        fontWeight: '700',
-                                        letterSpacing: '0.3px'
-                                      }}>
-                                        AGENCY
-                                      </span>
-                                    )}
-                                    {shift.staffStatus === 'pending' && !shift.isBank && (
-                                      <span style={{
-                                        marginLeft: '4px',
-                                        padding: '1px 4px',
-                                        backgroundColor: '#f59e0b20',
-                                        border: '1px solid #f59e0b',
-                                        borderRadius: '3px',
-                                        fontSize: '9px',
-                                        fontWeight: '700',
-                                        letterSpacing: '0.3px',
-                                        color: '#f59e0b'
-                                      }}>
-                                        ⏳ PENDING
-                                      </span>
-                                    )}
-                                    {shift.staffStatus === 'accepted' && (
-                                      <span style={{
-                                        marginLeft: '4px',
-                                        padding: '1px 4px',
-                                        backgroundColor: '#10b98130',
-                                        border: '1px solid #10b981',
-                                        borderRadius: '3px',
-                                        fontSize: '9px',
-                                        fontWeight: '700',
-                                        letterSpacing: '0.3px',
-                                        color: '#10b981'
-                                      }}>
-                                        ✓ ACCEPTED
-                                      </span>
-                                    )}
-                                    {shift.staffStatus === 'declined' && (
-                                      <span style={{
-                                        marginLeft: '4px',
-                                        padding: '1px 4px',
-                                        backgroundColor: '#ef444420',
-                                        border: '1px solid #ef4444',
-                                        borderRadius: '3px',
-                                        fontSize: '9px',
-                                        fontWeight: '700',
-                                        letterSpacing: '0.3px',
-                                        color: '#ef4444'
-                                      }}>
-                                        ✗ DECLINED
-                                      </span>
-                                    )}
+                                        {shift.isBank ? '🏦 ' : ''}{shift.staffName}
+                                        {shift.isSwapped && (
+                                          <span style={{
+                                            marginLeft: '4px',
+                                            padding: '1px 4px',
+                                            backgroundColor: '#f9731630',
+                                            border: '1px solid #f97316',
+                                            borderRadius: '3px',
+                                            fontSize: '9px',
+                                            fontWeight: '700',
+                                            letterSpacing: '0.3px',
+                                            color: '#f97316'
+                                          }}>
+                                            🔄 SWAPPED
+                                          </span>
+                                        )}
+                                        {shift.published === false && (
+                                          <span style={{
+                                            marginLeft: '4px',
+                                            padding: '1px 4px',
+                                            backgroundColor: '#fbbf2420',
+                                            border: '1px solid #fbbf24',
+                                            borderRadius: '3px',
+                                            fontSize: '9px',
+                                            fontWeight: '700',
+                                            letterSpacing: '0.3px',
+                                            color: '#fbbf24'
+                                          }}>
+                                            DRAFT
+                                          </span>
+                                        )}
+                                        {shift.isBank && (() => {
+                                          const shiftDate = new Date(shift.date);
+                                          const tomorrow = new Date();
+                                          tomorrow.setDate(tomorrow.getDate() + 1);
+                                          tomorrow.setHours(0, 0, 0, 0);
+                                          const isUrgent = shiftDate <= tomorrow;
+                                          return (
+                                            <span style={{
+                                              marginLeft: '4px',
+                                              padding: '1px 4px',
+                                              backgroundColor: isUrgent ? '#ef444420' : '#f59e0b20',
+                                              border: `1px solid ${isUrgent ? '#ef4444' : '#f59e0b'}`,
+                                              borderRadius: '3px',
+                                              fontSize: '9px',
+                                              fontWeight: '700',
+                                              letterSpacing: '0.3px',
+                                              color: isUrgent ? '#ef4444' : '#f59e0b'
+                                            }}>
+                                              {isUrgent ? '⚠️ URGENT' : 'PENDING'}
+                                            </span>
+                                          );
+                                        })()}
+                                        {!shift.isBank && shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) && (
+                                          <span style={{
+                                            marginLeft: '4px',
+                                            padding: '1px 4px',
+                                            backgroundColor: '#10b98130',
+                                            borderRadius: '3px',
+                                            fontSize: '9px',
+                                            fontWeight: '700',
+                                            letterSpacing: '0.3px'
+                                          }}>
+                                            AGENCY
+                                          </span>
+                                        )}
+                                        {shift.staffStatus === 'pending' && !shift.isBank && (
+                                          <span style={{
+                                            marginLeft: '4px',
+                                            padding: '1px 4px',
+                                            backgroundColor: '#f59e0b20',
+                                            border: '1px solid #f59e0b',
+                                            borderRadius: '3px',
+                                            fontSize: '9px',
+                                            fontWeight: '700',
+                                            letterSpacing: '0.3px',
+                                            color: '#f59e0b'
+                                          }}>
+                                            ⏳ PENDING
+                                          </span>
+                                        )}
+                                        {shift.staffStatus === 'accepted' && (
+                                          <span style={{
+                                            marginLeft: '4px',
+                                            padding: '1px 4px',
+                                            backgroundColor: '#10b98130',
+                                            border: '1px solid #10b981',
+                                            borderRadius: '3px',
+                                            fontSize: '9px',
+                                            fontWeight: '700',
+                                            letterSpacing: '0.3px',
+                                            color: '#10b981'
+                                          }}>
+                                            ✓ ACCEPTED
+                                          </span>
+                                        )}
+                                        {shift.staffStatus === 'declined' && (
+                                          <span style={{
+                                            marginLeft: '4px',
+                                            padding: '1px 4px',
+                                            backgroundColor: '#ef444420',
+                                            border: '1px solid #ef4444',
+                                            borderRadius: '3px',
+                                            fontSize: '9px',
+                                            fontWeight: '700',
+                                            letterSpacing: '0.3px',
+                                            color: '#ef4444'
+                                          }}>
+                                            ✗ DECLINED
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div style={{ color: '#9ca3af', fontSize: '10px' }}>
+                                        {shift.startTime}-{shift.endTime || calculateEndTime(shift.startTime, shift.duration)}
+                                      </div>
+                                      {shift.clockedIn && (
+                                        <div style={{ fontSize: '10px', marginTop: '2px', display: 'flex', gap: '4px' }}>
+                                          <span style={{ color: '#10b981', fontWeight: 'bold' }}>In: {formatUkTime(shift.clockInTime!)}</span>
+                                          {shift.clockedOut && <span style={{ color: '#10b981', fontWeight: 'bold' }}>Out: {formatUkTime(shift.clockOutTime!)}</span>}
+                                        </div>
+                                      )}
+                                      {shift.is24Hour && (
+                                        <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
+                                          24HR APPROVED
+                                        </div>
+                                      )}
+                                      {shift.extended && (
+                                        <div style={{ color: '#10b981', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
+                                          +{shift.extensionHours}h EXTENDED
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <button
+                                        onClick={() => handleEditShift(shift)}
+                                        onTouchEnd={(e) => {
+                                          e.preventDefault();
+                                          handleEditShift(shift);
+                                        }}
+                                        style={{
+                                          flex: 1,
+                                          padding: '4px',
+                                          backgroundColor: '#3b82f6',
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          fontSize: '10px',
+                                          fontWeight: '600',
+                                          cursor: 'pointer',
+                                          touchAction: 'manipulation'
+                                        }}
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        onClick={() => handleExtendShift(shift)}
+                                        onTouchEnd={(e) => {
+                                          e.preventDefault();
+                                          handleExtendShift(shift);
+                                        }}
+                                        style={{
+                                          flex: 1,
+                                          padding: '4px',
+                                          backgroundColor: '#10b981',
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          fontSize: '10px',
+                                          fontWeight: '600',
+                                          cursor: 'pointer',
+                                          touchAction: 'manipulation'
+                                        }}
+                                      >
+                                        Extend
+                                      </button>
+                                      <button
+                                        onClick={() => handleSplitShift(shift)}
+                                        onTouchEnd={(e) => {
+                                          e.preventDefault();
+                                          handleSplitShift(shift);
+                                        }}
+                                        style={{
+                                          flex: 1,
+                                          padding: '4px',
+                                          backgroundColor: '#8b5cf6',
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          fontSize: '10px',
+                                          fontWeight: '600',
+                                          cursor: 'pointer',
+                                          touchAction: 'manipulation'
+                                        }}
+                                      >
+                                        Split
+                                      </button>
+                                      <button
+                                        onClick={() => confirmDeleteShift(shift)}
+                                        onTouchEnd={(e) => {
+                                          e.preventDefault();
+                                          confirmDeleteShift(shift);
+                                        }}
+                                        style={{
+                                          flex: 1,
+                                          padding: '4px',
+                                          backgroundColor: '#6b7280',
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          fontSize: '10px',
+                                          fontWeight: '600',
+                                          cursor: 'pointer',
+                                          touchAction: 'manipulation'
+                                        }}
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
                                   </div>
-                                  <div style={{ color: '#9ca3af', fontSize: '10px' }}>
-                                    {shift.startTime}-{shift.endTime || calculateEndTime(shift.startTime, shift.duration)}
-                                  </div>
-                                  {shift.clockedIn && (
-                                    <div style={{ fontSize: '10px', marginTop: '2px', display: 'flex', gap: '4px' }}>
-                                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>In: {formatUkTime(shift.clockInTime!)}</span>
-                                      {shift.clockedOut && <span style={{ color: '#10b981', fontWeight: 'bold' }}>Out: {formatUkTime(shift.clockOutTime!)}</span>}
-                                    </div>
-                                  )}
-                                  {shift.is24Hour && (
-                                    <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
-                                      24HR APPROVED
-                                    </div>
-                                  )}
-                                  {shift.extended && (
-                                    <div style={{ color: '#10b981', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
-                                      +{shift.extensionHours}h EXTENDED
-                                    </div>
-                                  )}
-                                </div>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  <button
-                                    onClick={() => handleEditShift(shift)}
-                                    onTouchEnd={(e) => {
-                                      e.preventDefault();
-                                      handleEditShift(shift);
-                                    }}
-                                    style={{
-                                      flex: 1,
-                                      padding: '4px',
-                                      backgroundColor: '#3b82f6',
-                                      color: 'white',
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      fontSize: '10px',
-                                      fontWeight: '600',
-                                      cursor: 'pointer',
-                                      touchAction: 'manipulation'
-                                    }}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleExtendShift(shift)}
-                                    onTouchEnd={(e) => {
-                                      e.preventDefault();
-                                      handleExtendShift(shift);
-                                    }}
-                                    style={{
-                                      flex: 1,
-                                      padding: '4px',
-                                      backgroundColor: '#10b981',
-                                      color: 'white',
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      fontSize: '10px',
-                                      fontWeight: '600',
-                                      cursor: 'pointer',
-                                      touchAction: 'manipulation'
-                                    }}
-                                  >
-                                    Extend
-                                  </button>
-                                  <button
-                                    onClick={() => handleSplitShift(shift)}
-                                    onTouchEnd={(e) => {
-                                      e.preventDefault();
-                                      handleSplitShift(shift);
-                                    }}
-                                    style={{
-                                      flex: 1,
-                                      padding: '4px',
-                                      backgroundColor: '#8b5cf6',
-                                      color: 'white',
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      fontSize: '10px',
-                                      fontWeight: '600',
-                                      cursor: 'pointer',
-                                      touchAction: 'manipulation'
-                                    }}
-                                  >
-                                    Split
-                                  </button>
-                                  <button
-                                    onClick={() => confirmDeleteShift(shift)}
-                                    onTouchEnd={(e) => {
-                                      e.preventDefault();
-                                      confirmDeleteShift(shift);
-                                    }}
-                                    style={{
-                                      flex: 1,
-                                      padding: '4px',
-                                      backgroundColor: '#6b7280',
-                                      color: 'white',
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      fontSize: '10px',
-                                      fontWeight: '600',
-                                      cursor: 'pointer',
-                                      touchAction: 'manipulation'
-                                    }}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
+                                ))}
                               </div>
                             ) : (
                               <div style={{ color: '#6b7280', fontSize: '11px', fontStyle: 'italic' }}>
@@ -1840,227 +1857,231 @@ const Rota: React.FC = () => {
                             NIGHT
                           </div>
                           {(() => {
-                            const shift = getShiftForSlot(date, site.id, 'Night');
-                            return shift ? (
-                              <div>
-                                <div style={{
-                                  backgroundColor: shift.isSwapped ? '#f9731620' : shift.staffStatus === 'accepted' ? '#10b98120' : shift.staffStatus === 'declined' ? '#ef444420' : `${site.color}20`,
-                                  padding: '6px 8px',
-                                  borderRadius: '6px',
-                                  border: shift.isSwapped ? '2px solid #f97316' : shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
-                                  marginBottom: '6px'
-                                }}
-                                title={shift.isSwapped ? `Swapped shift. Originally assigned to: ${shift.originalStaffId || 'Another worker'}` : undefined}
-                                >
-                                  <div style={{
-                                    color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'),
-                                    fontSize: '12px',
-                                    fontWeight: '600',
-                                    marginBottom: '2px'
-                                  }}>
-                                    {shift.isBank ? '🏦 ' : ''}{shift.staffName}
-                                    {shift.isSwapped && (
-                                      <span style={{
-                                        marginLeft: '4px',
-                                        padding: '1px 4px',
-                                        backgroundColor: '#f9731630',
-                                        border: '1px solid #f97316',
-                                        borderRadius: '3px',
-                                        fontSize: '9px',
-                                        fontWeight: '700',
-                                        letterSpacing: '0.3px',
-                                        color: '#f97316'
+                            const slotShifts = getShiftsForSlot(date, site.id, 'Night');
+                            return slotShifts.length > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {slotShifts.map((shift) => (
+                                  <div key={shift.id}>
+                                    <div style={{
+                                      backgroundColor: shift.isSwapped ? '#f9731620' : shift.staffStatus === 'accepted' ? '#10b98120' : shift.staffStatus === 'declined' ? '#ef444420' : `${site.color}20`,
+                                      padding: '6px 8px',
+                                      borderRadius: '6px',
+                                      border: shift.isSwapped ? '2px solid #f97316' : shift.staffStatus === 'accepted' ? '2px solid #10b981' : shift.staffStatus === 'declined' ? '2px solid #ef4444' : `1px solid ${site.color}40`,
+                                      marginBottom: '6px'
+                                    }}
+                                    title={shift.isSwapped ? `Swapped shift. Originally assigned to: ${shift.originalStaffId || 'Another worker'}` : undefined}
+                                    >
+                                      <div style={{
+                                        color: shift.isBank ? '#f59e0b' : (shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) ? '#10b981' : 'white'),
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        marginBottom: '2px'
                                       }}>
-                                        🔄 SWAPPED
-                                      </span>
-                                    )}
-                                    {shift.isBank && (() => {
-                                      const shiftDate = new Date(shift.date);
-                                      const tomorrow = new Date();
-                                      tomorrow.setDate(tomorrow.getDate() + 1);
-                                      tomorrow.setHours(0, 0, 0, 0);
-                                      const isUrgent = shiftDate <= tomorrow;
-                                      return (
-                                        <span style={{
-                                          marginLeft: '4px',
-                                          padding: '1px 4px',
-                                          backgroundColor: isUrgent ? '#ef444420' : '#f59e0b20',
-                                          border: `1px solid ${isUrgent ? '#ef4444' : '#f59e0b'}`,
-                                          borderRadius: '3px',
-                                          fontSize: '9px',
-                                          fontWeight: '700',
-                                          letterSpacing: '0.3px',
-                                          color: isUrgent ? '#ef4444' : '#f59e0b'
-                                        }}>
-                                          {isUrgent ? '⚠️ URGENT' : 'PENDING'}
-                                        </span>
-                                      );
-                                    })()}
-                                    {!shift.isBank && shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) && (
-                                      <span style={{
-                                        marginLeft: '4px',
-                                        padding: '1px 4px',
-                                        backgroundColor: '#10b98130',
-                                        borderRadius: '3px',
-                                        fontSize: '9px',
-                                        fontWeight: '700',
-                                        letterSpacing: '0.3px'
-                                      }}>
-                                        AGENCY
-                                      </span>
-                                    )}
-                                    {shift.staffStatus === 'pending' && !shift.isBank && (
-                                      <span style={{
-                                        marginLeft: '4px',
-                                        padding: '1px 4px',
-                                        backgroundColor: '#f59e0b20',
-                                        border: '1px solid #f59e0b',
-                                        borderRadius: '3px',
-                                        fontSize: '9px',
-                                        fontWeight: '700',
-                                        letterSpacing: '0.3px',
-                                        color: '#f59e0b'
-                                      }}>
-                                        ⏳ PENDING
-                                      </span>
-                                    )}
-                                    {shift.staffStatus === 'accepted' && (
-                                      <span style={{
-                                        marginLeft: '4px',
-                                        padding: '1px 4px',
-                                        backgroundColor: '#10b98130',
-                                        border: '1px solid #10b981',
-                                        borderRadius: '3px',
-                                        fontSize: '9px',
-                                        fontWeight: '700',
-                                        letterSpacing: '0.3px',
-                                        color: '#10b981'
-                                      }}>
-                                        ✓ ACCEPTED
-                                      </span>
-                                    )}
-                                    {shift.staffStatus === 'declined' && (
-                                      <span style={{
-                                        marginLeft: '4px',
-                                        padding: '1px 4px',
-                                        backgroundColor: '#ef444420',
-                                        border: '1px solid #ef4444',
-                                        borderRadius: '3px',
-                                        fontSize: '9px',
-                                        fontWeight: '700',
-                                        letterSpacing: '0.3px',
-                                        color: '#ef4444'
-                                      }}>
-                                        ✗ DECLINED
-                                      </span>
-                                    )}
+                                        {shift.isBank ? '🏦 ' : ''}{shift.staffName}
+                                        {shift.isSwapped && (
+                                          <span style={{
+                                            marginLeft: '4px',
+                                            padding: '1px 4px',
+                                            backgroundColor: '#f9731630',
+                                            border: '1px solid #f97316',
+                                            borderRadius: '3px',
+                                            fontSize: '9px',
+                                            fontWeight: '700',
+                                            letterSpacing: '0.3px',
+                                            color: '#f97316'
+                                          }}>
+                                            🔄 SWAPPED
+                                          </span>
+                                        )}
+                                        {shift.isBank && (() => {
+                                          const shiftDate = new Date(shift.date);
+                                          const tomorrow = new Date();
+                                          tomorrow.setDate(tomorrow.getDate() + 1);
+                                          tomorrow.setHours(0, 0, 0, 0);
+                                          const isUrgent = shiftDate <= tomorrow;
+                                          return (
+                                            <span style={{
+                                              marginLeft: '4px',
+                                              padding: '1px 4px',
+                                              backgroundColor: isUrgent ? '#ef444420' : '#f59e0b20',
+                                              border: `1px solid ${isUrgent ? '#ef4444' : '#f59e0b'}`,
+                                              borderRadius: '3px',
+                                              fontSize: '9px',
+                                              fontWeight: '700',
+                                              letterSpacing: '0.3px',
+                                              color: isUrgent ? '#ef4444' : '#f59e0b'
+                                            }}>
+                                              {isUrgent ? '⚠️ URGENT' : 'PENDING'}
+                                            </span>
+                                          );
+                                        })()}
+                                        {!shift.isBank && shift.staffName && staff.find(s => s.name === shift.staffName && 'agencyName' in s) && (
+                                          <span style={{
+                                            marginLeft: '4px',
+                                            padding: '1px 4px',
+                                            backgroundColor: '#10b98130',
+                                            borderRadius: '3px',
+                                            fontSize: '9px',
+                                            fontWeight: '700',
+                                            letterSpacing: '0.3px'
+                                          }}>
+                                            AGENCY
+                                          </span>
+                                        )}
+                                        {shift.staffStatus === 'pending' && !shift.isBank && (
+                                          <span style={{
+                                            marginLeft: '4px',
+                                            padding: '1px 4px',
+                                            backgroundColor: '#f59e0b20',
+                                            border: '1px solid #f59e0b',
+                                            borderRadius: '3px',
+                                            fontSize: '9px',
+                                            fontWeight: '700',
+                                            letterSpacing: '0.3px',
+                                            color: '#f59e0b'
+                                          }}>
+                                            ⏳ PENDING
+                                          </span>
+                                        )}
+                                        {shift.staffStatus === 'accepted' && (
+                                          <span style={{
+                                            marginLeft: '4px',
+                                            padding: '1px 4px',
+                                            backgroundColor: '#10b98130',
+                                            border: '1px solid #10b981',
+                                            borderRadius: '3px',
+                                            fontSize: '9px',
+                                            fontWeight: '700',
+                                            letterSpacing: '0.3px',
+                                            color: '#10b981'
+                                          }}>
+                                            ✓ ACCEPTED
+                                          </span>
+                                        )}
+                                        {shift.staffStatus === 'declined' && (
+                                          <span style={{
+                                            marginLeft: '4px',
+                                            padding: '1px 4px',
+                                            backgroundColor: '#ef444420',
+                                            border: '1px solid #ef4444',
+                                            borderRadius: '3px',
+                                            fontSize: '9px',
+                                            fontWeight: '700',
+                                            letterSpacing: '0.3px',
+                                            color: '#ef4444'
+                                          }}>
+                                            ✗ DECLINED
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div style={{ color: '#9ca3af', fontSize: '10px' }}>
+                                        {shift.startTime}-{shift.endTime || calculateEndTime(shift.startTime, shift.duration)}
+                                      </div>
+                                      {shift.clockedIn && (
+                                        <div style={{ fontSize: '10px', marginTop: '2px', display: 'flex', gap: '4px' }}>
+                                          <span style={{ color: '#10b981', fontWeight: 'bold' }}>In: {formatUkTime(shift.clockInTime!)}</span>
+                                          {shift.clockedOut && <span style={{ color: '#10b981', fontWeight: 'bold' }}>Out: {formatUkTime(shift.clockOutTime!)}</span>}
+                                        </div>
+                                      )}
+                                      {shift.is24Hour && (
+                                        <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
+                                          24HR APPROVED
+                                        </div>
+                                      )}
+                                      {shift.extended && (
+                                        <div style={{ color: '#10b981', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
+                                          +{shift.extensionHours}h EXTENDED
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <button
+                                        onClick={() => handleEditShift(shift)}
+                                        onTouchEnd={(e) => {
+                                          e.preventDefault();
+                                          handleEditShift(shift);
+                                        }}
+                                        style={{
+                                          flex: 1,
+                                          padding: '4px',
+                                          backgroundColor: '#3b82f6',
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          fontSize: '10px',
+                                          fontWeight: '600',
+                                          cursor: 'pointer',
+                                          touchAction: 'manipulation'
+                                        }}
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        onClick={() => handleExtendShift(shift)}
+                                        onTouchEnd={(e) => {
+                                          e.preventDefault();
+                                          handleExtendShift(shift);
+                                        }}
+                                        style={{
+                                          flex: 1,
+                                          padding: '4px',
+                                          backgroundColor: '#10b981',
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          fontSize: '10px',
+                                          fontWeight: '600',
+                                          cursor: 'pointer',
+                                          touchAction: 'manipulation'
+                                        }}
+                                      >
+                                        Extend
+                                      </button>
+                                      <button
+                                        onClick={() => handleSplitShift(shift)}
+                                        onTouchEnd={(e) => {
+                                          e.preventDefault();
+                                          handleSplitShift(shift);
+                                        }}
+                                        style={{
+                                          flex: 1,
+                                          padding: '4px',
+                                          backgroundColor: '#8b5cf6',
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          fontSize: '10px',
+                                          fontWeight: '600',
+                                          cursor: 'pointer',
+                                          touchAction: 'manipulation'
+                                        }}
+                                      >
+                                        Split
+                                      </button>
+                                      <button
+                                        onClick={() => confirmDeleteShift(shift)}
+                                        onTouchEnd={(e) => {
+                                          e.preventDefault();
+                                          confirmDeleteShift(shift);
+                                        }}
+                                        style={{
+                                          flex: 1,
+                                          padding: '4px',
+                                          backgroundColor: '#6b7280',
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          fontSize: '10px',
+                                          fontWeight: '600',
+                                          cursor: 'pointer',
+                                          touchAction: 'manipulation'
+                                        }}
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
                                   </div>
-                                  <div style={{ color: '#9ca3af', fontSize: '10px' }}>
-                                    {shift.startTime}-{shift.endTime || calculateEndTime(shift.startTime, shift.duration)}
-                                  </div>
-                                  {shift.clockedIn && (
-                                    <div style={{ fontSize: '10px', marginTop: '2px', display: 'flex', gap: '4px' }}>
-                                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>In: {formatUkTime(shift.clockInTime!)}</span>
-                                      {shift.clockedOut && <span style={{ color: '#10b981', fontWeight: 'bold' }}>Out: {formatUkTime(shift.clockOutTime!)}</span>}
-                                    </div>
-                                  )}
-                                  {shift.is24Hour && (
-                                    <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
-                                      24HR APPROVED
-                                    </div>
-                                  )}
-                                  {shift.extended && (
-                                    <div style={{ color: '#10b981', fontSize: '10px', fontWeight: '600', marginTop: '4px' }}>
-                                      +{shift.extensionHours}h EXTENDED
-                                    </div>
-                                  )}
-                                </div>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  <button
-                                    onClick={() => handleEditShift(shift)}
-                                    onTouchEnd={(e) => {
-                                      e.preventDefault();
-                                      handleEditShift(shift);
-                                    }}
-                                    style={{
-                                      flex: 1,
-                                      padding: '4px',
-                                      backgroundColor: '#3b82f6',
-                                      color: 'white',
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      fontSize: '10px',
-                                      fontWeight: '600',
-                                      cursor: 'pointer',
-                                      touchAction: 'manipulation'
-                                    }}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleExtendShift(shift)}
-                                    onTouchEnd={(e) => {
-                                      e.preventDefault();
-                                      handleExtendShift(shift);
-                                    }}
-                                    style={{
-                                      flex: 1,
-                                      padding: '4px',
-                                      backgroundColor: '#10b981',
-                                      color: 'white',
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      fontSize: '10px',
-                                      fontWeight: '600',
-                                      cursor: 'pointer',
-                                      touchAction: 'manipulation'
-                                    }}
-                                  >
-                                    Extend
-                                  </button>
-                                  <button
-                                    onClick={() => handleSplitShift(shift)}
-                                    onTouchEnd={(e) => {
-                                      e.preventDefault();
-                                      handleSplitShift(shift);
-                                    }}
-                                    style={{
-                                      flex: 1,
-                                      padding: '4px',
-                                      backgroundColor: '#8b5cf6',
-                                      color: 'white',
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      fontSize: '10px',
-                                      fontWeight: '600',
-                                      cursor: 'pointer',
-                                      touchAction: 'manipulation'
-                                    }}
-                                  >
-                                    Split
-                                  </button>
-                                  <button
-                                    onClick={() => confirmDeleteShift(shift)}
-                                    onTouchEnd={(e) => {
-                                      e.preventDefault();
-                                      confirmDeleteShift(shift);
-                                    }}
-                                    style={{
-                                      flex: 1,
-                                      padding: '4px',
-                                      backgroundColor: '#6b7280',
-                                      color: 'white',
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      fontSize: '10px',
-                                      fontWeight: '600',
-                                      cursor: 'pointer',
-                                      touchAction: 'manipulation'
-                                    }}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
+                                ))}
                               </div>
                             ) : (
                               <div style={{ color: '#6b7280', fontSize: '11px', fontStyle: 'italic' }}>
