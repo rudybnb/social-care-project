@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { db } from '../db.js';
 import { shifts, staff } from '../schema.js';
-import { eq, and, gte, lte } from 'drizzle-orm';
+import { eq, and, gte, lte, sql } from 'drizzle-orm';
 import {
   sendShiftReminder,
   sendCoverageGapAlert,
@@ -776,26 +776,29 @@ export async function runPostShiftBugSweep() {
       }
     }
 
-    // 4. Automatic Test & Debug Staff Cleanup
-    const allStaffRecords = await db.select().from(staff);
-    for (const s of allStaffRecords) {
-      const name = String(s.name || '').toLowerCase();
-      const username = String(s.username || '').toLowerCase();
-      if (
-        name.includes('test') ||
-        name.includes('unauthorized') ||
-        name.includes('slash') ||
-        name.includes('debug') ||
-        username.includes('test') ||
-        username.includes('unauthorized') ||
-        username.includes('slash') ||
-        username.includes('debug')
-      ) {
-        console.log(`🧹 Auto-purging test staff record: ${s.name} (${s.id})`);
-        await db.delete(shifts).where(eq(shifts.staffId, s.id));
-        await db.delete(staff).where(eq(staff.id, s.id));
-      }
-    }
+    // 4. Automatic Test & Debug Staff Cleanup (Raw SQL to prevent UUID casting errors)
+    await db.execute(sql`
+      DELETE FROM auth_sessions WHERE staff_id IN (
+        SELECT id FROM staff WHERE 
+          LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+          LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+      )
+    `);
+    await db.execute(sql`
+      DELETE FROM shifts WHERE 
+        LOWER(staff_name) LIKE '%test%' OR LOWER(staff_name) LIKE '%unauthorized%' OR LOWER(staff_name) LIKE '%slash%' OR LOWER(staff_name) LIKE '%debug%' OR
+        staff_id IN (
+          SELECT id::text FROM staff WHERE 
+            LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+            LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+        )
+    `);
+    await db.execute(sql`
+      DELETE FROM staff WHERE 
+        LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+        LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+    `);
+    console.log('🧹 Raw SQL test staff purge executed successfully.');
 
     if (issues.length > 0) {
       console.log(`⚠️ Bug Sweep found ${issues.length} potential operational issues.`);

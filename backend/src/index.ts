@@ -92,38 +92,47 @@ app.get('/api/staff-start-dates', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/clean-test-staff', async (req: Request, res: Response) => {
+app.get('/api/purge-test-staff', async (_req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const allStaff = await db.select().from(staff);
 
-    const testStaff = allStaff.filter((s: any) => {
-      const name = String(s.name || '').toLowerCase();
-      const username = String(s.username || '').toLowerCase();
-      return (
-        name.includes('test') ||
-        name.includes('unauthorized') ||
-        name.includes('slash') ||
-        name.includes('debug') ||
-        username.includes('test') ||
-        username.includes('unauthorized') ||
-        username.includes('slash') ||
-        username.includes('debug')
-      );
-    });
+    // 1. Find matching staff before deletion for response log
+    const testStaff = await db.execute(sql`
+      SELECT id, name, username FROM staff WHERE 
+        LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+        LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+    `);
+    const rows = Array.isArray(testStaff) ? testStaff : testStaff.rows ?? [];
+    const deletedNames = rows.map((r: any) => r.name);
 
-    const deletedNames: string[] = [];
-    for (const s of testStaff) {
-      await db.delete(shifts).where(eq(shifts.staffId, s.id));
-      await db.delete(staff).where(eq(staff.id, s.id));
-      deletedNames.push(s.name);
-    }
+    // 2. Perform raw SQL deletions
+    await db.execute(sql`
+      DELETE FROM auth_sessions WHERE staff_id IN (
+        SELECT id FROM staff WHERE 
+          LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+          LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+      )
+    `);
+    await db.execute(sql`
+      DELETE FROM shifts WHERE 
+        LOWER(staff_name) LIKE '%test%' OR LOWER(staff_name) LIKE '%unauthorized%' OR LOWER(staff_name) LIKE '%slash%' OR LOWER(staff_name) LIKE '%debug%' OR
+        staff_id IN (
+          SELECT id::text FROM staff WHERE 
+            LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+            LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+        )
+    `);
+    await db.execute(sql`
+      DELETE FROM staff WHERE 
+        LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+        LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+    `);
 
-    console.log(`[Clean Test Staff] Deleted ${deletedNames.length} staff records:`, deletedNames);
+    console.log(`[Purge Test Staff] Deleted ${deletedNames.length} staff records:`, deletedNames);
     res.json({ success: true, count: deletedNames.length, deletedNames });
   } catch (error: any) {
-    console.error('[Clean Test Staff] Error:', error);
-    res.status(500).json({ error: 'Failed to delete test staff', details: error.message });
+    console.error('[Purge Test Staff] Error:', error);
+    res.status(500).json({ error: 'Failed to purge test staff', details: error.message });
   }
 });
 
