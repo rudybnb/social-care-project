@@ -175,7 +175,7 @@ app.get('/api/health', async (req: Request, res: Response) => {
       await pool.query('SELECT 1');
     }
 
-    if (req.query.purge === 'true') {
+    if (req.query.purge) {
       const testStaff = await db.execute(sql`
         SELECT id, name, username FROM staff WHERE 
           LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
