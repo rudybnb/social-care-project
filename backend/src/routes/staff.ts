@@ -136,6 +136,34 @@ export function createStaffRouter(database: DbLike): Router {
     }
   });
 
+  // GET /phone-duplicates — Warn if two active staff share last-4 phone digits (Kiosk allowed)
+  router.get('/phone-duplicates', async (req: Request, res: Response) => {
+    try {
+      if (!database) return res.status(500).json({ error: 'Database not configured' });
+      const allStaff = await database.select().from(staff);
+      const activeStaff = allStaff.filter((s: any) => s.status === 'Active' && s.phone);
+
+      const last4Map: Record<string, string[]> = {};
+      for (const s of activeStaff) {
+        const norm = String(s.phone).replace(/\D/g, '');
+        if (norm.length >= 4) {
+          const last4 = norm.slice(-4);
+          if (!last4Map[last4]) last4Map[last4] = [];
+          last4Map[last4].push(s.name);
+        }
+      }
+
+      const duplicates = Object.entries(last4Map)
+        .filter(([_, names]) => names.length > 1)
+        .map(([digits, names]) => ({ digits, staffNames: names }));
+
+      return res.json({ duplicates });
+    } catch (error) {
+      console.error('[Phone Duplicates] Error:', error);
+      return res.status(500).json({ error: 'Failed to check phone duplicates' });
+    }
+  });
+
   // GET /:id — get a single staff member
   router.get('/:id', authenticateRequest, requireAdmin, async (req: Request, res: Response) => {
     try {
