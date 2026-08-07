@@ -74,6 +74,24 @@ app.get('/api/phone-duplicates', async (req: Request, res: Response) => {
   }
 });
 
+app.get('/api/staff-start-dates', async (req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const allStaff = await db.select().from(staff);
+    const result = allStaff.map((s: any) => ({
+      name: s.name,
+      startDate: s.startDate || 'Not Set',
+      role: s.role || 'Staff',
+      site: s.site || 'N/A',
+      status: s.status || 'Active'
+    }));
+    res.json(result);
+  } catch (error: any) {
+    console.error('[Staff Start Dates] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch staff start dates', details: error.message });
+  }
+});
+
 app.get('/api/staff/phone-duplicates', async (req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
