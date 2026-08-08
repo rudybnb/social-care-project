@@ -42,8 +42,7 @@ setInterval(() => {
 export function createLoginAssistantRouter(database: any): Router {
   const router: Router = Router();
 
-  // POST /api/auth/login-assistant
-  router.post('/login-assistant', async (req: Request, res: Response) => {
+  const handleAssistantRequest = async (req: Request, res: Response) => {
     try {
       const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
       if (!checkRateLimit(clientIp)) {
@@ -234,7 +233,10 @@ export function createLoginAssistantRouter(database: any): Router {
       console.error('Login assistant error:', error);
       return res.status(500).json({ error: 'Assistant service error' });
     }
-  });
+  };
+
+  router.post('/', handleAssistantRequest);
+  router.post('/login-assistant', handleAssistantRequest);
 
   return router;
 }
