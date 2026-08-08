@@ -7,7 +7,7 @@ import bcrypt from 'bcrypt';
 
 type DbLike = any;
 
-const STAFF_SAFE_FIELDS = ['id', 'name', 'username', 'role', 'site', 'status', 'email', 'phone', 'startDate', 'standardRate', 'addressLine1', 'addressLine2', 'townCity', 'staffPostcode', 'nextOfKinName', 'nextOfKinRelationship', 'nextOfKinPhone'] as const;
+const STAFF_SAFE_FIELDS = ['id', 'name', 'username', 'role', 'site', 'status', 'email', 'phone', 'startDate', 'hourlyRate', 'addressLine1', 'addressLine2', 'townCity', 'staffPostcode', 'nextOfKinName', 'nextOfKinRelationship', 'nextOfKinPhone'] as const;
 
 const SAFE_STAFF_COLUMNS = {
   id: staff.id,
