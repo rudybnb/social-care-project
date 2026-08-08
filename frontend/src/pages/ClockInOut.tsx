@@ -24,6 +24,82 @@ const ClockInOut: React.FC = () => {
   const [pendingStaffName, setPendingStaffName] = useState('');
   const [pendingStaffId, setPendingStaffId] = useState('');
   const [duplicateWarning, setDuplicateWarning] = useState('');
+  const [showHelpPanel, setShowHelpPanel] = useState(false);
+  const [helpStep, setHelpStep] = useState<'menu' | 'full_phone' | 'flagged'>('menu');
+  const [fullPhoneInput, setFullPhoneInput] = useState('');
+  const [assistantMessage, setAssistantMessage] = useState('');
+
+  const handleFullPhoneVerify = async () => {
+    if (!fullPhoneInput || fullPhoneInput.length < 10) {
+      setAssistantMessage('Please enter your full 10 or 11 digit phone number.');
+      return;
+    }
+    setIsFetching(true);
+    setAssistantMessage('');
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/auth/login-assistant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify_full_phone',
+          fullPhone: fullPhoneInput,
+          siteId
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok && data.status === 'verified' && data.verificationToken) {
+        // Resolve opaque verification token single-use on server
+        const resolveRes = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/auth/login-assistant`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'resolve_token',
+            verificationToken: data.verificationToken
+          })
+        });
+
+        const resolveData = await resolveRes.json();
+        if (resolveRes.ok && resolveData.status === 'resolved' && resolveData.staffId) {
+          setPendingStaffId(resolveData.staffId);
+          setPendingStaffName(resolveData.name);
+          setNeedsConfirmation(true);
+          setShowHelpPanel(false);
+          setMessage(`Verified! Is this you: ${resolveData.name}? Confirm to see your shifts.`);
+          setMessageType('success');
+        } else {
+          setAssistantMessage('Verification token expired or invalid. Please try again.');
+        }
+      } else {
+        setAssistantMessage(data.message || 'Phone number not found or unable to verify.');
+      }
+    } catch (e) {
+      setAssistantMessage('Network error during verification. Please try again.');
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const handleFlagAdminReview = async () => {
+    setIsFetching(true);
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/auth/login-assistant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'flag_admin_review',
+          phoneDigits,
+          siteId
+        })
+      });
+      setHelpStep('flagged');
+    } catch (e) {
+      setAssistantMessage('Failed to flag review. Please inform site management.');
+    } finally {
+      setIsFetching(false);
+    }
+  };
 
   const today = getUkDate();
 
@@ -333,11 +409,176 @@ const ClockInOut: React.FC = () => {
                 fontSize: '16px',
                 fontWeight: 'bold',
                 cursor: phoneDigits.length === 4 && !isFetching ? 'pointer' : 'not-allowed',
-                opacity: phoneDigits.length === 4 && !isFetching ? 1 : 0.5
+                opacity: phoneDigits.length === 4 && !isFetching ? 1 : 0.5,
+                marginBottom: '16px'
               }}
             >
               {isFetching ? 'Loading...' : 'Find My Shifts'}
             </button>
+
+            {/* Need Help Toggle */}
+            <div style={{ textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHelpPanel(!showHelpPanel);
+                  setHelpStep('menu');
+                  setAssistantMessage('');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#60a5fa',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                {showHelpPanel ? 'Hide Support' : 'Need help logging in? 💬'}
+              </button>
+            </div>
+
+            {/* Support Assistant Panel */}
+            {showHelpPanel && (
+              <div style={{
+                marginTop: '16px',
+                padding: '16px',
+                backgroundColor: '#262626',
+                borderRadius: '12px',
+                border: '1px solid #404040'
+              }}>
+                <div style={{ color: 'white', fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>
+                  💬 Clock-In Support Assistant
+                </div>
+
+                {assistantMessage && (
+                  <div style={{
+                    backgroundColor: '#ef444420',
+                    border: '1px solid #ef4444',
+                    borderRadius: '8px',
+                    padding: '10px',
+                    color: '#ef4444',
+                    fontSize: '13px',
+                    marginBottom: '12px'
+                  }}>
+                    {assistantMessage}
+                  </div>
+                )}
+
+                {helpStep === 'menu' && (
+                  <div>
+                    <div style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '12px' }}>
+                      Having trouble with your 4-digit PIN? Choose an option below:
+                    </div>
+
+                    <button
+                      onClick={() => setHelpStep('full_phone')}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        marginBottom: '8px'
+                      }}
+                    >
+                      📱 Verify with Full Phone Number
+                    </button>
+
+                    <button
+                      onClick={handleFlagAdminReview}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        backgroundColor: '#f59e0b',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ⚠️ Flag for Admin Review
+                    </button>
+                  </div>
+                )}
+
+                {helpStep === 'full_phone' && (
+                  <div>
+                    <div style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '8px' }}>
+                      Enter your full phone number to verify identity (never displayed on screen):
+                    </div>
+                    <input
+                      type="tel"
+                      value={fullPhoneInput}
+                      onChange={(e) => setFullPhoneInput(e.target.value)}
+                      placeholder="e.g. 07123456789"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        backgroundColor: '#0a0a0a',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '8px',
+                        color: 'white',
+                        fontSize: '16px',
+                        marginBottom: '12px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={handleFullPhoneVerify}
+                        disabled={isFetching}
+                        style={{
+                          flex: 1,
+                          padding: '12px',
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {isFetching ? 'Verifying...' : 'Verify'}
+                      </button>
+                      <button
+                        onClick={() => setHelpStep('menu')}
+                        style={{
+                          padding: '12px',
+                          backgroundColor: '#404040',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Back
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {helpStep === 'flagged' && (
+                  <div style={{
+                    backgroundColor: '#10b98120',
+                    border: '1px solid #10b981',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#10b981',
+                    fontSize: '13px'
+                  }}>
+                    ✅ An internal Admin review alert has been recorded for your account. Please notify site management so they can review your profile.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

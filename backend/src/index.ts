@@ -230,8 +230,11 @@ app.get('/api/staff/phone-duplicates', async (req: Request, res: Response) => {
   }
 });
 
+import { createLoginAssistantRouter } from './routes/loginAssistant.js';
+
 // Auth routes
 app.use('/api/auth', createAuthRouter(db));
+app.use('/api/auth', createLoginAssistantRouter(db));
 app.use('/api/admin', adminRoutes); // Register new admin routes
 app.use('/api/staff', createStaffRouter(db));
 
