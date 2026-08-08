@@ -269,8 +269,76 @@ const Payroll: React.FC = () => {
   };
 
   const payrollData = getPayrollData(currentPeriod.start, currentPeriod.end);
+
+  // Calculate expected monthly/weekly bill based 100% on assigned shifts on the rota
+  const getExpectedRotaData = (startDate: Date, endDate: Date) => {
+    let totalExpectedPay = 0;
+    let totalExpectedHours = 0;
+    let totalExpectedShifts = 0;
+
+    staff.forEach(staffMember => {
+      const assignedShifts = shifts.filter(shift =>
+        shift.staffName === staffMember.name &&
+        shift.staffName !== 'Bank Management' &&
+        shift.staffName !== 'Agency' &&
+        shift.staffName !== 'BANK (Placeholder)' &&
+        new Date(shift.date) >= startDate &&
+        new Date(shift.date) <= endDate &&
+        shift.staffStatus !== 'declined' &&
+        shift.staffStatus !== 'cancelled'
+      );
+
+      let dayHours = 0;
+      let nightHours = 0;
+
+      assignedShifts.forEach(shift => {
+        let hours = 0;
+        if (shift.startTime && shift.endTime) {
+          const start = new Date(`${shift.date}T${shift.startTime}:00`);
+          let end = new Date(`${shift.date}T${shift.endTime}:00`);
+          if (end < start) end.setDate(end.getDate() + 1);
+          hours = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
+        } else {
+          hours = shift.duration || 0;
+        }
+
+        if (shift.type?.toLowerCase().includes('night')) {
+          nightHours += hours;
+        } else {
+          dayHours += hours;
+        }
+      });
+
+      const isAgency = 'agencyName' in staffMember;
+      let staffPay = 0;
+
+      if (isAgency) {
+        const agencyRate = parseFloat(staffMember.hourlyRate) || 0;
+        staffPay = (dayHours + nightHours) * agencyRate;
+      } else {
+        const standardRate = parseFloat(staffMember.standardRate) || 12.50;
+        const nightRateRaw = (staffMember as any).nightRate;
+        const nightRate = (nightRateRaw && nightRateRaw !== '—') ? parseFloat(nightRateRaw) || standardRate : standardRate;
+        const enhancedRateRaw = (staffMember as any).enhancedRate;
+        const enhancedRate = (enhancedRateRaw && enhancedRateRaw !== '—') ? parseFloat(enhancedRateRaw) || standardRate : standardRate;
+
+        const first20 = Math.min(dayHours, 20);
+        const after20 = Math.max(dayHours - 20, 0);
+        staffPay = (first20 * standardRate) + (after20 * enhancedRate) + (nightHours * nightRate);
+      }
+
+      totalExpectedPay += staffPay;
+      totalExpectedHours += (dayHours + nightHours);
+      totalExpectedShifts += assignedShifts.length;
+    });
+
+    return { totalExpectedPay, totalExpectedHours, totalExpectedShifts };
+  };
+
+  const expectedRota = getExpectedRotaData(currentPeriod.start, currentPeriod.end);
   const incompleteShifts = calculateIncompleteShifts();
   const totalPayroll = payrollData.reduce((sum, p) => sum + p.totalPay, 0);
+  const variancePay = totalPayroll - expectedRota.totalExpectedPay;
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -688,17 +756,57 @@ const Payroll: React.FC = () => {
         marginTop: '24px',
         marginBottom: '24px'
       }}>
+        {/* Expected Rota Bill (Scheduled Forecast) */}
         <div style={{
           backgroundColor: '#1a1a1a',
           padding: '20px',
           borderRadius: '12px',
-          border: '2px solid #8b5cf6'
+          border: '2px solid #3b82f6'
         }}>
-          <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
-            Total Payroll
+          <div style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '600', marginBottom: '8px' }}>
+            📊 Expected Rota Bill (Forecast)
+          </div>
+          <div style={{ color: 'white', fontSize: '28px', fontWeight: 'bold' }}>
+            £{expectedRota.totalExpectedPay.toFixed(2)}
+          </div>
+          <div style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px' }}>
+            If 100% of assigned shifts are worked ({expectedRota.totalExpectedHours.toFixed(1)}h)
+          </div>
+        </div>
+
+        {/* Actual Wage Payout (Realized) */}
+        <div style={{
+          backgroundColor: '#1a1a1a',
+          padding: '20px',
+          borderRadius: '12px',
+          border: '2px solid #10b981'
+        }}>
+          <div style={{ color: '#34d399', fontSize: '12px', fontWeight: '600', marginBottom: '8px' }}>
+            💰 Actual Wage Payout (Clocked-In)
           </div>
           <div style={{ color: 'white', fontSize: '28px', fontWeight: 'bold' }}>
             £{totalPayroll.toFixed(2)}
+          </div>
+          <div style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px' }}>
+            Actual payout from verified clock-ins
+          </div>
+        </div>
+
+        {/* Variance / Difference */}
+        <div style={{
+          backgroundColor: '#1a1a1a',
+          padding: '20px',
+          borderRadius: '12px',
+          border: `2px solid ${variancePay <= 0 ? '#10b981' : '#ef4444'}`
+        }}>
+          <div style={{ color: variancePay <= 0 ? '#34d399' : '#f87171', fontSize: '12px', fontWeight: '600', marginBottom: '8px' }}>
+            📈 Variance (Payout vs Budget)
+          </div>
+          <div style={{ color: 'white', fontSize: '28px', fontWeight: 'bold' }}>
+            {variancePay >= 0 ? '+' : ''}£{variancePay.toFixed(2)}
+          </div>
+          <div style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px' }}>
+            {variancePay <= 0 ? 'Under budget (savings from unworked shifts)' : 'Over budget'}
           </div>
         </div>
 
@@ -723,7 +831,7 @@ const Payroll: React.FC = () => {
           border: '1px solid #3a3a3a'
         }}>
           <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
-            Total Hours
+            Total Hours Worked
           </div>
           <div style={{ color: 'white', fontSize: '28px', fontWeight: 'bold' }}>
             {payrollData.reduce((sum, p) => sum + p.totalHours, 0).toFixed(1)}h

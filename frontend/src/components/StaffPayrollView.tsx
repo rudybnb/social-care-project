@@ -131,7 +131,33 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
     const leavePay = leaveHours * 12.50; // Fixed rate for all leave pay
     const totalPay = shiftPay + leavePay;
 
+    // Calculate expected scheduled earnings (100% attendance of assigned shifts)
+    const assignedShifts = shifts.filter(shift =>
+      shift.staffName === staffName &&
+      new Date(shift.date) >= currentMonth.start &&
+      new Date(shift.date) <= currentMonth.end &&
+      shift.staffStatus !== 'declined' &&
+      shift.staffStatus !== 'cancelled'
+    );
+
+    let expectedHours = 0;
+    assignedShifts.forEach(shift => {
+      if (shift.startTime && shift.endTime) {
+        const start = new Date(`${shift.date}T${shift.startTime}:00`);
+        let end = new Date(`${shift.date}T${shift.endTime}:00`);
+        if (end < start) end.setDate(end.getDate() + 1);
+        expectedHours += Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
+      } else {
+        expectedHours += shift.duration || 0;
+      }
+    });
+
+    const expectedPay = expectedHours * standardRate;
+
     return {
+      expectedShifts: assignedShifts.length,
+      expectedHours,
+      expectedPay,
       shiftsWorked: myShifts.length,
       totalHours,
       dayHours,
@@ -221,6 +247,48 @@ const StaffPayrollView: React.FC<StaffPayrollViewProps> = ({ staffId, staffName,
         >
           Next Month →
         </button>
+      </div>
+
+      {/* Expected vs Actual Overview */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: '16px',
+        marginBottom: '24px'
+      }}>
+        <div style={{
+          backgroundColor: '#1a1a1a',
+          borderRadius: '12px',
+          border: '2px solid #3b82f6',
+          padding: '20px'
+        }}>
+          <div style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>
+            📊 Expected Monthly Earnings
+          </div>
+          <div style={{ color: 'white', fontSize: '24px', fontWeight: 'bold' }}>
+            £{payroll.expectedPay.toFixed(2)}
+          </div>
+          <div style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px' }}>
+            Based on {payroll.expectedShifts} assigned shifts ({payroll.expectedHours.toFixed(1)}h)
+          </div>
+        </div>
+
+        <div style={{
+          backgroundColor: '#1a1a1a',
+          borderRadius: '12px',
+          border: '2px solid #10b981',
+          padding: '20px'
+        }}>
+          <div style={{ color: '#34d399', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>
+            💰 Actual Payout (Clocked-In)
+          </div>
+          <div style={{ color: 'white', fontSize: '24px', fontWeight: 'bold' }}>
+            £{payroll.totalPay.toFixed(2)}
+          </div>
+          <div style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px' }}>
+            Based on {payroll.shiftsWorked} completed clock-ins ({payroll.totalHours.toFixed(1)}h)
+          </div>
+        </div>
       </div>
 
       {/* Payroll Summary */}

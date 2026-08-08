@@ -218,9 +218,9 @@ export async function initializeAgents() {
     await sendDailyPayrollOverview();
   });
 
-  // Agent 11: System Sentinel (Hourly)
-  cron.schedule('0 * * * *', async () => {
-    console.log('🛡️ Running: System Sentinel');
+  // Agent 11: System Sentinel (Every 2 hours)
+  cron.schedule('0 */2 * * *', async () => {
+    console.log('🛡️ Running: System Sentinel Health Check (Every 2 Hours)');
     await monitorSystemHealth();
   });
 
@@ -249,7 +249,7 @@ export async function initializeAgents() {
   console.log('   - Shift Summaries (08:30 & 20:30)');
   console.log('   - Shift Verification (30 min)');
   console.log('   - Daily Payroll Report (07:30)');
-  console.log('   - System Sentinel (Hourly)');
+  console.log('   - System Sentinel Health Check (Every 2 Hours)');
   console.log('   - Weekly Duplicate Cleanup (Sun 11PM)');
   console.log('   - Automated Bug Sweep Agent (Every 30 min)');
 }
