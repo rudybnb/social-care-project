@@ -176,13 +176,33 @@ const ClockInOut: React.FC = () => {
       const shiftsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${pendingStaffId}/shifts`);
       if (shiftsResponse.ok) {
         const data = await shiftsResponse.json();
-        // Filter for today's shifts at this site using local date
+        // Filter for today's shifts or previous-day night shifts at this site using UK local date
         const todayLocal = getUkDate();
+        const yesterdayObj = new Date();
+        yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+        const yesterdayLocal = yesterdayObj.toISOString().split('T')[0];
 
-        const todayShifts = data.filter((s: Shift) =>
-          s.siteId === siteId &&
-          (s.date === todayLocal || (s.clockedIn && !s.clockedOut))
-        );
+        const matchSite = (shiftSiteId?: string, targetSiteId?: string | null) => {
+          if (!shiftSiteId || !targetSiteId) return true; // Default match if site unconstrained
+          if (shiftSiteId === targetSiteId) return true;
+          // Normalize SITE_001 vs UUID fallback comparisons safely
+          const cleanShift = shiftSiteId.replace(/^SITE_/i, '').trim();
+          const cleanTarget = targetSiteId.replace(/^SITE_/i, '').trim();
+          return cleanShift === cleanTarget || shiftSiteId.includes(targetSiteId) || targetSiteId.includes(shiftSiteId);
+        };
+
+        const todayShifts = data.filter((s: Shift) => {
+          const isSiteMatch = matchSite(s.siteId, siteId);
+          const isTodayShift = s.date === todayLocal;
+          const isActiveShift = s.clockedIn && !s.clockedOut;
+          // Previous-day night shift starting >= 18:00 (eligible past midnight until clocked out)
+          const isEligibleNightShift =
+            s.date === yesterdayLocal &&
+            !s.clockedOut &&
+            (s.startTime >= '18:00' || (s.type && s.type.toLowerCase().includes('night')));
+
+          return isSiteMatch && (isTodayShift || isActiveShift || isEligibleNightShift);
+        });
         setShifts(todayShifts);
 
         if (todayShifts.length === 0) {
@@ -194,7 +214,10 @@ const ClockInOut: React.FC = () => {
               const refreshedShifts = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${pendingStaffId}/shifts`);
               if (refreshedShifts.ok) {
                 const refreshedData = await refreshedShifts.json();
-                const refreshedTodayShifts = refreshedData.filter((s: Shift) => s.date === todayLocal && s.siteId === siteId);
+                const refreshedTodayShifts = refreshedData.filter((s: Shift) =>
+                  matchSite(s.siteId, siteId) &&
+                  (s.date === todayLocal || (s.date === yesterdayLocal && !s.clockedOut && (s.startTime >= '18:00' || (s.type && s.type.toLowerCase().includes('night')))))
+                );
 
                 if (refreshedTodayShifts.length > 0) {
                   setShifts(refreshedTodayShifts);
