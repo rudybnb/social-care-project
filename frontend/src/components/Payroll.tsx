@@ -67,7 +67,7 @@ const Payroll: React.FC = () => {
 
   const currentWeek = getWeekDates(selectedWeek);
 
-  // Get month dates (14th to 13th 23:59:59 to prevent double-counting 14th)
+  // Get month dates (14th to 14th)
   const getMonthDates = (monthOffset: number) => {
     const today = new Date();
     const currentDay = today.getDate();
@@ -84,7 +84,7 @@ const Payroll: React.FC = () => {
 
     const periodEnd = new Date(periodStart);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
-    periodEnd.setDate(13); // Ends on 13th 23:59:59 so 14th belongs exclusively to the next period
+    periodEnd.setDate(14); // Ends on 14th of next month (14 to 14 period)
     periodEnd.setHours(23, 59, 59, 999);
 
     return {
