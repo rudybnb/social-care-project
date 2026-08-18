@@ -1240,7 +1240,7 @@ function buildPage() {
       </div>
     </div>
 
-    <!-- Sticky Header (Ultra-compact pinned toolbar on scroll: ~44px) -->
+    <!-- Sticky Header (Compact pinned toolbar + Category Totals Bar) -->
     <div class="sticky-header-wrapper">
       <div class="app-header">
         <div class="header-brand">
@@ -1255,23 +1255,10 @@ function buildPage() {
           <button class="btn btn-secondary btn-sm" id="btnExport">📄 EXPORT QUOTE</button>
           <button class="btn btn-secondary btn-sm" id="btnExportInvoice">📄 GENERATE INVOICE</button>
           <button class="btn btn-danger btn-sm" id="btnClear">🗑 CLEAR ALL</button>
-          <div class="sticky-total-pill">
-            <span class="pill-label">Total / Wk</span>
-            <span class="pill-val">£ <span id="stickyGrandTotalAmount">0.00</span></span>
-          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Top Financial Summary Strip (Normal flow, compact, not sticky) -->
-    <div class="top-summary-strip">
-      <!-- Grand Total Banner (Eclesia style, compact) -->
-      <div class="grand-total-banner eclesia-style-banner">
-        <div class="label">Total cost per week (excluding one-off costs)</div>
-        <div class="amount"><span class="currency">£</span><span id="grandTotalAmount">0.00</span></div>
-      </div>
-
-      <!-- Category Totals Summary Bar -->
+      <!-- Category Totals Summary Bar (Red Box - Sticky with header) -->
       <div class="category-totals-bar">
         <div class="category-total-item">
           <span class="cat-label">Core Costs — Weekly</span>
@@ -1293,6 +1280,15 @@ function buildPage() {
           <span class="cat-label">Retainer</span>
           <span class="cat-value" id="barTotalRetainer">£ 0.00</span>
         </div>
+      </div>
+    </div>
+
+    <!-- Top Grand Total Banner (Normal scroll flow) -->
+    <div class="top-summary-strip">
+      <!-- Grand Total Banner (Eclesia style, compact) -->
+      <div class="grand-total-banner eclesia-style-banner">
+        <div class="label">Total cost per week (excluding one-off costs)</div>
+        <div class="amount"><span class="currency">£</span><span id="grandTotalAmount">0.00</span></div>
       </div>
     </div>
 
@@ -1320,7 +1316,7 @@ function buildPage() {
           </div>
           <div class="form-group">
             <label class="form-label">Child's/Young Person's Initials (Save Key)</label>
-            <input type="text" class="form-input" id="childInitials" placeholder="Enter initials to save profile" style="border: 1px solid #e1ad21;" />
+            <input type="text" class="form-input" id="childInitials" placeholder="Enter initials to save profile" />
           </div>
         </div>
 
@@ -1376,7 +1372,7 @@ function buildPage() {
         </div>
 
         <div class="form-group" style="margin-bottom: 20px;" id="presetAddressGroup">
-          <select class="form-select" id="presetAddressSelect" style="border-color: var(--primary-500); background-color: rgba(16, 185, 129, 0.05); color: #000;">
+          <select class="form-select" id="presetAddressSelect" style="border-color: var(--primary-500); background-color: var(--slate-800); color: #ffffff;">
             ${PRESET_ADDRESSES.map((a, i) => `<option value="${i}">${a.label}</option>`).join('')}
           </select>
         </div>
