@@ -352,24 +352,27 @@ body::before {
 }
 
 .profile-select {
-  height: 34px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  padding: 4px 10px;
-  min-width: 230px;
-  max-width: 260px;
+  height: 34px !important;
+  line-height: 30px !important;
+  padding: 0 12px !important;
+  font-size: 0.84rem !important;
+  font-weight: 700 !important;
+  min-width: 250px !important;
+  max-width: 290px !important;
   border: 2px solid var(--primary-400) !important;
-  cursor: pointer;
+  cursor: pointer !important;
   color: #0f172a !important;
   background-color: #ffffff !important;
-  border-radius: var(--radius-sm);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-sm) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  box-sizing: border-box !important;
+  vertical-align: middle !important;
 }
 
 .profile-select:focus {
   outline: none;
   border-color: #34d399 !important;
-  box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.5) !important;
 }
 
 .btn-sm {
