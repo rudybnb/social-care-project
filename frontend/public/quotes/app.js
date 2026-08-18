@@ -1240,7 +1240,7 @@ function buildPage() {
       </div>
     </div>
 
-    <!-- Sticky Header (Compact pinned toolbar + Category Totals Bar) -->
+    <!-- Sticky Header (Toolbar + Static Smaller Total Cost Banner + Category Totals) -->
     <div class="sticky-header-wrapper">
       <div class="app-header">
         <div class="header-brand">
@@ -1256,6 +1256,12 @@ function buildPage() {
           <button class="btn btn-secondary btn-sm" id="btnExportInvoice">📄 GENERATE INVOICE</button>
           <button class="btn btn-danger btn-sm" id="btnClear">🗑 CLEAR ALL</button>
         </div>
+      </div>
+
+      <!-- Grand Total Banner (Static & Smaller) -->
+      <div class="grand-total-banner eclesia-style-banner">
+        <div class="label">Total cost per week (excluding one-off costs)</div>
+        <div class="amount"><span class="currency">£</span><span id="grandTotalAmount">0.00</span></div>
       </div>
 
       <!-- Category Totals Summary Bar (Red Box - Sticky with header) -->
@@ -1280,15 +1286,6 @@ function buildPage() {
           <span class="cat-label">Retainer</span>
           <span class="cat-value" id="barTotalRetainer">£ 0.00</span>
         </div>
-      </div>
-    </div>
-
-    <!-- Top Grand Total Banner (Normal scroll flow) -->
-    <div class="top-summary-strip">
-      <!-- Grand Total Banner (Eclesia style, compact) -->
-      <div class="grand-total-banner eclesia-style-banner">
-        <div class="label">Total cost per week (excluding one-off costs)</div>
-        <div class="amount"><span class="currency">£</span><span id="grandTotalAmount">0.00</span></div>
       </div>
     </div>
 
