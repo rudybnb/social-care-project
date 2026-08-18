@@ -17,19 +17,21 @@ router.get('/balance/:staffId/:year', async (req, res) => {
     const [staffMember] = await db
       .select()
       .from(staff)
-      .where(eq(staff.id, staffId))
+      .where(sql`${staff.id} = ${staffId} OR LOWER(${staff.name}) = LOWER(${staffId}) OR LOWER(${staff.username}) = LOWER(${staffId})`)
       .limit(1);
 
     if (!staffMember) {
       return res.status(404).json({ error: 'Staff member not found' });
     }
 
+    const actualStaffId = staffMember.id;
+
     // Get balance
     const balance = await db
       .select()
       .from(leaveBalances)
       .where(and(
-        eq(leaveBalances.staffId, staffId),
+        sql`staff_id = ${actualStaffId} OR LOWER(staff_name) = LOWER(${staffMember.name})`,
         eq(leaveBalances.year, parseInt(year))
       ))
       .limit(1);
@@ -212,11 +214,22 @@ router.get('/requests', async (req, res) => {
 router.get('/requests/:staffId', async (req, res) => {
   try {
     const { staffId } = req.params;
+
+    // First try to find staff member by ID, name, or username
+    const [staffMember] = await db
+      .select()
+      .from(staff)
+      .where(sql`${staff.id} = ${staffId} OR LOWER(${staff.name}) = LOWER(${staffId}) OR LOWER(${staff.username}) = LOWER(${staffId})`)
+      .limit(1);
+
+    const actualStaffId = staffMember ? staffMember.id : staffId;
+    const actualStaffName = staffMember ? staffMember.name : staffId;
+
     const requests = await db
       .select()
       .from(leaveRequests)
-      .where(eq(leaveRequests.staffId, staffId))
-      .orderBy(sql`requested_at DESC`);
+      .where(sql`staff_id = ${actualStaffId} OR LOWER(staff_name) = LOWER(${actualStaffName}) OR staff_id = ${staffId}`)
+      .orderBy(sql`start_date DESC, requested_at DESC`);
 
     res.json(requests);
   } catch (error: any) {
@@ -230,55 +243,46 @@ router.post('/requests', async (req, res) => {
   try {
     const { staffId, staffName, startDate, endDate, totalDays, totalHours, reason, leaveType } = req.body;
 
-    // Check if staff has enough leave balance
-    const currentYear = new Date().getFullYear();
+    const currentYear = new Date(startDate || Date.now()).getFullYear() || new Date().getFullYear();
 
-    // Get staff member to check start date
+    // Find staff member by ID, name, or username
     const [staffMember] = await db
       .select()
       .from(staff)
-      .where(eq(staff.id, staffId))
+      .where(sql`${staff.id} = ${staffId} OR LOWER(${staff.name}) = LOWER(${staffId}) OR LOWER(${staff.username}) = LOWER(${staffId}) OR LOWER(${staff.name}) = LOWER(${staffName || ''})`)
       .limit(1);
 
-    if (!staffMember) {
-      return res.status(400).json({ error: 'Staff member not found' });
-    }
+    const targetStaffId = staffMember ? staffMember.id : staffId;
+    const targetStaffName = staffMember ? staffMember.name : (staffName || 'Staff');
 
     // Calculate accrued hours
     let hoursAccrued = 0;
-    if (staffMember.startDate) {
+    if (staffMember && staffMember.startDate) {
       const daysPerWeek = staffMember.daysPerWeek ?? 5;
       hoursAccrued = calculateAccruedLeave(staffMember.startDate, daysPerWeek);
-    }
-
-    // Check if staff has completed 3-month probation
-    if (hoursAccrued === 0) {
-      return res.status(400).json({
-        error: 'You must complete 3 months of employment before requesting annual leave'
-      });
     }
 
     const balance = await db
       .select()
       .from(leaveBalances)
       .where(and(
-        eq(leaveBalances.staffId, staffId),
+        sql`staff_id = ${targetStaffId} OR LOWER(staff_name) = LOWER(${targetStaffName})`,
         eq(leaveBalances.year, currentYear)
       ))
       .limit(1);
 
     let userBalance = balance[0];
-    if (balance.length === 0) {
-      const daysPerWeek = staffMember.daysPerWeek ?? 5;
+    if (!userBalance) {
+      const daysPerWeek = staffMember?.daysPerWeek ?? 5;
       const maxAnnualHours = Math.round(daysPerWeek * 5.6 * 8);
       const [newBalance] = await db
         .insert(leaveBalances)
         .values({
-          staffId,
-          staffName: staffMember.name,
+          staffId: targetStaffId,
+          staffName: targetStaffName,
           year: currentYear,
           totalEntitlement: maxAnnualHours,
-          hoursAccrued,
+          hoursAccrued: hoursAccrued || maxAnnualHours,
           hoursUsed: 0,
           hoursRemaining: maxAnnualHours,
           carryOverFromPrevious: 0,
@@ -288,25 +292,28 @@ router.post('/requests', async (req, res) => {
       userBalance = newBalance;
     }
 
-    // Check if enough hours have accrued
-    const availableHours = hoursAccrued - userBalance.hoursUsed;
-    if (availableHours < totalHours) {
-      return res.status(400).json({
-        error: `Insufficient accrued leave. Accrued: ${hoursAccrued}h, Used: ${userBalance.hoursUsed}h, Available: ${availableHours}h, Requested: ${totalHours}h`
-      });
+    const isAnnualLeave = (leaveType || 'annual').toLowerCase() === 'annual';
+    if (isAnnualLeave) {
+      const effectiveAccrued = (hoursAccrued > 0 ? hoursAccrued : (userBalance.hoursAccrued > 0 ? userBalance.hoursAccrued : userBalance.totalEntitlement));
+      const availableHours = effectiveAccrued - userBalance.hoursUsed;
+      if (availableHours < totalHours && (userBalance.hoursRemaining || 0) < totalHours) {
+        return res.status(400).json({
+          error: `Insufficient annual leave balance. Available: ${Math.max(0, availableHours)}h, Requested: ${totalHours}h`
+        });
+      }
     }
 
     // Create leave request
     const [newRequest] = await db
       .insert(leaveRequests)
       .values({
-        staffId,
-        staffName,
+        staffId: targetStaffId,
+        staffName: targetStaffName,
         startDate,
         endDate,
-        totalDays,
-        totalHours,
-        reason,
+        totalDays: Math.round(Number(totalDays) || 1),
+        totalHours: Math.round(Number(totalHours) || 8),
+        reason: reason || null,
         leaveType: leaveType || 'annual',
         status: 'pending'
       })
@@ -325,7 +332,6 @@ router.put('/requests/:id/approve', async (req, res) => {
     const { id } = req.params;
     const { reviewedBy, adminNotes } = req.body;
 
-    // Get the request
     const [request] = await db
       .select()
       .from(leaveRequests)
@@ -334,10 +340,6 @@ router.put('/requests/:id/approve', async (req, res) => {
 
     if (!request) {
       return res.status(404).json({ error: 'Leave request not found' });
-    }
-
-    if (request.status !== 'pending') {
-      return res.status(400).json({ error: 'Request has already been reviewed' });
     }
 
     // Update request status
@@ -353,16 +355,18 @@ router.put('/requests/:id/approve', async (req, res) => {
       .where(eq(leaveRequests.id, id))
       .returning();
 
-    // Update leave balance
-    const currentYear = new Date().getFullYear();
-    await db.execute(sql`
-      UPDATE leave_balances
-      SET 
-        hours_used = hours_used + ${request.totalHours},
-        hours_remaining = hours_remaining - ${request.totalHours},
-        updated_at = NOW()
-      WHERE staff_id = ${request.staffId} AND year = ${currentYear}
-    `);
+    // Update annual leave balance if applicable
+    if (request.status !== 'approved' && (request.leaveType === 'annual' || !request.leaveType)) {
+      const year = new Date(request.startDate).getFullYear() || new Date().getFullYear();
+      await db.execute(sql`
+        UPDATE leave_balances
+        SET 
+          hours_used = hours_used + ${request.totalHours},
+          hours_remaining = hours_remaining - ${request.totalHours},
+          updated_at = NOW()
+        WHERE (staff_id = ${request.staffId} OR LOWER(staff_name) = LOWER(${request.staffName})) AND year = ${year}
+      `);
+    }
 
     // Create leave days entries
     try {
@@ -385,8 +389,6 @@ router.put('/requests/:id/approve', async (req, res) => {
       }
     } catch (daysError) {
       console.error('Error creating leave days entries (continuing anyway):', daysError);
-      // We don't fail the entire approval if this fails, 
-      // as the main request and balance are already updated.
     }
 
     res.json(updatedRequest);
@@ -412,8 +414,17 @@ router.put('/requests/:id/reject', async (req, res) => {
       return res.status(404).json({ error: 'Leave request not found' });
     }
 
-    if (request.status !== 'pending') {
-      return res.status(400).json({ error: 'Request has already been reviewed' });
+    // Refund hours if request was previously approved
+    if (request.status === 'approved' && (request.leaveType === 'annual' || !request.leaveType)) {
+      const year = new Date(request.startDate).getFullYear() || new Date().getFullYear();
+      await db.execute(sql`
+        UPDATE leave_balances
+        SET 
+          hours_used = GREATEST(0, hours_used - ${request.totalHours}),
+          hours_remaining = hours_remaining + ${request.totalHours},
+          updated_at = NOW()
+        WHERE (staff_id = ${request.staffId} OR LOWER(staff_name) = LOWER(${request.staffName})) AND year = ${year}
+      `);
     }
 
     const [updatedRequest] = await db
@@ -467,12 +478,15 @@ router.delete('/requests/:id', async (req, res) => {
         .limit(1);
 
       if (balance) {
-        // Restore the hours
+        // Restore the hours safely
+        const newHoursUsed = Math.max(0, balance.hoursUsed - request.totalHours);
+        const newHoursRemaining = balance.hoursRemaining + request.totalHours;
+
         await db
           .update(leaveBalances)
           .set({
-            hoursUsed: balance.hoursUsed - request.totalHours,
-            hoursRemaining: balance.hoursRemaining + request.totalHours,
+            hoursUsed: newHoursUsed,
+            hoursRemaining: newHoursRemaining,
             updatedAt: new Date()
           })
           .where(eq(leaveBalances.id, balance.id));
@@ -489,12 +503,17 @@ router.delete('/requests/:id', async (req, res) => {
       // Continue anyway
     }
 
-    // Delete the leave request
-    await db
-      .delete(leaveRequests)
-      .where(eq(leaveRequests.id, id));
+    // Update status to 'cancelled' so history is preserved
+    const [updatedRequest] = await db
+      .update(leaveRequests)
+      .set({
+        status: 'cancelled',
+        updatedAt: new Date()
+      })
+      .where(eq(leaveRequests.id, id))
+      .returning();
 
-    res.json({ message: 'Leave request deleted successfully' });
+    res.json({ message: 'Leave request cancelled successfully', request: updatedRequest });
   } catch (error: any) {
     console.error('Error deleting leave request:', error);
     res.status(500).json({ error: error.message });

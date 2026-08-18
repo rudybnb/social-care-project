@@ -40,6 +40,23 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
     }
   };
 
+  const handleCancelRequest = async (request: LeaveRequest) => {
+    const isApproved = request.status === 'approved';
+    const confirmMessage = isApproved
+      ? 'Are you sure you want to cancel this APPROVED leave request?\n\nYour leave hours will be automatically refunded back to your available balance.'
+      : 'Are you sure you want to cancel this leave request?';
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      await leaveAPI.deleteRequest(request.id);
+      alert(isApproved ? 'Leave request cancelled! Hours refunded to your balance.' : 'Leave request cancelled.');
+      loadData();
+    } catch (error: any) {
+      alert(`Failed to cancel leave request: ${error.message}`);
+    }
+  };
+
   const calculateDays = (start: string, end: string): number => {
     const startDate = new Date(start);
     const endDate = new Date(end);
@@ -128,8 +145,29 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
     );
   }
 
-  const availableHours = balance.hoursAccrued - balance.hoursUsed;
+  const effectiveAccrued = balance.hoursAccrued > 0 ? balance.hoursAccrued : (balance.hoursRemaining > 0 ? balance.hoursRemaining + balance.hoursUsed : balance.totalEntitlement);
+  const availableHours = Math.max(0, effectiveAccrued - balance.hoursUsed);
   const availableDays = Math.floor(availableHours / 8);
+
+  const handleStartDateChange = (val: string) => {
+    setStartDate(val);
+    if (endDate && val) {
+      const days = calculateDays(val, endDate);
+      if (days > 0 && (workingDays === '' || workingDays === 0)) {
+        setWorkingDays(days);
+      }
+    }
+  };
+
+  const handleEndDateChange = (val: string) => {
+    setEndDate(val);
+    if (startDate && val) {
+      const days = calculateDays(startDate, val);
+      if (days > 0 && (workingDays === '' || workingDays === 0)) {
+        setWorkingDays(days);
+      }
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -146,8 +184,8 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <div className="text-3xl font-bold">{balance.hoursAccrued}h</div>
-            <div className="text-sm opacity-90">Accrued</div>
+            <div className="text-3xl font-bold">{effectiveAccrued}h</div>
+            <div className="text-sm opacity-90">Accrued / Entitled</div>
           </div>
           <div>
             <div className="text-3xl font-bold">{balance.hoursUsed}h</div>
@@ -179,10 +217,9 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
       {/* Request Leave Button */}
       <button
         onClick={() => setShowRequestForm(!showRequestForm)}
-        className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg shadow"
-        disabled={availableHours === 0}
+        className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg shadow cursor-pointer"
       >
-        {availableHours === 0 ? 'No Leave Available' : '+ Request Annual Leave'}
+        {showRequestForm ? 'Close Form' : '+ Request Annual Leave'}
       </button>
 
       {/* Request Form */}
@@ -196,10 +233,9 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
                   className="w-full border rounded px-3 py-2"
                   required
-                  min={new Date().toLocaleDateString('en-CA')}
                 />
               </div>
               <div>
@@ -207,10 +243,10 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
                 <input
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={(e) => handleEndDateChange(e.target.value)}
                   className="w-full border rounded px-3 py-2"
                   required
-                  min={startDate || new Date().toLocaleDateString('en-CA')}
+                  min={startDate}
                 />
               </div>
             </div>
@@ -306,6 +342,7 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
                 className={`border-2 rounded-lg p-4 ${
                   request.status === 'pending' ? 'border-yellow-400 bg-yellow-50' :
                   request.status === 'approved' ? 'border-green-400 bg-green-50' :
+                  request.status === 'cancelled' ? 'border-gray-400 bg-gray-100 opacity-90' :
                   'border-red-400 bg-red-50'
                 }`}
               >
@@ -336,6 +373,11 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
                         ✓ Approved by {request.reviewedBy} on {request.reviewedAt && new Date(request.reviewedAt).toLocaleDateString()}
                       </p>
                     )}
+                    {request.status === 'cancelled' && (
+                      <p className="text-xs text-gray-600 mt-2 font-medium">
+                        🚫 Cancelled (Leave hours refunded to balance)
+                      </p>
+                    )}
                     {request.status === 'rejected' && (
                       <div className="mt-2">
                         <p className="text-xs text-red-700">
@@ -349,12 +391,23 @@ const WorkerLeave: React.FC<WorkerLeaveProps> = ({ staffId, staffName }) => {
                       </div>
                     )}
                   </div>
-                  <div className={`font-bold ${
-                    request.status === 'pending' ? 'text-yellow-600' :
-                    request.status === 'approved' ? 'text-green-600' :
-                    'text-red-600'
-                  }`}>
-                    {request.status.toUpperCase()}
+                  <div className="flex flex-col items-end gap-2">
+                    <div className={`font-bold ${
+                      request.status === 'pending' ? 'text-yellow-600' :
+                      request.status === 'approved' ? 'text-green-600' :
+                      request.status === 'cancelled' ? 'text-gray-600' :
+                      'text-red-600'
+                    }`}>
+                      {request.status === 'cancelled' ? 'CANCELLED' : request.status.toUpperCase()}
+                    </div>
+                    {request.status !== 'rejected' && request.status !== 'cancelled' && (
+                      <button
+                        onClick={() => handleCancelRequest(request)}
+                        className="text-xs bg-red-100 hover:bg-red-200 text-red-700 font-semibold px-3 py-1 rounded transition"
+                      >
+                        Cancel Request
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

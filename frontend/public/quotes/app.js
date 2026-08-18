@@ -315,9 +315,12 @@ function calculateAll() {
 function updateDisplay() {
   const calc = calculateAll();
 
-  // Grand total banner
+  // Grand total banner & sticky total
+  const formattedVal = formatCurrency(calc.weeklyNetCost).replace('£ ', '');
   const grandTotalEl = document.getElementById('grandTotalAmount');
-  if (grandTotalEl) grandTotalEl.textContent = formatCurrency(calc.weeklyNetCost).replace('£ ', '');
+  if (grandTotalEl) grandTotalEl.textContent = formattedVal;
+  const stickyGrandTotalEl = document.getElementById('stickyGrandTotalAmount');
+  if (stickyGrandTotalEl) stickyGrandTotalEl.textContent = formattedVal;
 
   // Core costs - computed fields
   updateCoreRow('carePlacement', calc.coreResults.carePlacement);
@@ -1237,36 +1240,38 @@ function buildPage() {
       </div>
     </div>
 
-    <!-- Sticky Header (Static pinned top bar on scroll) -->
+    <!-- Sticky Header (Ultra-compact pinned toolbar on scroll: ~44px) -->
     <div class="sticky-header-wrapper">
-      <!-- Grand Total Banner -->
+      <div class="app-header">
+        <div class="header-brand">
+          <span class="icon">📋</span>
+          <h1>Social Care Placement Cost Quote Sheet</h1>
+        </div>
+        <div class="header-actions">
+          <select class="form-select profile-select" id="profileLoader">
+            <option value="">-- Load Patient Profile --</option>
+          </select>
+          <button class="btn btn-primary btn-sm" id="btnSave">💾 SAVE PROFILE</button>
+          <button class="btn btn-secondary btn-sm" id="btnExport">📄 EXPORT QUOTE</button>
+          <button class="btn btn-secondary btn-sm" id="btnExportInvoice">📄 GENERATE INVOICE</button>
+          <button class="btn btn-danger btn-sm" id="btnClear">🗑 CLEAR ALL</button>
+          <div class="sticky-total-pill">
+            <span class="pill-label">Total / Wk</span>
+            <span class="pill-val">£ <span id="stickyGrandTotalAmount">0.00</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Financial Summary Strip (Normal flow, compact, not sticky) -->
+    <div class="top-summary-strip">
+      <!-- Grand Total Banner (Eclesia style, compact) -->
       <div class="grand-total-banner eclesia-style-banner">
         <div class="label">Total cost per week (excluding one-off costs)</div>
         <div class="amount"><span class="currency">£</span><span id="grandTotalAmount">0.00</span></div>
       </div>
-      
-      <div class="print-disclaimer">
-        <p>If there is an error or omission in the cost information entered below, the price above and related cell(s) will show red. Please check the information entered and ensure it is complete and accurate prior to submitting this form. Enter Core Costs, Additional Costs and One-off Costs as applicable in the tables below</p>
-      </div>
 
-      <!-- App Header -->
-      <div class="app-header">
-        <h1>
-          <span class="icon">📋</span>
-          Social Care Placement Cost Quote Sheet
-        </h1>
-        <div class="header-actions">
-          <select class="form-select" id="profileLoader" style="max-width: 200px; border-color: var(--primary-500); cursor: pointer; color: var(--text-primary); background-color: var(--bg-card);">
-            <option value="">-- Load Patient Profile --</option>
-          </select>
-          <button class="btn btn-primary" id="btnSave">💾 SAVE PROFILE</button>
-          <button class="btn btn-secondary" id="btnExport">📄 EXPORT QUOTE</button>
-          <button class="btn btn-secondary" id="btnExportInvoice">📄 GENERATE INVOICE</button>
-          <button class="btn btn-danger" id="btnClear">🗑 CLEAR ALL</button>
-        </div>
-      </div>
-
-      <!-- Category Totals Summary Bar (Sticky Red Box Area) -->
+      <!-- Category Totals Summary Bar -->
       <div class="category-totals-bar">
         <div class="category-total-item">
           <span class="cat-label">Core Costs — Weekly</span>
@@ -1289,6 +1294,10 @@ function buildPage() {
           <span class="cat-value" id="barTotalRetainer">£ 0.00</span>
         </div>
       </div>
+    </div>
+
+    <div class="print-disclaimer">
+      <p>If there is an error or omission in the cost information entered below, the price above and related cell(s) will show red. Please check the information entered and ensure it is complete and accurate prior to submitting this form. Enter Core Costs, Additional Costs and One-off Costs as applicable in the tables below</p>
     </div>
 
     <!-- Provider Details -->

@@ -122,25 +122,34 @@ body::before {
   box-sizing: border-box;
 }
 
-/* ---- Grand Total Banner ---- */
+/* ---- Top Financial Summary Strip ---- */
+.top-summary-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* ---- Grand Total Banner (Eclesia Style - Compact) ---- */
 .grand-total-banner.eclesia-style-banner {
   background: transparent;
   padding: 0;
   display: flex;
   align-items: stretch;
-  margin-bottom: 24px;
+  margin-bottom: 0;
   box-shadow: none;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
   overflow: hidden;
+  height: 42px;
 }
 
 .grand-total-banner.eclesia-style-banner .label {
   flex: 1;
   background: #a6a6a6;
   color: #fff;
-  padding: 16px 24px;
-  font-size: 1.1rem;
+  padding: 6px 16px;
+  font-size: 0.9rem;
   font-weight: 700;
   text-align: right;
   display: flex;
@@ -153,23 +162,24 @@ body::before {
 .grand-total-banner.eclesia-style-banner .amount {
   background: #92d050;
   color: #000;
-  padding: 12px 20px;
-  font-size: 1.6rem;
+  padding: 4px 16px;
+  font-size: 1.3rem;
   font-weight: 800;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  min-width: 250px;
-  line-height: 1.2;
+  min-width: 170px;
+  line-height: 1;
+  gap: 4px;
 }
 
 .grand-total-banner.eclesia-style-banner .amount .currency {
   font-weight: 800;
   opacity: 1;
   margin-right: 0;
-  margin-bottom: 2px;
-  font-size: 1.2rem;
+  margin-bottom: 0;
+  font-size: 1.05rem;
   color: #000;
 }
 
@@ -181,25 +191,25 @@ body::before {
 }
 
 .print-disclaimer {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  margin-bottom: 24px;
-  line-height: 1.5;
+  font-size: 0.78rem;
+  color: var(--slate-400);
+  margin-bottom: 16px;
+  line-height: 1.4;
 }
 
 .print-disclaimer-additional {
   text-align: center;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--text-secondary);
-  margin-bottom: 16px;
-  line-height: 1.5;
+  margin-bottom: 14px;
+  line-height: 1.4;
 }
 
 .text-green { color: var(--primary-500) !important; font-weight: 600; }
 .text-red { color: var(--red-400) !important; font-weight: 600; }
 
 .grand-total-banner .label {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: rgba(255,255,255,0.85);
   text-transform: uppercase;
@@ -207,7 +217,7 @@ body::before {
 }
 
 .grand-total-banner .amount {
-  font-size: 2.2rem;
+  font-size: 1.6rem;
   font-weight: 800;
   color: #fff;
   letter-spacing: -0.5px;
@@ -217,46 +227,36 @@ body::before {
   font-weight: 600;
   opacity: 0.8;
   margin-right: 4px;
-  font-size: 1.6rem;
+  font-size: 1.2rem;
 }
 
-/* ---- Sticky Header Wrapper (Pins to top on scroll) ---- */
+/* ---- Sticky Header Wrapper (Pins to top on scroll - Ultra Compact ~44px) ---- */
 .sticky-header-wrapper {
   position: sticky;
   top: 0;
   z-index: 1000;
-  background: #0a0f1a;
+  background: rgba(10, 15, 26, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  padding: 16px 20px;
-  margin: -24px -20px 24px -20px;
+  padding: 8px 16px;
+  margin: -24px -20px 14px -20px;
   border-bottom: 1px solid var(--slate-700);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
-}
-
-.sticky-header-wrapper .grand-total-banner.eclesia-style-banner {
-  margin-bottom: 10px;
-}
-
-.sticky-header-wrapper .print-disclaimer {
-  margin-bottom: 10px;
-  font-size: 0.8rem;
-  line-height: 1.35;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .sticky-header-wrapper .app-header {
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
-/* ---- Category Totals Bar (Red Box requirement) ---- */
+/* ---- Category Totals Bar ---- */
 .category-totals-bar {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
   background: var(--slate-900);
   border: 1px solid var(--slate-700);
   border-radius: var(--radius-md);
-  padding: 8px;
+  padding: 6px;
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
 }
 
@@ -268,7 +268,7 @@ body::before {
   background: rgba(30, 41, 59, 0.7);
   border: 1px solid var(--slate-700);
   border-radius: var(--radius-sm);
-  padding: 8px 10px;
+  padding: 4px 8px;
   text-align: center;
   transition: all var(--transition-fast);
 }
@@ -279,12 +279,12 @@ body::before {
 }
 
 .category-total-item .cat-label {
-  font-size: 0.73rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: var(--slate-300);
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -292,7 +292,7 @@ body::before {
 }
 
 .category-total-item .cat-value {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 800;
   color: #92d050;
   letter-spacing: -0.2px;
@@ -310,51 +310,105 @@ body::before {
   }
 }
 
-/* ---- App Header ---- */
+/* ---- App Header & Toolbar ---- */
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 10px;
 }
 
-.app-header h1 {
-  font-size: 1.6rem;
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-brand h1 {
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--text-primary);
   display: flex;
   align-items: center;
-  gap: 12px;
+  margin: 0;
+  white-space: nowrap;
 }
 
-.app-header h1 .icon {
-  width: 40px;
-  height: 40px;
+.header-brand .icon {
+  width: 28px;
+  height: 28px;
   background: var(--bg-grand-total);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
+  font-size: 0.95rem;
   box-shadow: var(--shadow-glow);
+  flex-shrink: 0;
 }
 
 .header-actions {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 6px;
   flex-wrap: wrap;
+}
+
+.profile-select {
+  height: 30px;
+  font-size: 0.78rem;
+  padding: 2px 8px;
+  max-width: 180px;
+  border-color: var(--primary-500);
+  cursor: pointer;
+  color: var(--text-primary);
+  background-color: var(--bg-card);
+  border-radius: var(--radius-sm);
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  letter-spacing: 0.2px;
+}
+
+.sticky-total-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #064e3b;
+  border: 1px solid var(--primary-500);
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  margin-left: 2px;
+}
+
+.sticky-total-pill .pill-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--slate-300);
+  letter-spacing: 0.4px;
+}
+
+.sticky-total-pill .pill-val {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #92d050;
+  white-space: nowrap;
 }
 
 /* ---- Buttons ---- */
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
+  gap: 6px;
+  padding: 8px 16px;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
   border: none;
   border-radius: var(--radius-sm);
@@ -1168,7 +1222,7 @@ body::before {
   .card-header .badge { display: none; }
 
   /* Hide old UI/Spreadsheet elements in print */
-  .grand-total-banner, .eclesia-print-header, .print-disclaimer, .print-disclaimer-additional, .sticky-header-wrapper, .category-totals-bar {
+  .grand-total-banner, .eclesia-print-header, .print-disclaimer, .print-disclaimer-additional, .sticky-header-wrapper, .category-totals-bar, .top-summary-strip {
     display: none !important;
   }
 

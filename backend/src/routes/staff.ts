@@ -260,6 +260,85 @@ export function createStaffRouter(database: DbLike): Router {
     }
   });
 
+  // PUT /:id — update staff member (Admin only)
+  router.put('/:id', authenticateRequest, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      if (!database) return res.status(500).json({ error: 'Database not configured' });
+
+      const id = req.params.id as string;
+      if (!id) return res.status(400).json({ error: 'ID is required' });
+
+      const updateData: Record<string, any> = { ...req.body, updatedAt: new Date() };
+
+      // Map hourlyRate (frontend field) to standardRate (database column)
+      if (updateData.hourlyRate !== undefined) {
+        updateData.standardRate = updateData.hourlyRate;
+        delete updateData.hourlyRate;
+      }
+
+      // Trim string fields if present
+      if (updateData.name) updateData.name = updateData.name.trim();
+      if (updateData.username) updateData.username = updateData.username.trim();
+      if (updateData.email) updateData.email = updateData.email.trim();
+
+      if (updateData.password && typeof updateData.password === 'string' && !updateData.password.startsWith('$2b$')) {
+        updateData.password = await bcrypt.hash(updateData.password, 10);
+      }
+
+      // Validate hourly rate >= 0
+      if (updateData.standardRate !== undefined && updateData.standardRate !== null && updateData.standardRate !== '') {
+        const rate = Number(updateData.standardRate);
+        if (isNaN(rate) || rate < 0) {
+          return res.status(400).json({ error: 'Hourly rate must be zero or greater' });
+        }
+        updateData.standardRate = String(rate);
+      } else if (updateData.standardRate === '' || updateData.standardRate === null) {
+        updateData.standardRate = null;
+      }
+
+      // Normalize phone: remove spaces and symbols
+      if (updateData.phone && typeof updateData.phone === 'string') {
+        const normalised = updateData.phone.replace(/[\s\-\(\)]/g, '');
+        if (normalised.length > 0 && normalised.length < 10) {
+          return res.status(400).json({ error: 'Phone number must contain at least 10 digits' });
+        }
+        updateData.phone = normalised || null;
+      }
+
+      // Validate next-of-kin: phone required when name is entered
+      if (updateData.nextOfKinName && (!updateData.nextOfKinPhone || !updateData.nextOfKinPhone.trim())) {
+        return res.status(400).json({ error: 'Next of kin phone number is required when a next of kin name is entered' });
+      }
+
+      // Trim optional string fields
+      if (updateData.addressLine1) updateData.addressLine1 = updateData.addressLine1.trim();
+      if (updateData.addressLine2) updateData.addressLine2 = updateData.addressLine2.trim();
+      if (updateData.townCity) updateData.townCity = updateData.townCity.trim();
+      if (updateData.staffPostcode) updateData.staffPostcode = updateData.staffPostcode.trim();
+      if (updateData.nextOfKinName) updateData.nextOfKinName = updateData.nextOfKinName.trim();
+      if (updateData.nextOfKinRelationship) updateData.nextOfKinRelationship = updateData.nextOfKinRelationship.trim();
+      if (updateData.nextOfKinPhone) updateData.nextOfKinPhone = updateData.nextOfKinPhone.trim();
+
+      // Strip fields that should not be updated via this endpoint
+      delete updateData.id;
+      delete updateData.createdAt;
+
+      const updated = await database.update(staff)
+        .set(updateData)
+        .where(sql`${staff.id}::text = ${id}`)
+        .returning();
+
+      if (updated.length === 0) {
+        return res.status(404).json({ error: 'Staff member not found' });
+      }
+
+      return res.json(toSafeStaff(updated[0]));
+    } catch (error: any) {
+      console.error('Error updating staff member:', error);
+      return res.status(500).json({ error: 'Failed to update staff member', details: error.message });
+    }
+  });
+
   // DELETE /:id — delete staff member (Admin only)
   router.delete('/:id', authenticateRequest, requireAdmin, async (req: Request, res: Response) => {
     try {

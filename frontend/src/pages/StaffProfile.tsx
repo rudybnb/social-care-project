@@ -117,7 +117,7 @@ const StaffProfile: React.FC = () => {
     setSuccessMessage(null);
 
     try {
-      const updated = await staffAPI.update(staffId!, editForm);
+      const updated = await staffAPI.update(staffId!, editForm, token);
       setStaff(updated as SafeStaff);
       setIsEditing(false);
       setSuccessMessage('Staff profile updated successfully.');

@@ -159,6 +159,20 @@ app.get('/api/staff-start-dates', async (req: Request, res: Response) => {
   }
 });
 
+app.get('/api/mark-lauren-cancelled', async (_req: Request, res: Response) => {
+  try {
+    if (!db) return res.status(500).json({ error: 'Database not configured' });
+    const result = await db.execute(sql`
+      UPDATE leave_requests 
+      SET status = 'cancelled', updated_at = NOW() 
+      WHERE id = '08bdc2a7-124f-40e7-aab4-377e259a2853' OR (start_date = '2026-08-03' AND end_date = '2026-08-14' AND total_hours = 48)
+    `);
+    res.json({ message: 'Marked cancelled successfully', result });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/purge-test-staff', async (_req: Request, res: Response) => {
   try {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
@@ -934,8 +948,12 @@ app.put('/api/shifts/:id', async (req: Request, res: Response) => {
       }
     }
 
+    const updateData = { ...req.body, updatedAt: new Date() };
+    if (updateData.clockInTime) updateData.clockInTime = new Date(updateData.clockInTime);
+    if (updateData.clockOutTime) updateData.clockOutTime = new Date(updateData.clockOutTime);
+
     const updated = await db.update(shifts)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(shifts.id, id))
       .returning();
     if (updated.length === 0) {

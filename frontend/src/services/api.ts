@@ -201,13 +201,23 @@ export const staffAPI = {
   },
 
   // Update staff member
-  async update(id: string | number, updates: Partial<StaffMember>): Promise<StaffMember> {
+  async update(id: string | number, updates: Partial<StaffMember>, token?: string | null): Promise<StaffMember> {
+    const authToken = token || getStoredToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
     const response = await fetch(`${API_BASE_URL}/api/staff/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(updates),
     });
-    if (!response.ok) throw new Error('Failed to update staff member');
+    if (response.status === 401) {
+      throw new StaffAuthError('Your session has expired. Please log in again.', response.status);
+    }
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Failed to update staff member' }));
+      throw new Error(err.error || err.details || 'Failed to update staff member');
+    }
     return response.json();
   },
 

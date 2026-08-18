@@ -31,7 +31,7 @@ export interface LeaveRequest {
   totalHours: number;
   reason?: string;
   leaveType: 'annual' | 'sick' | 'personal';
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   requestedAt: string;
   reviewedBy?: string;
   reviewedAt?: string;

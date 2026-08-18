@@ -201,7 +201,8 @@ const ClockInOut: React.FC = () => {
             !s.clockedOut &&
             (s.startTime >= '18:00' || (s.type && s.type.toLowerCase().includes('night')));
 
-          return isSiteMatch && (isTodayShift || isActiveShift || isEligibleNightShift);
+          // Active open shifts (clockedIn && !clockedOut) must ALWAYS be returned regardless of kiosk site, so the worker can clock out
+          return isActiveShift || (isSiteMatch && (isTodayShift || isEligibleNightShift));
         });
         setShifts(todayShifts);
 
@@ -215,8 +216,10 @@ const ClockInOut: React.FC = () => {
               if (refreshedShifts.ok) {
                 const refreshedData = await refreshedShifts.json();
                 const refreshedTodayShifts = refreshedData.filter((s: Shift) =>
-                  matchSite(s.siteId, siteId) &&
-                  (s.date === todayLocal || (s.date === yesterdayLocal && !s.clockedOut && (s.startTime >= '18:00' || (s.type && s.type.toLowerCase().includes('night')))))
+                  (s.clockedIn && !s.clockedOut) || (
+                    matchSite(s.siteId, siteId) &&
+                    (s.date === todayLocal || (s.date === yesterdayLocal && !s.clockedOut && (s.startTime >= '18:00' || (s.type && s.type.toLowerCase().includes('night')))))
+                  )
                 );
 
                 if (refreshedTodayShifts.length > 0) {
