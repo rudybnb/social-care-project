@@ -1051,6 +1051,63 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
 
 
 
+    // CLOCK-IN TIME WINDOW VALIDATION (Europe/London)
+    // Allow clock-in from 60min before scheduled start until scheduled end.
+    // Overnight shifts: end time is on the following day.
+    // Already clocked-in staff can always clock out.
+    const nowForWindow = new Date();
+    const todayLondon = nowForWindow.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+    const londonParts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London', hour: 'numeric', minute: 'numeric', hour12: false
+    }).formatToParts(nowForWindow);
+    const curH = parseInt(londonParts.find(p => p.type === 'hour')!.value);
+    const curM = parseInt(londonParts.find(p => p.type === 'minute')!.value);
+    const nowMinutes = curH * 60 + curM;
+
+    const [sH, sM] = shift.startTime.split(':').map(Number);
+    const [eH, eM] = shift.endTime.split(':').map(Number);
+    const shiftStartMin = sH * 60 + sM;
+    const shiftEndMin = eH * 60 + eM;
+    const isOvernight = shiftEndMin <= shiftStartMin;
+
+    if (!shift.clockedIn) {
+      let withinWindow = false;
+
+      if (isOvernight) {
+        if (shift.date === todayLondon) {
+          // Start date is today - window open from (start - 60min)
+          withinWindow = nowMinutes >= shiftStartMin - 60;
+        } else {
+          // Check if today is the day after shift.date (the end date)
+          const shifted = new Date(shift.date + 'T12:00:00Z');
+          shifted.setUTCDate(shifted.getUTCDate() + 1);
+          const endDayLondon = shifted.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+          if (todayLondon === endDayLondon) {
+            withinWindow = nowMinutes <= shiftEndMin;
+          }
+        }
+      } else {
+        // Day shift - both start and end on same date
+        if (shift.date === todayLondon) {
+          withinWindow = nowMinutes >= shiftStartMin - 60 && nowMinutes <= shiftEndMin;
+        }
+      }
+
+      if (!withinWindow) {
+        const windowOpenMin = ((shiftStartMin - 60) % 1440 + 1440) % 1440;
+        const wOH = String(Math.floor(windowOpenMin / 60)).padStart(2, '0');
+        const wOM = String(windowOpenMin % 60).padStart(2, '0');
+        console.log(`[ClockIn] BLOCKED - Outside time window. Shift: ${shift.date} ${shift.startTime}-${shift.endTime}, Now: ${todayLondon} ${String(curH).padStart(2,'0')}:${String(curM).padStart(2,'0')}`);
+        return res.status(403).json({
+          error: `Clock-in not available. Window: ${wOH}:${wOM} to ${shift.endTime}.`,
+          shiftStart: shift.startTime,
+          shiftEnd: shift.endTime,
+          windowOpens: `${wOH}:${wOM}`
+        });
+      }
+    }
+
     // VALIDATION: Shift must be ACCEPTED before clock-in
     if (shift.staffStatus !== 'accepted') {
       console.log(`[ClockIn] BLOCKED - Shift status is ${shift.staffStatus}, not accepted`);

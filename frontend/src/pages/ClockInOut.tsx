@@ -193,6 +193,45 @@ const ClockInOut: React.FC = () => {
     return new Date(timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Clock-in time window check (Europe/London) — must match backend rule exactly
+  const isWithinClockInWindow = (shift: Shift): boolean => {
+    if (shift.clockedIn) return true;
+
+    const now = new Date();
+    const todayLondon = now.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London', hour: 'numeric', minute: 'numeric', hour12: false
+    }).formatToParts(now);
+    const curH = parseInt(parts.find(p => p.type === 'hour')!.value);
+    const curM = parseInt(parts.find(p => p.type === 'minute')!.value);
+    const nowMin = curH * 60 + curM;
+
+    const [sH, sM] = shift.startTime.split(':').map(Number);
+    const [eH, eM] = shift.endTime.split(':').map(Number);
+    const startMin = sH * 60 + sM;
+    const endMin = eH * 60 + eM;
+    const isOvernight = endMin <= startMin;
+
+    if (isOvernight) {
+      if (shift.date === todayLondon) {
+        return nowMin >= startMin - 60;
+      }
+      const d = new Date(shift.date + 'T12:00:00Z');
+      d.setUTCDate(d.getUTCDate() + 1);
+      const endDay = d.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+      if (todayLondon === endDay) {
+        return nowMin <= endMin;
+      }
+      return false;
+    }
+
+    if (shift.date === todayLondon) {
+      return nowMin >= startMin - 60 && nowMin <= endMin;
+    }
+    return false;
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -319,7 +358,7 @@ const ClockInOut: React.FC = () => {
             </div>
 
             {shifts.map(shift => {
-              const canClockIn = !shift.clockedIn;
+              const canClockIn = isWithinClockInWindow(shift);
               const canClockOut = shift.clockedIn && !shift.clockedOut;
               const isComplete = shift.clockedOut;
 
