@@ -135,19 +135,12 @@ const ClockInOut: React.FC = () => {
 
       const staffMember = await staffResponse.json();
 
-      // Check for duplicate last-4-digits
-      try {
-        const dupResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/phone-duplicates`);
-        if (dupResponse.ok) {
-          const dupData = await dupResponse.json();
-          const normalised = phoneDigits.replace(/\D/g, '');
-          const match = dupData.duplicates?.find((d: any) => d.digits === normalised);
-          if (match) {
-            setDuplicateWarning(`Warning: ${match.staffNames.length} staff members share these last 4 digits (${match.digits}). Please verify you are the correct person.`);
-          }
-        }
-      } catch (e) {
-        // Non-critical, continue
+      // Handle duplicate match response from backend
+      if (staffMember.duplicate && staffMember.candidates) {
+        setMessage(staffMember.message || 'Multiple staff match these digits. Please verify with your full phone number.');
+        setMessageType('error');
+        setIsFetching(false);
+        return;
       }
 
       // Show confirmation before proceeding
@@ -180,7 +173,7 @@ const ClockInOut: React.FC = () => {
         const todayLocal = getUkDate();
         const yesterdayObj = new Date();
         yesterdayObj.setDate(yesterdayObj.getDate() - 1);
-        const yesterdayLocal = yesterdayObj.toISOString().split('T')[0];
+        const yesterdayLocal = yesterdayObj.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
 
         const matchSite = (shiftSiteId?: string, targetSiteId?: string | null) => {
           if (!shiftSiteId || !targetSiteId) return true; // Default match if site unconstrained
@@ -195,6 +188,8 @@ const ClockInOut: React.FC = () => {
           const isSiteMatch = matchSite(s.siteId, siteId);
           const isTodayShift = s.date === todayLocal;
           const isActiveShift = s.clockedIn && !s.clockedOut;
+          // Only show shifts eligible for clock-in: accepted status or already active
+          const isEligibleStatus = s.staffStatus === 'accepted' || s.staffStatus === undefined;
           // Previous-day night shift starting >= 18:00 (eligible past midnight until clocked out)
           const isEligibleNightShift =
             s.date === yesterdayLocal &&
@@ -202,45 +197,61 @@ const ClockInOut: React.FC = () => {
             (s.startTime >= '18:00' || (s.type && s.type.toLowerCase().includes('night')));
 
           // Active open shifts (clockedIn && !clockedOut) must ALWAYS be returned regardless of kiosk site, so the worker can clock out
-          return isActiveShift || (isSiteMatch && (isTodayShift || isEligibleNightShift));
+          return isActiveShift || (isSiteMatch && isEligibleStatus && (isTodayShift || isEligibleNightShift));
         });
         setShifts(todayShifts);
 
         if (todayShifts.length === 0) {
-          setIsUnscheduled(true);
+          // Check if shifts exist but are pending/declined (not yet eligible)
+          const pendingOrDeclined = data.filter((s: Shift) => {
+            const isSiteMatch = matchSite(s.siteId, siteId);
+            const isTodayShift = s.date === todayLocal;
+            return isSiteMatch && isTodayShift && (s.staffStatus === 'pending' || s.staffStatus === 'declined');
+          });
 
-          try {
-            const approvedRequest = await approvalAPI.checkApprovedRequest(pendingStaffId, siteId!, todayLocal);
-            if (approvedRequest) {
-              const refreshedShifts = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${pendingStaffId}/shifts`);
-              if (refreshedShifts.ok) {
-                const refreshedData = await refreshedShifts.json();
-                const refreshedTodayShifts = refreshedData.filter((s: Shift) =>
-                  (s.clockedIn && !s.clockedOut) || (
-                    matchSite(s.siteId, siteId) &&
-                    (s.date === todayLocal || (s.date === yesterdayLocal && !s.clockedOut && (s.startTime >= '18:00' || (s.type && s.type.toLowerCase().includes('night')))))
-                  )
-                );
+          if (pendingOrDeclined.length > 0) {
+            const statusMsg = pendingOrDeclined[0].staffStatus === 'declined'
+              ? `Hello ${pendingStaffName}! Your shift today has been declined. Please contact your manager.`
+              : `Hello ${pendingStaffName}! Your shift today is pending acceptance. Please accept it in your app before clocking in.`;
+            setMessage(statusMsg);
+            setMessageType('error');
+          } else {
+            setIsUnscheduled(true);
 
-                if (refreshedTodayShifts.length > 0) {
-                  setShifts(refreshedTodayShifts);
-                  setIsUnscheduled(false);
-                  setMessage(`Welcome ${pendingStaffName}! Your unscheduled shift has been approved.`);
-                  setMessageType('success');
-                } else {
-                  setMessage(`Hello ${pendingStaffName}! Your unscheduled shift has been approved. You may clock in.`);
-                  setMessageType('success');
-                  setApprovalRequested(true);
+            try {
+              const approvedRequest = await approvalAPI.checkApprovedRequest(pendingStaffId, siteId!, todayLocal);
+              if (approvedRequest) {
+                const refreshedShifts = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${pendingStaffId}/shifts`);
+                if (refreshedShifts.ok) {
+                  const refreshedData = await refreshedShifts.json();
+                  const refreshedTodayShifts = refreshedData.filter((s: Shift) =>
+                    (s.clockedIn && !s.clockedOut) || (
+                      matchSite(s.siteId, siteId) &&
+                      (s.staffStatus === 'accepted' || s.staffStatus === undefined) &&
+                      (s.date === todayLocal || (s.date === yesterdayLocal && !s.clockedOut && (s.startTime >= '18:00' || (s.type && s.type.toLowerCase().includes('night')))))
+                    )
+                  );
+
+                  if (refreshedTodayShifts.length > 0) {
+                    setShifts(refreshedTodayShifts);
+                    setIsUnscheduled(false);
+                    setMessage(`Welcome ${pendingStaffName}! Your unscheduled shift has been approved.`);
+                    setMessageType('success');
+                  } else {
+                    setMessage(`Hello ${pendingStaffName}! Your unscheduled shift has been approved. You may clock in.`);
+                    setMessageType('success');
+                    setApprovalRequested(true);
+                  }
                 }
+              } else {
+                setMessage(`Hello ${pendingStaffName}! You are not scheduled to work today at this site.`);
+                setMessageType('error');
               }
-            } else {
+            } catch (err) {
+              console.error('Error checking approval:', err);
               setMessage(`Hello ${pendingStaffName}! You are not scheduled to work today at this site.`);
               setMessageType('error');
             }
-          } catch (err) {
-            console.error('Error checking approval:', err);
-            setMessage(`Hello ${pendingStaffName}! You are not scheduled to work today at this site.`);
-            setMessageType('error');
           }
         } else {
           setIsUnscheduled(false);
@@ -357,7 +368,8 @@ const ClockInOut: React.FC = () => {
               weekday: 'long',
               day: 'numeric',
               month: 'long',
-              year: 'numeric'
+              year: 'numeric',
+              timeZone: 'Europe/London'
             })}
           </p>
         </div>

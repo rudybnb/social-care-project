@@ -1163,33 +1163,6 @@ app.post('/api/auth/staff/qr-login', async (req: Request, res: Response) => {
 
 // ==================== CLOCK-IN/OUT ROUTES ====================
 
-// Get staff shifts (for staff mobile app)
-app.get('/api/staff/:staffId/shifts', async (req: Request, res: Response) => {
-  try {
-    if (!db) return res.status(500).json({ error: 'Database not configured' });
-    const staffId = req.params.staffId as string;
-
-    if (!staffId) {
-      return res.status(400).json({ error: 'Staff ID required' });
-    }
-
-    // Get all published or accepted shifts for this staff member
-    const staffShifts = await db.select().from(shifts).where(
-      and(
-        eq(shifts.staffId, staffId),
-        or(
-          eq(shifts.published, true),
-          eq(shifts.staffStatus, 'accepted')
-        )
-      )
-    );
-    res.json(staffShifts);
-  } catch (error) {
-    console.error('Error fetching staff shifts:', error);
-    res.status(500).json({ error: 'Failed to fetch shifts' });
-  }
-});
-
 // Publish shifts (convert draft to published)
 app.post('/api/shifts/publish', async (req: Request, res: Response) => {
   try {
@@ -1288,11 +1261,12 @@ app.post('/api/staff/lookup', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Please provide exactly 4 digits' });
     }
 
-    console.log(`[Lookup] Searching for staff with phone ending in ${normalised} at site ${siteId || 'any'}`);
+    const cleanSiteId = typeof siteId === 'string' ? siteId.trim() : '';
+    console.log(`[Lookup] Searching for staff with phone ending in ${normalised} at site ${cleanSiteId || 'any'}`);
 
-    // Select only id and name; filter server-side by stripping non-digits from phone
+    // Select only id, name, and site; filter server-side by stripping non-digits from phone
     const matchingStaff = await db
-      .select({ id: staff.id, name: staff.name })
+      .select({ id: staff.id, name: staff.name, site: staff.site })
       .from(staff)
       .where(sql`regexp_replace(${staff.phone}, '[^0-9]', '', 'g') LIKE ${'%' + normalised}`);
 
@@ -1301,13 +1275,44 @@ app.post('/api/staff/lookup', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'No staff member found with these digits.' });
     }
 
-    if (matchingStaff.length > 1) {
-      console.log(`[Lookup] WARNING: ${matchingStaff.length} staff members share last 4 digits: ${normalised}`);
+    // If siteId provided, try to narrow by site name match
+    let candidates = matchingStaff;
+    if (cleanSiteId && matchingStaff.length > 1) {
+      // Look up the site name for this siteId
+      const siteRow = await db.select({ id: sites.id, name: sites.name })
+        .from(sites)
+        .where(sql`${sites.id} = ${cleanSiteId}`)
+        .limit(1);
+      const siteName = siteRow[0]?.name;
+      if (siteName) {
+        const siteMatches = matchingStaff.filter((s: any) =>
+          s.site && s.site.toLowerCase().includes(siteName.toLowerCase())
+        );
+        if (siteMatches.length > 0) {
+          candidates = siteMatches;
+        }
+      }
     }
 
-    const matched = matchingStaff[0];
-    console.log(`[Lookup] Found staff: ${matched.name} (${matched.id})`);
+    if (candidates.length === 1) {
+      const matched = candidates[0];
+      console.log(`[Lookup] Found staff: ${matched.name} (${matched.id})`);
+      return res.json({ id: matched.id, name: matched.name });
+    }
 
+    // Multiple staff still match — do NOT pick arbitrarily
+    if (candidates.length > 1) {
+      console.log(`[Lookup] DUPLICATE: ${candidates.length} staff members share last 4 digits: ${normalised}`);
+      return res.status(200).json({
+        duplicate: true,
+        candidates: candidates.map((s: any) => ({ id: s.id, name: s.name })),
+        message: 'Multiple staff members match. Please confirm your identity using your full phone number.'
+      });
+    }
+
+    // Fallback: single match from original set
+    const matched = candidates[0];
+    console.log(`[Lookup] Found staff: ${matched.name} (${matched.id})`);
     res.json({ id: matched.id, name: matched.name });
 
   } catch (error) {
@@ -1353,20 +1358,12 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
     }
 
     // QR Code Validation
-    // The user confirmed they still want this check.
-    // QR Code Validation
-    // Logic: 
-    // 1. Exact match Site ID
-    // 2. Exact match SITE_{siteId}
-    // 3. QR contains Site ID (e.g. SITE:SITE_001:12345)
-
-    const plainSiteId = shift.siteId.replace('SITE_', ''); // Just the number/code part
-
+    // Accept exact matches only:
+    // 1. qrCode equals the shift's siteId directly
+    // 2. qrCode equals SITE_{siteId} (kiosk format)
     const isValidQR =
       qrCode === shift.siteId ||
-      qrCode === `SITE_${shift.siteId}` ||
-      qrCode.includes(shift.siteId) ||
-      qrCode.includes(`SITE_${plainSiteId}`);
+      qrCode === `SITE_${shift.siteId}`;
 
     if (!isValidQR) {
       console.log(`[ClockIn] Invalid QR. Shift Site: ${shift.siteId}, Scanned: ${qrCode}`);
@@ -1501,14 +1498,10 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
       return res.status(404).json({ error: 'Site not found' });
     }
 
-    // QR Code Validation (Robust)
-    const plainSiteId = shift[0].siteId.replace('SITE_', '');
-
+    // QR Code Validation (exact matches only)
     const isValidQR =
       qrCode === shift[0].siteId ||
-      qrCode === `SITE_${shift[0].siteId}` ||
-      qrCode.includes(shift[0].siteId) ||
-      qrCode.includes(`SITE_${plainSiteId}`);
+      qrCode === `SITE_${shift[0].siteId}`;
 
     if (!isValidQR) {
       return res.status(400).json({ error: 'Invalid QR code for this site' });
