@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Shift } from '../data/sharedData';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { approvalAPI } from '../services/approvalAPI';
+import { formatUkTime, getUkDate } from '../utils/ukDateTime';
 
 
 const ClockInOut: React.FC = () => {
@@ -19,8 +20,88 @@ const ClockInOut: React.FC = () => {
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
   const [isUnscheduled, setIsUnscheduled] = useState(false);
   const [approvalRequested, setApprovalRequested] = useState(false);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [pendingStaffName, setPendingStaffName] = useState('');
+  const [pendingStaffId, setPendingStaffId] = useState('');
+  const [duplicateWarning, setDuplicateWarning] = useState('');
+  const [showHelpPanel, setShowHelpPanel] = useState(false);
+  const [helpStep, setHelpStep] = useState<'menu' | 'full_phone' | 'flagged'>('menu');
+  const [fullPhoneInput, setFullPhoneInput] = useState('');
+  const [assistantMessage, setAssistantMessage] = useState('');
 
-  const today = new Date().toLocaleDateString('en-CA');
+  const handleFullPhoneVerify = async () => {
+    if (!fullPhoneInput || fullPhoneInput.length < 10) {
+      setAssistantMessage('Please enter your full 10 or 11 digit phone number.');
+      return;
+    }
+    setIsFetching(true);
+    setAssistantMessage('');
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/auth/login-assistant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify_full_phone',
+          fullPhone: fullPhoneInput,
+          siteId
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok && data.status === 'verified' && data.verificationToken) {
+        // Resolve opaque verification token single-use on server
+        const resolveRes = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/auth/login-assistant`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'resolve_token',
+            verificationToken: data.verificationToken
+          })
+        });
+
+        const resolveData = await resolveRes.json();
+        if (resolveRes.ok && resolveData.status === 'resolved' && resolveData.staffId) {
+          setPendingStaffId(resolveData.staffId);
+          setPendingStaffName(resolveData.name);
+          setNeedsConfirmation(true);
+          setShowHelpPanel(false);
+          setMessage(`Verified! Is this you: ${resolveData.name}? Confirm to see your shifts.`);
+          setMessageType('success');
+        } else {
+          setAssistantMessage('Verification token expired or invalid. Please try again.');
+        }
+      } else {
+        setAssistantMessage(data.message || 'Phone number not found or unable to verify.');
+      }
+    } catch (e) {
+      setAssistantMessage('Network error during verification. Please try again.');
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const handleFlagAdminReview = async () => {
+    setIsFetching(true);
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/auth/login-assistant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'flag_admin_review',
+          phoneDigits,
+          siteId
+        })
+      });
+      setHelpStep('flagged');
+    } catch (e) {
+      setAssistantMessage('Failed to flag review. Please inform site management.');
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const today = getUkDate();
 
   const fetchShifts = async () => {
     if (!phoneDigits || phoneDigits.length !== 4) {
@@ -32,9 +113,9 @@ const ClockInOut: React.FC = () => {
     setIsFetching(true);
     setMessage('');
     setMessageType('');
+    setDuplicateWarning('');
 
     try {
-      // Use new backend lookup endpoint
       const staffResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/lookup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,58 +135,127 @@ const ClockInOut: React.FC = () => {
 
       const staffMember = await staffResponse.json();
 
-      setStaffId(staffMember.id);
-      setStaffName(staffMember.name);
+      // Handle duplicate match response from backend
+      if (staffMember.duplicate && staffMember.candidates) {
+        setMessage(staffMember.message || 'Multiple staff match these digits. Please verify with your full phone number.');
+        setMessageType('error');
+        setIsFetching(false);
+        return;
+      }
 
-      // Now fetch shifts for this staff member
-      const shiftsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${staffMember.id}/shifts`);
+      // Show confirmation before proceeding
+      setPendingStaffName(staffMember.name);
+      setPendingStaffId(staffMember.id);
+      setNeedsConfirmation(true);
+      setMessage(`Is this you: ${staffMember.name}? Confirm to see your shifts.`);
+      setMessageType('success');
+    } catch (error) {
+      console.error('Network error:', error);
+      setMessage('Network error. Please try again.');
+      setMessageType('error');
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const confirmStaff = async () => {
+    setStaffId(pendingStaffId);
+    setStaffName(pendingStaffName);
+    setNeedsConfirmation(false);
+    setMessage('');
+    setMessageType('');
+
+    try {
+      const shiftsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${pendingStaffId}/shifts`);
       if (shiftsResponse.ok) {
         const data = await shiftsResponse.json();
-        // Filter for today's shifts at this site using local date
-        const todayLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+        // Filter for today's shifts or previous-day night shifts at this site using UK local date
+        const todayLocal = getUkDate();
+        const yesterdayObj = new Date();
+        yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+        const yesterdayLocal = yesterdayObj.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
 
-        const todayShifts = data.filter((s: Shift) =>
-          s.siteId === siteId && 
-          (s.date === todayLocal || (s.clockedIn && !s.clockedOut))
-        );
+        const matchSite = (shiftSiteId?: string, targetSiteId?: string | null) => {
+          if (!shiftSiteId || !targetSiteId) return true; // Default match if site unconstrained
+          if (shiftSiteId === targetSiteId) return true;
+          // Normalize SITE_001 vs UUID fallback comparisons safely
+          const cleanShift = shiftSiteId.replace(/^SITE_/i, '').trim();
+          const cleanTarget = targetSiteId.replace(/^SITE_/i, '').trim();
+          return cleanShift === cleanTarget || shiftSiteId.includes(targetSiteId) || targetSiteId.includes(shiftSiteId);
+        };
+
+        const todayShifts = data.filter((s: Shift) => {
+          const isSiteMatch = matchSite(s.siteId, siteId);
+          const isTodayShift = s.date === todayLocal;
+          const isActiveShift = s.clockedIn && !s.clockedOut;
+          // Only show shifts eligible for clock-in: accepted status or already active
+          const isEligibleStatus = s.staffStatus === 'accepted' || s.staffStatus === undefined;
+          // Previous-day night shift starting >= 18:00 (eligible past midnight until clocked out)
+          const isEligibleNightShift =
+            s.date === yesterdayLocal &&
+            !s.clockedOut &&
+            (s.startTime >= '18:00' || (s.type && s.type.toLowerCase().includes('night')));
+
+          // Active open shifts (clockedIn && !clockedOut) must ALWAYS be returned regardless of kiosk site, so the worker can clock out
+          return isActiveShift || (isSiteMatch && isEligibleStatus && (isTodayShift || isEligibleNightShift));
+        });
         setShifts(todayShifts);
 
         if (todayShifts.length === 0) {
-          setIsUnscheduled(true);
+          // Check if shifts exist but are pending/declined (not yet eligible)
+          const pendingOrDeclined = data.filter((s: Shift) => {
+            const isSiteMatch = matchSite(s.siteId, siteId);
+            const isTodayShift = s.date === todayLocal;
+            return isSiteMatch && isTodayShift && (s.staffStatus === 'pending' || s.staffStatus === 'declined');
+          });
 
-          // Check if there's already an approved request for today (using local date)
-          try {
-            const approvedRequest = await approvalAPI.checkApprovedRequest(staffMember.id, siteId!, todayLocal);
-            if (approvedRequest) {
-              // Refetch shifts
-              const refreshedShifts = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${staffMember.id}/shifts`);
-              if (refreshedShifts.ok) {
-                const refreshedData = await refreshedShifts.json();
-                const refreshedTodayShifts = refreshedData.filter((s: Shift) => s.date === todayLocal && s.siteId === siteId);
+          if (pendingOrDeclined.length > 0) {
+            const statusMsg = pendingOrDeclined[0].staffStatus === 'declined'
+              ? `Hello ${pendingStaffName}! Your shift today has been declined. Please contact your manager.`
+              : `Hello ${pendingStaffName}! Your shift today is pending acceptance. Please accept it in your app before clocking in.`;
+            setMessage(statusMsg);
+            setMessageType('error');
+          } else {
+            setIsUnscheduled(true);
 
-                if (refreshedTodayShifts.length > 0) {
-                  setShifts(refreshedTodayShifts);
-                  setIsUnscheduled(false);
-                  setMessage(`Welcome ${staffMember.name}! Your unscheduled shift has been approved.`);
-                  setMessageType('success');
-                } else {
-                  setMessage(`Hello ${staffMember.name}! Your unscheduled shift has been approved. You may clock in.`);
-                  setMessageType('success');
-                  setApprovalRequested(true);
+            try {
+              const approvedRequest = await approvalAPI.checkApprovedRequest(pendingStaffId, siteId!, todayLocal);
+              if (approvedRequest) {
+                const refreshedShifts = await fetch(`${process.env.REACT_APP_API_URL || 'https://social-care-backend.onrender.com'}/api/staff/${pendingStaffId}/shifts`);
+                if (refreshedShifts.ok) {
+                  const refreshedData = await refreshedShifts.json();
+                  const refreshedTodayShifts = refreshedData.filter((s: Shift) =>
+                    (s.clockedIn && !s.clockedOut) || (
+                      matchSite(s.siteId, siteId) &&
+                      (s.staffStatus === 'accepted' || s.staffStatus === undefined) &&
+                      (s.date === todayLocal || (s.date === yesterdayLocal && !s.clockedOut && (s.startTime >= '18:00' || (s.type && s.type.toLowerCase().includes('night')))))
+                    )
+                  );
+
+                  if (refreshedTodayShifts.length > 0) {
+                    setShifts(refreshedTodayShifts);
+                    setIsUnscheduled(false);
+                    setMessage(`Welcome ${pendingStaffName}! Your unscheduled shift has been approved.`);
+                    setMessageType('success');
+                  } else {
+                    setMessage(`Hello ${pendingStaffName}! Your unscheduled shift has been approved. You may clock in.`);
+                    setMessageType('success');
+                    setApprovalRequested(true);
+                  }
                 }
+              } else {
+                setMessage(`Hello ${pendingStaffName}! You are not scheduled to work today at this site.`);
+                setMessageType('error');
               }
-            } else {
-              setMessage(`Hello ${staffMember.name}! You are not scheduled to work today at this site.`);
+            } catch (err) {
+              console.error('Error checking approval:', err);
+              setMessage(`Hello ${pendingStaffName}! You are not scheduled to work today at this site.`);
               setMessageType('error');
             }
-          } catch (err) {
-            console.error('Error checking approval:', err);
-            setMessage(`Hello ${staffMember.name}! You are not scheduled to work today at this site.`);
-            setMessageType('error');
           }
         } else {
           setIsUnscheduled(false);
-          setMessage(`Welcome ${staffMember.name}!`);
+          setMessage(`Welcome ${pendingStaffName}!`);
           setMessageType('success');
         }
       } else {
@@ -116,8 +266,6 @@ const ClockInOut: React.FC = () => {
       console.error('Network error:', error);
       setMessage('Network error. Please try again.');
       setMessageType('error');
-    } finally {
-      setIsFetching(false);
     }
   };
 
@@ -190,7 +338,7 @@ const ClockInOut: React.FC = () => {
 
   const formatTime = (timestamp?: string) => {
     if (!timestamp) return 'N/A';
-    return new Date(timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return formatUkTime(timestamp);
   };
 
   // Clock-in time window check (Europe/London) — must match backend rule exactly
@@ -259,7 +407,8 @@ const ClockInOut: React.FC = () => {
               weekday: 'long',
               day: 'numeric',
               month: 'long',
-              year: 'numeric'
+              year: 'numeric',
+              timeZone: 'Europe/London'
             })}
           </p>
         </div>
@@ -281,7 +430,7 @@ const ClockInOut: React.FC = () => {
         )}
 
         {/* Staff ID Input */}
-        {shifts.length === 0 && (
+        {shifts.length === 0 && !needsConfirmation && (
           <div style={{
             backgroundColor: '#1a1a1a',
             borderRadius: '16px',
@@ -337,11 +486,247 @@ const ClockInOut: React.FC = () => {
                 fontSize: '16px',
                 fontWeight: 'bold',
                 cursor: phoneDigits.length === 4 && !isFetching ? 'pointer' : 'not-allowed',
-                opacity: phoneDigits.length === 4 && !isFetching ? 1 : 0.5
+                opacity: phoneDigits.length === 4 && !isFetching ? 1 : 0.5,
+                marginBottom: '16px'
               }}
             >
               {isFetching ? 'Loading...' : 'Find My Shifts'}
             </button>
+
+            {/* Need Help Toggle */}
+            <div style={{ textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHelpPanel(!showHelpPanel);
+                  setHelpStep('menu');
+                  setAssistantMessage('');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#60a5fa',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                {showHelpPanel ? 'Hide Support' : 'Need help logging in? 💬'}
+              </button>
+            </div>
+
+            {/* Support Assistant Panel */}
+            {showHelpPanel && (
+              <div style={{
+                marginTop: '16px',
+                padding: '16px',
+                backgroundColor: '#262626',
+                borderRadius: '12px',
+                border: '1px solid #404040'
+              }}>
+                <div style={{ color: 'white', fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>
+                  💬 Clock-In Support Assistant
+                </div>
+
+                {assistantMessage && (
+                  <div style={{
+                    backgroundColor: '#ef444420',
+                    border: '1px solid #ef4444',
+                    borderRadius: '8px',
+                    padding: '10px',
+                    color: '#ef4444',
+                    fontSize: '13px',
+                    marginBottom: '12px'
+                  }}>
+                    {assistantMessage}
+                  </div>
+                )}
+
+                {helpStep === 'menu' && (
+                  <div>
+                    <div style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '12px' }}>
+                      Having trouble with your 4-digit PIN? Choose an option below:
+                    </div>
+
+                    <button
+                      onClick={() => setHelpStep('full_phone')}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        marginBottom: '8px'
+                      }}
+                    >
+                      📱 Verify with Full Phone Number
+                    </button>
+
+                    <button
+                      onClick={handleFlagAdminReview}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        backgroundColor: '#f59e0b',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ⚠️ Flag for Admin Review
+                    </button>
+                  </div>
+                )}
+
+                {helpStep === 'full_phone' && (
+                  <div>
+                    <div style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '8px' }}>
+                      Enter your full phone number to verify identity (never displayed on screen):
+                    </div>
+                    <input
+                      type="tel"
+                      value={fullPhoneInput}
+                      onChange={(e) => setFullPhoneInput(e.target.value)}
+                      placeholder="e.g. 07123456789"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        backgroundColor: '#0a0a0a',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '8px',
+                        color: 'white',
+                        fontSize: '16px',
+                        marginBottom: '12px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={handleFullPhoneVerify}
+                        disabled={isFetching}
+                        style={{
+                          flex: 1,
+                          padding: '12px',
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {isFetching ? 'Verifying...' : 'Verify'}
+                      </button>
+                      <button
+                        onClick={() => setHelpStep('menu')}
+                        style={{
+                          padding: '12px',
+                          backgroundColor: '#404040',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Back
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {helpStep === 'flagged' && (
+                  <div style={{
+                    backgroundColor: '#10b98120',
+                    border: '1px solid #10b981',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#10b981',
+                    fontSize: '13px'
+                  }}>
+                    ✅ An internal Admin review alert has been recorded for your account. Please notify site management so they can review your profile.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Confirmation Dialog */}
+        {needsConfirmation && (
+          <div style={{
+            backgroundColor: '#1a1a1a',
+            borderRadius: '16px',
+            padding: '24px',
+            marginBottom: '24px',
+            border: '2px solid #3b82f6'
+          }}>
+            <div style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
+              Confirm Your Identity
+            </div>
+            <div style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '16px' }}>
+              Is this you: <strong style={{ color: 'white' }}>{pendingStaffName}</strong>?
+            </div>
+            {duplicateWarning && (
+              <div style={{
+                backgroundColor: '#f59e0b20',
+                border: '1px solid #f59e0b',
+                borderRadius: '8px',
+                padding: '12px',
+                marginBottom: '16px',
+                color: '#f59e0b',
+                fontSize: '13px'
+              }}>
+                ⚠️ {duplicateWarning}
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <button
+                onClick={() => {
+                  setNeedsConfirmation(false);
+                  setPendingStaffName('');
+                  setPendingStaffId('');
+                  setPhoneDigits('');
+                  setMessage('');
+                  setMessageType('');
+                  setDuplicateWarning('');
+                }}
+                style={{
+                  backgroundColor: '#3a3a3a',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                No, Not Me
+              </button>
+              <button
+                onClick={confirmStaff}
+                style={{
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                Yes, That's Me
+              </button>
+            </div>
           </div>
         )}
 

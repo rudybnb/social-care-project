@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shift } from '../data/sharedData';
 import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonCard, IonCardContent, IonButton, IonIcon, IonBadge } from '@ionic/react';
 import { arrowBack, calendar, time, checkmarkCircle, closeCircle } from 'ionicons/icons';
+import { formatUkTime } from '../utils/ukDateTime';
 
 
 interface StaffAttendanceProps {
@@ -35,7 +36,7 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ staffId, onBack }) =>
 
   const formatTime = (timestamp?: string) => {
     if (!timestamp) return 'N/A';
-    return new Date(timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return formatUkTime(timestamp);
   };
 
   const formatDate = (dateString: string) => {

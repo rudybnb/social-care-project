@@ -47,7 +47,7 @@ const WorkerDashboard: React.FC = () => {
   }, [user]);
 
   // Find today's shift to get siteId
-  const todayDate = new Date().toLocaleDateString('en-CA');
+  const todayDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
   const todaysShift = shifts.find(s => s.date === todayDate);
   const clockedIn = todaysShift?.clockedIn || false;
 

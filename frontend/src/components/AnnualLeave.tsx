@@ -72,15 +72,19 @@ const AnnualLeave: React.FC = () => {
     }
   };
 
-  const handleDelete = async (requestId: string) => {
-    if (!window.confirm('Are you sure you want to delete this leave request? This action cannot be undone.')) {
+  const handleDelete = async (requestId: string, isApproved: boolean = false) => {
+    const message = isApproved
+      ? 'Are you sure you want to cancel this APPROVED leave request?\n\nThe leave hours will be automatically refunded back to the staff member\'s available balance.'
+      : 'Are you sure you want to delete this leave request?';
+
+    if (!window.confirm(message)) {
       return;
     }
 
     try {
       await leaveAPI.deleteRequest(requestId);
       loadData();
-      alert('Leave request deleted successfully');
+      alert(isApproved ? 'Approved leave request cancelled! Hours refunded to staff balance.' : 'Leave request deleted successfully.');
     } catch (error: any) {
       alert(`Error: ${error.message}`);
     }
@@ -317,14 +321,14 @@ const AnnualLeave: React.FC = () => {
           <p style={{ color: '#9ca3af', fontSize: '14px' }}>No approved leave requests</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {approvedRequests.slice(0, 5).map(request => (
+            {approvedRequests.map(request => (
               <div key={request.id} style={{
                 backgroundColor: '#1a1a1a',
                 border: '1px solid #3a3a3a',
                 borderRadius: '8px',
                 padding: '12px'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                       <h3 style={{ color: 'white', fontSize: '14px', fontWeight: '600', margin: 0 }}>
@@ -342,28 +346,32 @@ const AnnualLeave: React.FC = () => {
                       </span>
                     </div>
                     <p style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '4px' }}>
-                      {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()} ({request.totalDays} days)
+                      {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()} ({request.totalDays} days / {request.totalHours}h)
                     </p>
                     <p style={{ color: '#6b7280', fontSize: '11px' }}>
                       Approved by {request.reviewedBy} on {request.reviewedAt && new Date(request.reviewedAt).toLocaleDateString()}
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <div style={{ color: '#10b981', fontSize: '14px', fontWeight: '600' }}>✓ Approved</div>
+                    <div style={{ color: '#10b981', fontSize: '13px', fontWeight: '600' }}>✓ Approved</div>
                     <button
-                      onClick={() => handleDelete(request.id)}
+                      onClick={() => handleDelete(request.id, true)}
+                      title="Cancel this approved leave and refund hours to staff balance"
                       style={{
-                        backgroundColor: '#6b7280',
+                        backgroundColor: '#dc2626',
                         color: 'white',
-                        padding: '4px 12px',
-                        borderRadius: '4px',
+                        padding: '6px 14px',
+                        borderRadius: '6px',
                         border: 'none',
-                        fontSize: '11px',
+                        fontSize: '12px',
                         fontWeight: '600',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
                       }}
                     >
-                      🗑️ Delete
+                      ❌ Cancel & Refund
                     </button>
                   </div>
                 </div>

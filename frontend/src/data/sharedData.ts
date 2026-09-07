@@ -56,6 +56,14 @@ export interface StaffMember {
   weeklyHours?: number;
   daysPerWeek?: number;
   startDate?: string;
+  hourlyRate?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  townCity?: string;
+  staffPostcode?: string;
+  nextOfKinName?: string;
+  nextOfKinRelationship?: string;
+  nextOfKinPhone?: string;
 }
 
 // Local cache

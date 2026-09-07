@@ -47,7 +47,7 @@ export async function autoClockOutPastShifts() {
       let clockOutDate = new Date(`${shiftDate}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`);
       
       // If it's a night shift that ends the next day (e.g., 20:00 - 08:00) or a 24-hour shift
-      if ((shift.type === 'Night' && hours < 12) || shift.is24Hour) {
+      if ((shift.type?.toLowerCase().includes('night') && hours < 12) || shift.is24Hour) {
         clockOutDate.setDate(clockOutDate.getDate() + 1);
       }
 

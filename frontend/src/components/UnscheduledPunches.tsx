@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { approvalAPI } from '../services/approvalAPI';
 import { ApprovalRequest } from '../types/approvalTypes';
+import { formatUkTime } from '../utils/ukDateTime';
 
 const UnscheduledPunches: React.FC = () => {
     const [requests, setRequests] = useState<ApprovalRequest[]>([]);
@@ -59,7 +60,7 @@ const UnscheduledPunches: React.FC = () => {
     };
 
     const formatTime = (isoString: string) => {
-        return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        return formatUkTime(isoString);
     };
 
     const formatDate = (dateString: string) => {

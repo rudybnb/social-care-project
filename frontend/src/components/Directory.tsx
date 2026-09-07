@@ -43,6 +43,10 @@ const Directory: React.FC = () => {
   const [staffFormError, setStaffFormError] = useState<string | null>(null);
   const [staffSuccessMessage, setStaffSuccessMessage] = useState<string | null>(null);
 
+  // Delete Staff Modal State
+  const [deleteTargetStaff, setDeleteTargetStaff] = useState<{ id: string; name: string; username?: string; status: string } | null>(null);
+  const [isDeletingStaff, setIsDeletingStaff] = useState(false);
+
   const [newStaffForm, setNewStaffForm] = useState({
     name: '',
     username: '',
@@ -51,7 +55,16 @@ const Directory: React.FC = () => {
     site: '',
     status: 'Active',
     startDate: new Date().toISOString().split('T')[0],
-    password: ''
+    password: '',
+    phone: '',
+    hourlyRate: '',
+    addressLine1: '',
+    addressLine2: '',
+    townCity: '',
+    staffPostcode: '',
+    nextOfKinName: '',
+    nextOfKinRelationship: '',
+    nextOfKinPhone: ''
   });
 
   // Agency state
@@ -162,6 +175,30 @@ const Directory: React.FC = () => {
       return;
     }
 
+    // Validate hourly rate >= 0
+    if (newStaffForm.hourlyRate && newStaffForm.hourlyRate !== '') {
+      const rate = Number(newStaffForm.hourlyRate);
+      if (isNaN(rate) || rate < 0) {
+        setStaffFormError('Hourly rate must be zero or greater.');
+        return;
+      }
+    }
+
+    // Validate phone number length
+    if (newStaffForm.phone) {
+      const norm = newStaffForm.phone.replace(/[\s\-\(\)]/g, '');
+      if (norm.length > 0 && norm.length < 10) {
+        setStaffFormError('Phone number must contain at least 10 digits.');
+        return;
+      }
+    }
+
+    // Validate next-of-kin phone required when name entered
+    if (newStaffForm.nextOfKinName && !newStaffForm.nextOfKinPhone.trim()) {
+      setStaffFormError('Next of kin phone number is required when a next of kin name is entered.');
+      return;
+    }
+
     setIsSubmittingStaff(true);
 
     try {
@@ -173,7 +210,16 @@ const Directory: React.FC = () => {
         site: newStaffForm.site || (dynamicSites.length > 0 ? dynamicSites[0].name : 'General'),
         status: newStaffForm.status as 'Active' | 'Inactive',
         startDate: newStaffForm.startDate,
-        password: newStaffForm.password.trim()
+        password: newStaffForm.password.trim(),
+        phone: newStaffForm.phone.trim() || undefined,
+        hourlyRate: newStaffForm.hourlyRate || undefined,
+        addressLine1: newStaffForm.addressLine1.trim() || undefined,
+        addressLine2: newStaffForm.addressLine2.trim() || undefined,
+        townCity: newStaffForm.townCity.trim() || undefined,
+        staffPostcode: newStaffForm.staffPostcode.trim() || undefined,
+        nextOfKinName: newStaffForm.nextOfKinName.trim() || undefined,
+        nextOfKinRelationship: newStaffForm.nextOfKinRelationship.trim() || undefined,
+        nextOfKinPhone: newStaffForm.nextOfKinPhone.trim() || undefined,
       };
 
       const created = await staffAPI.create(payload, token);
@@ -192,7 +238,16 @@ const Directory: React.FC = () => {
         site: dynamicSites.length > 0 ? dynamicSites[0].name : 'General',
         status: 'Active',
         startDate: new Date().toISOString().split('T')[0],
-        password: ''
+        password: '',
+        phone: '',
+        hourlyRate: '',
+        addressLine1: '',
+        addressLine2: '',
+        townCity: '',
+        staffPostcode: '',
+        nextOfKinName: '',
+        nextOfKinRelationship: '',
+        nextOfKinPhone: ''
       });
 
       setIsAddStaffModalOpen(false);
@@ -217,6 +272,43 @@ const Directory: React.FC = () => {
       } catch (err: any) {
         alert(err.message || `Failed to ${action.toLowerCase()} staff member.`);
       }
+    }
+  };
+
+  const handleConfirmPermanentDelete = async () => {
+    if (!deleteTargetStaff) return;
+    setIsDeletingStaff(true);
+    try {
+      const staffId = deleteTargetStaff.id;
+      // Try direct delete endpoint first
+      let res = await fetch(`https://social-care-backend.onrender.com/api/staff-delete/${staffId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!res.ok) {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        res = await fetch(`https://social-care-backend.onrender.com/api/staff/${staffId}`, {
+          method: 'DELETE',
+          headers
+        });
+      }
+
+      if (res.ok || res.status === 404) {
+        setStaffList(prev => prev.filter(s => String(s.id) !== String(staffId)));
+        setStaffSuccessMessage(`Staff member "${deleteTargetStaff.name}" has been permanently deleted.`);
+        setTimeout(() => setStaffSuccessMessage(null), 4000);
+      } else {
+        const errData = await res.json().catch(() => ({ error: 'Delete failed' }));
+        alert(`Failed to delete staff member: ${errData.error || errData.details || 'Server error'}`);
+      }
+    } catch (err: any) {
+      console.error('Delete staff error:', err);
+      setStaffList(prev => prev.filter(s => String(s.id) !== String(deleteTargetStaff.id)));
+    } finally {
+      setIsDeletingStaff(false);
+      setDeleteTargetStaff(null);
     }
   };
 
@@ -680,6 +772,212 @@ const Directory: React.FC = () => {
                     }}
                   />
                 </div>
+
+                {/* 6. Phone Number & Hourly Rate */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={newStaffForm.phone}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, phone: e.target.value })}
+                      placeholder="e.g. 07700 900123"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Hourly Rate (£)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newStaffForm.hourlyRate}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, hourlyRate: e.target.value })}
+                      placeholder="e.g. 13.50"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* 7. Address */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                    Address Line 1
+                  </label>
+                  <input
+                    type="text"
+                    value={newStaffForm.addressLine1}
+                    onChange={(e) => setNewStaffForm({ ...newStaffForm, addressLine1: e.target.value })}
+                    placeholder="e.g. 123 High Street"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#1a1a1a',
+                      color: 'white',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                    Address Line 2
+                  </label>
+                  <input
+                    type="text"
+                    value={newStaffForm.addressLine2}
+                    onChange={(e) => setNewStaffForm({ ...newStaffForm, addressLine2: e.target.value })}
+                    placeholder="e.g. Flat 4B"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#1a1a1a',
+                      color: 'white',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Town/City
+                    </label>
+                    <input
+                      type="text"
+                      value={newStaffForm.townCity}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, townCity: e.target.value })}
+                      placeholder="e.g. London"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Postcode
+                    </label>
+                    <input
+                      type="text"
+                      value={newStaffForm.staffPostcode}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, staffPostcode: e.target.value })}
+                      placeholder="e.g. SE1 9AA"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* 8. Next of Kin */}
+                <div style={{ borderTop: '1px solid #3a3a3a', paddingTop: '14px', marginTop: '4px' }}>
+                  <div style={{ color: '#9ca3af', fontSize: '13px', fontWeight: '600', marginBottom: '10px' }}>Next of Kin</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        value={newStaffForm.nextOfKinName}
+                        onChange={(e) => setNewStaffForm({ ...newStaffForm, nextOfKinName: e.target.value })}
+                        placeholder="e.g. Jane Smith"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          backgroundColor: '#1a1a1a',
+                          color: 'white',
+                          border: '1px solid #3a3a3a',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                        Relationship
+                      </label>
+                      <input
+                        type="text"
+                        value={newStaffForm.nextOfKinRelationship}
+                        onChange={(e) => setNewStaffForm({ ...newStaffForm, nextOfKinRelationship: e.target.value })}
+                        placeholder="e.g. Spouse"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          backgroundColor: '#1a1a1a',
+                          color: 'white',
+                          border: '1px solid #3a3a3a',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '12px' }}>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', marginBottom: '4px' }}>
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={newStaffForm.nextOfKinPhone}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, nextOfKinPhone: e.target.value })}
+                      placeholder="e.g. 07700 900456"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        backgroundColor: '#1a1a1a',
+                        color: 'white',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Modal Action Buttons */}
@@ -718,6 +1016,144 @@ const Directory: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Staff Options Modal */}
+      {deleteTargetStaff && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '16px'
+        }}>
+          <div style={{
+            backgroundColor: '#2a2a2a',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '100%',
+            maxWidth: '460px',
+            border: '1px solid #ef444450',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.7)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                backgroundColor: '#ef444420',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '22px'
+              }}>
+                🗑️
+              </div>
+              <div>
+                <h3 style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', margin: 0 }}>
+                  Delete Staff Member
+                </h3>
+                <p style={{ color: '#9ca3af', fontSize: '13px', margin: '2px 0 0 0' }}>
+                  Select an action for this staff account
+                </p>
+              </div>
+            </div>
+
+            <div style={{
+              backgroundColor: '#1a1a1a',
+              padding: '14px 16px',
+              borderRadius: '8px',
+              border: '1px solid #3a3a3a',
+              marginBottom: '20px'
+            }}>
+              <div style={{ color: 'white', fontWeight: 'bold', fontSize: '15px' }}>
+                {deleteTargetStaff.name}
+              </div>
+              {deleteTargetStaff.username && (
+                <div style={{ color: '#9ca3af', fontSize: '13px', marginTop: '2px' }}>
+                  Username / ID: {deleteTargetStaff.username}
+                </div>
+              )}
+              <div style={{ color: '#9ca3af', fontSize: '13px', marginTop: '4px' }}>
+                Current Status: <span style={{ color: deleteTargetStaff.status === 'Active' ? '#4ade80' : '#f87171', fontWeight: '600' }}>{deleteTargetStaff.status}</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={handleConfirmPermanentDelete}
+                disabled={isDeletingStaff}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: isDeletingStaff ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                {isDeletingStaff ? 'Deleting...' : '🔴 Delete Permanently from Database'}
+              </button>
+
+              <button
+                onClick={() => {
+                  const target = deleteTargetStaff;
+                  setDeleteTargetStaff(null);
+                  handleToggleStatus(target.id, target.name, target.status);
+                }}
+                disabled={isDeletingStaff}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  backgroundColor: '#92400e',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: isDeletingStaff ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                ⏸️ Suspend Account Instead
+              </button>
+
+              <button
+                onClick={() => setDeleteTargetStaff(null)}
+                disabled={isDeletingStaff}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  backgroundColor: '#3f3f46',
+                  color: '#d4d4d8',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1034,46 +1470,80 @@ const Directory: React.FC = () => {
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
+                          {/* Top Row: View Profile & Delete Staff */}
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              onClick={() => handleViewProfile(String(staffMember.id))}
+                              style={{
+                                flex: 1,
+                                padding: '9px 14px',
+                                backgroundColor: '#3a3a3a',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                textAlign: 'center'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4a4a4a'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3a3a3a'}
+                            >
+                              View Profile
+                            </button>
+                            <button
+                              onClick={() => setDeleteTargetStaff({
+                                id: String(staffMember.id),
+                                name: staffMember.name,
+                                username: staffMember.username,
+                                status: staffMember.status || 'Active'
+                              })}
+                              title="Delete staff member with options"
+                              style={{
+                                padding: '9px 14px',
+                                backgroundColor: '#991b1b',
+                                color: 'white',
+                                border: '1px solid #dc2626',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                whiteSpace: 'nowrap'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#991b1b'}
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
+
+                          {/* Bottom Row: Suspend / Reactivate */}
                           <button
-                            onClick={() => handleViewProfile(String(staffMember.id))}
+                            onClick={() => handleToggleStatus(String(staffMember.id), staffMember.name, staffMember.status || 'Active')}
+                            title={staffMember.status === 'Inactive' ? 'Reactivate staff member' : 'Suspend staff member'}
                             style={{
-                              flex: 1,
-                              padding: '10px 16px',
-                              backgroundColor: '#3a3a3a',
+                              width: '100%',
+                              padding: '8px 14px',
+                              backgroundColor: staffMember.status === 'Inactive' ? '#15803d' : '#92400e',
                               color: 'white',
                               border: 'none',
                               borderRadius: '8px',
-                              fontSize: '13px',
+                              fontSize: '12px',
                               fontWeight: '600',
                               cursor: 'pointer',
                               transition: 'all 0.2s',
                               textAlign: 'center'
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4a4a4a'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3a3a3a'}
-                          >
-                            View Profile
-                          </button>
-                          <button
-                            onClick={() => handleToggleStatus(String(staffMember.id), staffMember.name, staffMember.status || 'Active')}
-                            title={staffMember.status === 'Inactive' ? 'Reactivate staff member' : 'Suspend staff member'}
-                            style={{
-                              padding: '10px 16px',
-                              backgroundColor: staffMember.status === 'Inactive' ? '#15803d' : '#92400e',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '8px',
-                              fontSize: '13px',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s',
-                              whiteSpace: 'nowrap'
-                            }}
                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = staffMember.status === 'Inactive' ? '#16a34a' : '#b45309'}
                             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = staffMember.status === 'Inactive' ? '#15803d' : '#92400e'}
                           >
-                            {staffMember.status === 'Inactive' ? '▶ Reactivate' : '⏸ Suspend'}
+                            {staffMember.status === 'Inactive' ? '▶ Reactivate Staff Account' : '⏸ Suspend Staff Account'}
                           </button>
                         </div>
                       </div>

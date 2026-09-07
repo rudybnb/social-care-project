@@ -76,15 +76,16 @@ const Payroll: React.FC = () => {
     let periodStart: Date;
     if (currentDay >= 14) {
       // We're in the period that started on the 14th of this month
-      periodStart = new Date(today.getFullYear(), today.getMonth() + monthOffset, 14);
+      periodStart = new Date(today.getFullYear(), today.getMonth() + monthOffset, 14, 0, 0, 0);
     } else {
       // We're in the period that started on the 14th of last month
-      periodStart = new Date(today.getFullYear(), today.getMonth() - 1 + monthOffset, 14);
+      periodStart = new Date(today.getFullYear(), today.getMonth() - 1 + monthOffset, 14, 0, 0, 0);
     }
 
     const periodEnd = new Date(periodStart);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
-    periodEnd.setDate(14); // Ends on 14th of next month
+    periodEnd.setDate(14); // Ends on 14th of next month (14 to 14 period)
+    periodEnd.setHours(23, 59, 59, 999);
 
     return {
       start: periodStart,
@@ -106,53 +107,100 @@ const Payroll: React.FC = () => {
     return Math.max(0, hours); // Ensure non-negative
   };
 
-  // Calculate payroll for each staff member
-  // IMPORTANT: Only counts shifts that have been clocked in AND clocked out
+  // Calculate payroll for each staff member according to rules 1-6
   const getPayrollData = (startDate: Date, endDate: Date) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+
     return staff.map(staffMember => {
-      // Filter to only include COMPLETED shifts (clocked in AND clocked out)
-      const staffShifts = shifts.filter(shift =>
-        shift.staffName === staffMember.name &&
-        shift.staffName !== 'Bank Management' &&
-        shift.staffName !== 'Agency' &&
-        shift.staffName !== 'BANK (Placeholder)' &&
-        new Date(shift.date) >= startDate &&
-        new Date(shift.date) >= startDate &&
-        new Date(shift.date) <= endDate
-        // shift.clockedIn === true &&
-        // shift.clockedOut === true // REMOVED: Now including ALL scheduled shifts regardless of clock status
-      );
+      const staffShifts = shifts.filter(shift => {
+        if (shift.staffName !== staffMember.name ||
+            shift.staffName === 'Bank Management' ||
+            shift.staffName === 'Agency' ||
+            shift.staffName === 'BANK (Placeholder)') {
+          return false;
+        }
+
+        const shiftDate = new Date(shift.date);
+        if (shiftDate < startDate || shiftDate > endDate) return false;
+
+        // Exclude declined/cancelled shifts entirely
+        if (shift.staffStatus === 'declined' || shift.staffStatus === 'cancelled') return false;
+
+        // Rule 1: Include future scheduled/pending shifts for FORECAST ONLY
+        const isFutureShift = shift.date >= todayStr;
+        if (isFutureShift) {
+          return true;
+        }
+
+        // Rule 2 & 3: For past shifts, exclude past no-shows (accepted/pending with no clock-in)
+        if (shift.date < todayStr && !shift.clockedIn) {
+          return false;
+        }
+
+        return true;
+      });
 
       let totalHours = 0;
       let dayHours = 0;
       let nightHours = 0;
+      let verifiedHours = 0;
+      let provisionalHours = 0;
+      let forecastHours = 0;
+      let flaggedShiftCount = 0;
 
       staffShifts.forEach(shift => {
-        // Use SCHEDULED times for payroll calculation as per new rules
-        // Calculate duration from start/end time strings (HH:MM)
         let hours = 0;
+        const dateStr = shift.date; // YYYY-MM-DD
+        const isFutureShift = dateStr >= todayStr && !shift.clockedIn;
+
+        // Calculate scheduled hours baseline
+        let scheduledHours = 0;
         if (shift.startTime && shift.endTime) {
-          const dateStr = shift.date; // YYYY-MM-DD
           const start = new Date(`${dateStr}T${shift.startTime}:00`);
           let end = new Date(`${dateStr}T${shift.endTime}:00`);
-
-          // Handle overnight shifts
-          if (end < start) {
-            end.setDate(end.getDate() + 1);
-          }
-
-          const diffMs = end.getTime() - start.getTime();
-          hours = diffMs / (1000 * 60 * 60);
-          hours = Math.max(0, hours);
+          if (end < start) end.setDate(end.getDate() + 1);
+          scheduledHours = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
         } else {
-          // Fallback to duration if times missing (shouldn't happen on valid shifts)
-          hours = shift.duration || 0;
+          scheduledHours = shift.duration || 0;
         }
-        totalHours += hours;
-        if (shift.type === 'Day') {
-          dayHours += hours;
+
+        if (isFutureShift) {
+          // Rule 1: Future / Upcoming Rota Shift -> Forecast Only
+          hours = scheduledHours;
+          forecastHours += hours;
+        } else if (shift.clockedIn && shift.clockedOut && shift.clockInTime && shift.clockOutTime) {
+          // Check timestamp duration
+          const start = new Date(shift.clockInTime);
+          const end = new Date(shift.clockOutTime);
+          const diffMs = end.getTime() - start.getTime();
+          const actualHours = diffMs / (1000 * 60 * 60);
+
+          if (actualHours > 0) {
+            // Rule 2: Valid Completed Shift -> Verified actual worked hours
+            hours = actualHours;
+            verifiedHours += hours;
+          } else {
+            // Rule 3: Completed Shift with missing/zero/invalid timestamps -> Provisional expected hours + Flagged for Admin Review
+            hours = scheduledHours;
+            provisionalHours += hours;
+            flaggedShiftCount += 1;
+          }
+        } else if (shift.clockedIn || shift.date < todayStr) {
+          // Rule 3: Past / Incomplete shift missing valid timestamps -> Provisional expected hours + Flagged for Admin Review
+          hours = scheduledHours;
+          provisionalHours += hours;
+          flaggedShiftCount += 1;
         } else {
+          hours = scheduledHours;
+          forecastHours += hours;
+        }
+
+        totalHours += hours;
+        const isNightShift = shift.type?.toLowerCase().includes('night');
+        if (isNightShift) {
           nightHours += hours;
+        } else {
+          dayHours += hours;
         }
       });
 
@@ -168,7 +216,6 @@ const Payroll: React.FC = () => {
 
       let leaveHours = 0;
       staffLeave.forEach(leave => {
-        // Calculate overlapping days
         const leaveStart = new Date(Math.max(new Date(leave.startDate).getTime(), startDate.getTime()));
         const leaveEnd = new Date(Math.min(new Date(leave.endDate).getTime(), endDate.getTime()));
         const days = Math.ceil((leaveEnd.getTime() - leaveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -184,38 +231,32 @@ const Payroll: React.FC = () => {
       let totalPay = 0;
 
       if (isAgency) {
-        // AGENCY WORKERS: Flat hourly rate (no tier system)
+        // AGENCY WORKERS: Flat hourly rate
         const agencyRate = parseFloat(staffMember.hourlyRate) || 0;
-        console.log(`💰 Agency Worker Pay Calculation:`, {
-          name: staffMember.name,
-          hourlyRateString: staffMember.hourlyRate,
-          hourlyRateParsed: agencyRate,
-          totalHours,
-          dayHours,
-          nightHours,
-          calculation: `${totalHours}h × £${agencyRate} = £${totalHours * agencyRate}`
-        });
-
-        totalPay = totalHours * agencyRate;
-
-        // For display purposes, show day hours as "standard" and night hours as "night"
+        totalPay = (totalHours + leaveHours) * agencyRate;
         standardPay = dayHours * agencyRate;
         nightPay = nightHours * agencyRate;
-        enhancedPay = 0; // Agency workers don't have enhanced rate
-      } else {
-        // PERMANENT STAFF: Flat rate calculation
-        // Irina Mitrovici: £14/hour for all hours
-        // Everyone else: £12.50/hour for all hours
-        const standardRate = parseFloat(staffMember.standardRate) || 12.50;
-
-        // Simple flat rate: all hours at standard rate (day or night)
-        const workPay = (dayHours + nightHours) * standardRate;
-        const leavePay = leaveHours * 12.50; // Fixed rate for all leave pay
-
-        totalPay = workPay + leavePay;
-        standardPay = totalPay;
         enhancedPay = 0;
-        nightPay = 0;
+      } else {
+        // PERMANENT STAFF: Tiered rate calculation
+        const standardRate = parseFloat(staffMember.standardRate) || 12.50;
+        const nightRateRaw = (staffMember as any).nightRate;
+        const nightRate = (nightRateRaw && nightRateRaw !== '—')
+          ? parseFloat(nightRateRaw) || standardRate
+          : standardRate;
+        const enhancedRateRaw = (staffMember as any).enhancedRate;
+        const enhancedRate = (enhancedRateRaw && enhancedRateRaw !== '—')
+          ? parseFloat(enhancedRateRaw) || standardRate
+          : standardRate;
+
+        const first20 = Math.min(dayHours, 20);
+        const after20 = Math.max(dayHours - 20, 0);
+        const leavePay = leaveHours * standardRate;
+
+        standardPay = first20 * standardRate;
+        enhancedPay = after20 * enhancedRate;
+        nightPay = nightHours * nightRate;
+        totalPay = standardPay + enhancedPay + nightPay + leavePay;
       }
 
       return {
@@ -223,15 +264,19 @@ const Payroll: React.FC = () => {
         isAgency,
         agencyName: isAgency ? staffMember.agencyName : null,
         totalHours: totalHours + leaveHours,
+        verifiedHours,
+        provisionalHours,
+        forecastHours,
+        flaggedShiftCount,
         dayHours,
         nightHours,
         leaveHours,
-        first20Hours: isAgency ? 0 : (dayHours <= 20 ? dayHours : 20),
-        remainingHours: isAgency ? 0 : (dayHours > 20 ? dayHours - 20 : 0),
+        first20Hours: isAgency ? 0 : Math.min(dayHours, 20),
+        remainingHours: isAgency ? 0 : Math.max(dayHours - 20, 0),
         standardPay,
         enhancedPay,
         nightPay,
-        leavePay: isAgency ? 0 : (leaveHours * 12.50), // Fixed £12.50 rate for all leave pay
+        leavePay: isAgency ? 0 : leaveHours * ((staffMember as any).standardRate ? parseFloat((staffMember as any).standardRate) || 12.50 : 12.50),
         totalPay,
         shifts: staffShifts.length
       };
@@ -248,8 +293,76 @@ const Payroll: React.FC = () => {
   };
 
   const payrollData = getPayrollData(currentPeriod.start, currentPeriod.end);
+
+  // Calculate expected monthly/weekly bill based 100% on assigned shifts on the rota
+  const getExpectedRotaData = (startDate: Date, endDate: Date) => {
+    let totalExpectedPay = 0;
+    let totalExpectedHours = 0;
+    let totalExpectedShifts = 0;
+
+    staff.forEach(staffMember => {
+      const assignedShifts = shifts.filter(shift =>
+        shift.staffName === staffMember.name &&
+        shift.staffName !== 'Bank Management' &&
+        shift.staffName !== 'Agency' &&
+        shift.staffName !== 'BANK (Placeholder)' &&
+        new Date(shift.date) >= startDate &&
+        new Date(shift.date) <= endDate &&
+        shift.staffStatus !== 'declined' &&
+        shift.staffStatus !== 'cancelled'
+      );
+
+      let dayHours = 0;
+      let nightHours = 0;
+
+      assignedShifts.forEach(shift => {
+        let hours = 0;
+        if (shift.startTime && shift.endTime) {
+          const start = new Date(`${shift.date}T${shift.startTime}:00`);
+          let end = new Date(`${shift.date}T${shift.endTime}:00`);
+          if (end < start) end.setDate(end.getDate() + 1);
+          hours = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
+        } else {
+          hours = shift.duration || 0;
+        }
+
+        if (shift.type?.toLowerCase().includes('night')) {
+          nightHours += hours;
+        } else {
+          dayHours += hours;
+        }
+      });
+
+      const isAgency = 'agencyName' in staffMember;
+      let staffPay = 0;
+
+      if (isAgency) {
+        const agencyRate = parseFloat(staffMember.hourlyRate) || 0;
+        staffPay = (dayHours + nightHours) * agencyRate;
+      } else {
+        const standardRate = parseFloat(staffMember.standardRate) || 12.50;
+        const nightRateRaw = (staffMember as any).nightRate;
+        const nightRate = (nightRateRaw && nightRateRaw !== '—') ? parseFloat(nightRateRaw) || standardRate : standardRate;
+        const enhancedRateRaw = (staffMember as any).enhancedRate;
+        const enhancedRate = (enhancedRateRaw && enhancedRateRaw !== '—') ? parseFloat(enhancedRateRaw) || standardRate : standardRate;
+
+        const first20 = Math.min(dayHours, 20);
+        const after20 = Math.max(dayHours - 20, 0);
+        staffPay = (first20 * standardRate) + (after20 * enhancedRate) + (nightHours * nightRate);
+      }
+
+      totalExpectedPay += staffPay;
+      totalExpectedHours += (dayHours + nightHours);
+      totalExpectedShifts += assignedShifts.length;
+    });
+
+    return { totalExpectedPay, totalExpectedHours, totalExpectedShifts };
+  };
+
+  const expectedRota = getExpectedRotaData(currentPeriod.start, currentPeriod.end);
   const incompleteShifts = calculateIncompleteShifts();
   const totalPayroll = payrollData.reduce((sum, p) => sum + p.totalPay, 0);
+  const variancePay = totalPayroll - expectedRota.totalExpectedPay;
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -667,17 +780,57 @@ const Payroll: React.FC = () => {
         marginTop: '24px',
         marginBottom: '24px'
       }}>
+        {/* Expected Rota Bill (Scheduled Forecast) */}
         <div style={{
           backgroundColor: '#1a1a1a',
           padding: '20px',
           borderRadius: '12px',
-          border: '2px solid #8b5cf6'
+          border: '2px solid #3b82f6'
         }}>
-          <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
-            Total Payroll
+          <div style={{ color: '#60a5fa', fontSize: '12px', fontWeight: '600', marginBottom: '8px' }}>
+            📊 Expected Rota Bill (Forecast)
+          </div>
+          <div style={{ color: 'white', fontSize: '28px', fontWeight: 'bold' }}>
+            £{expectedRota.totalExpectedPay.toFixed(2)}
+          </div>
+          <div style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px' }}>
+            If 100% of assigned shifts are worked ({expectedRota.totalExpectedHours.toFixed(1)}h)
+          </div>
+        </div>
+
+        {/* Actual Wage Payout (Realized) */}
+        <div style={{
+          backgroundColor: '#1a1a1a',
+          padding: '20px',
+          borderRadius: '12px',
+          border: '2px solid #10b981'
+        }}>
+          <div style={{ color: '#34d399', fontSize: '12px', fontWeight: '600', marginBottom: '8px' }}>
+            💰 Actual Wage Payout (Clocked-In)
           </div>
           <div style={{ color: 'white', fontSize: '28px', fontWeight: 'bold' }}>
             £{totalPayroll.toFixed(2)}
+          </div>
+          <div style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px' }}>
+            Actual payout from verified clock-ins
+          </div>
+        </div>
+
+        {/* Variance / Difference */}
+        <div style={{
+          backgroundColor: '#1a1a1a',
+          padding: '20px',
+          borderRadius: '12px',
+          border: `2px solid ${variancePay <= 0 ? '#10b981' : '#ef4444'}`
+        }}>
+          <div style={{ color: variancePay <= 0 ? '#34d399' : '#f87171', fontSize: '12px', fontWeight: '600', marginBottom: '8px' }}>
+            📈 Variance (Payout vs Budget)
+          </div>
+          <div style={{ color: 'white', fontSize: '28px', fontWeight: 'bold' }}>
+            {variancePay >= 0 ? '+' : ''}£{variancePay.toFixed(2)}
+          </div>
+          <div style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px' }}>
+            {variancePay <= 0 ? 'Under budget (savings from unworked shifts)' : 'Over budget'}
           </div>
         </div>
 
@@ -702,7 +855,7 @@ const Payroll: React.FC = () => {
           border: '1px solid #3a3a3a'
         }}>
           <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
-            Total Hours
+            Total Hours Worked
           </div>
           <div style={{ color: 'white', fontSize: '28px', fontWeight: 'bold' }}>
             {payrollData.reduce((sum, p) => sum + p.totalHours, 0).toFixed(1)}h

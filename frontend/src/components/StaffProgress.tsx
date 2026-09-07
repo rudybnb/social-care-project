@@ -1,5 +1,6 @@
 import React from 'react';
 import { IonPage, IonContent, IonHeader, IonToolbar, IonTitle, IonButtons, IonBackButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonBadge } from '@ionic/react';
+import { formatUkTime } from '../utils/ukDateTime';
 
 interface Shift {
   id: string;
@@ -219,13 +220,13 @@ const StaffProgress: React.FC<StaffProgressProps> = ({ shifts, staffName }) => {
                         <div>
                           <div style={{ marginBottom: '2px' }}>Clock In:</div>
                           <div style={{ color: '#10b981' }}>
-                            {shift.clockInTime ? new Date(shift.clockInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : shift.startTime}
+                            {shift.clockInTime ? formatUkTime(shift.clockInTime) : shift.startTime}
                           </div>
                         </div>
                         <div>
                           <div style={{ marginBottom: '2px' }}>Clock Out:</div>
                           <div style={{ color: '#ef4444' }}>
-                            {shift.clockOutTime ? new Date(shift.clockOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : shift.endTime}
+                            {shift.clockOutTime ? formatUkTime(shift.clockOutTime) : shift.endTime}
                           </div>
                         </div>
                       </div>

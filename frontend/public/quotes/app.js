@@ -64,8 +64,11 @@ const ONEOFF_TYPES = [
 
 const UNIT_MEASURES = [
   { value: '', label: 'Select Unit' },
+  { value: 'day-per-hour', label: 'Day per Hour', desc: 'Items/services provided on a day per hour basis' },
   { value: 'day', label: 'Day', desc: 'Items/services provided on a daily basis (any portion of 24hr period)' },
   { value: 'hour', label: 'Hour', desc: 'Items/services provided on an hourly basis' },
+  { value: 'night-per-hour', label: 'Night per Hour', desc: 'Items/services provided on a night per hour basis' },
+  { value: 'night', label: 'Night', desc: 'Items/services provided on a nightly basis (overnight period)' },
   { value: 'session', label: 'Session', desc: 'Fixed price regardless of duration (typically 3-4 hrs)' },
   { value: 'week', label: 'Week', desc: 'Package that cannot be less than daily, 7 days per week' },
   { value: 'miles', label: 'Miles', desc: 'Transport - where charged by mile' },
@@ -123,6 +126,7 @@ let state = {
   unitPostCode: '',
   placementType: '',
   invoiceSchedule: 'MONTHLY',
+  communityComments: '',
 
   // Core costs
   coreCosts: {
@@ -311,9 +315,12 @@ function calculateAll() {
 function updateDisplay() {
   const calc = calculateAll();
 
-  // Grand total banner
+  // Grand total banner & sticky total
+  const formattedVal = formatCurrency(calc.weeklyNetCost).replace('£ ', '');
   const grandTotalEl = document.getElementById('grandTotalAmount');
-  if (grandTotalEl) grandTotalEl.textContent = formatCurrency(calc.weeklyNetCost).replace('£ ', '');
+  if (grandTotalEl) grandTotalEl.textContent = formattedVal;
+  const stickyGrandTotalEl = document.getElementById('stickyGrandTotalAmount');
+  if (stickyGrandTotalEl) stickyGrandTotalEl.textContent = formattedVal;
 
   // Core costs - computed fields
   updateCoreRow('carePlacement', calc.coreResults.carePlacement);
@@ -390,6 +397,13 @@ function updateDisplay() {
   // Retainer
   setMoney('retainerFinalCost', calc.retainerFinal);
 
+  // Category totals bar (sticky header)
+  setMoney('barTotalCore', calc.totalCoreNet);
+  setMoney('barTotalStaffing', calc.totalStaffingNet);
+  setMoney('barTotalTransport', calc.totalTransportNet);
+  setMoney('barTotalOther', calc.totalOtherNet);
+  setMoney('barTotalRetainer', calc.retainerFinal);
+
   // One-off costs
   for (let i = 0; i < ONEOFF_ROWS; i++) {
     setMoney(`oneoffNet_${i}`, calc.oneoffResults[i].net);
@@ -427,22 +441,17 @@ function bindInputs() {
   bindField('unitTown', 'unitTown');
   bindField('unitCounty', 'unitCounty');
   bindField('unitPostCode', 'unitPostCode');
+  bindField('unitCommunityComments', 'communityComments');
   const ptEl = document.getElementById('placementType');
   if (ptEl) {
     ptEl.addEventListener('change', (e) => {
       state.placementType = e.target.value;
+      const editBtn = document.getElementById('btnEditCommunity');
       if (e.target.value === 'Community') {
-        const nameNo = prompt("Enter Name/House No. for Community placement:");
-        const street = prompt("Enter Street:");
-        const town = prompt("Enter Town:");
-        const post = prompt("Enter Postcode:");
-        setVal('unitHouseNo', nameNo || ''); state.unitHouseNo = nameNo || '';
-        setVal('unitStreet', street || ''); state.unitStreet = street || '';
-        setVal('unitTown', town || ''); state.unitTown = town || '';
-        setVal('unitCounty', 'Temp Info'); state.unitCounty = 'Temp Info';
-        setVal('unitPostCode', post || ''); state.unitPostCode = post || '';
-        const presetSelect = document.getElementById('presetAddressSelect');
-        if(presetSelect) presetSelect.value = '';
+        if (editBtn) editBtn.style.display = 'inline';
+        openCommunityModal();
+      } else {
+        if (editBtn) editBtn.style.display = 'none';
       }
     });
   }
@@ -676,7 +685,9 @@ function buildOneoffRows(count) {
 }
 
 // ---- API Config ----
-const API_URL = window.location.origin.includes('localhost') ? 'http://localhost:4000/api/quotes' : '/api/quotes';
+const API_URL = window.location.origin.includes('localhost') 
+  ? 'http://localhost:4000/api/quotes' 
+  : 'https://social-care-backend.onrender.com/api/quotes';
 
 function getAuthHeaders() {
   let authHeader = {};
@@ -690,6 +701,64 @@ function getAuthHeaders() {
 }
 
 // ---- Storage & Sync ----
+function getAllLocalStorageItems() {
+  const items = [];
+  const storageKeys = ['eclesia_profiles', 'quoteSheetState', 'quotes_profiles', 'patient_profiles', 'saved_quotes'];
+  
+  const sources = [window.localStorage];
+  try { if (window.parent && window.parent.localStorage) sources.push(window.parent.localStorage); } catch(e){}
+
+  sources.forEach(store => {
+    if (!store) return;
+    storageKeys.forEach(sKey => {
+      try {
+        const val = store.getItem(sKey);
+        if (val) items.push(val);
+      } catch(e){}
+    });
+  });
+  return items;
+}
+
+async function syncLocalProfilesToDB() {
+  const rawItems = getAllLocalStorageItems();
+  for (const raw of rawItems) {
+    try {
+      const parsed = JSON.parse(raw);
+      const profilesToSync = [];
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.childInitials && parsed.childInitials.trim() !== '') {
+          profilesToSync.push(parsed);
+        } else {
+          Object.values(parsed).forEach(p => {
+            if (p && typeof p === 'object' && p.childInitials && p.childInitials.trim() !== '') {
+              profilesToSync.push(p);
+            }
+          });
+        }
+      }
+
+      for (const p of profilesToSync) {
+        const initials = p.childInitials.trim();
+        try {
+          await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({
+              childInitials: initials,
+              quoteStatus: p.quoteStatus || 'Draft Quote',
+              providerName: p.providerName || 'Eclesia Family Centre',
+              placementType: p.placementType || '',
+              date: p.date || new Date().toISOString().split('T')[0],
+              stateData: p
+            })
+          });
+        } catch(e) {}
+      }
+    } catch(e){}
+  }
+}
+
 async function saveToLocalStorage() {
   gatherInputState();
   if (!state.childInitials || state.childInitials.trim() === '') {
@@ -697,13 +766,15 @@ async function saveToLocalStorage() {
     return;
   }
   
+  const initials = state.childInitials.trim();
+
   // Backup locally
   let profiles = {};
   const stored = localStorage.getItem('eclesia_profiles');
   if (stored) {
     try { profiles = JSON.parse(stored); } catch(e){}
   }
-  profiles[state.childInitials.trim()] = state;
+  profiles[initials] = state;
   localStorage.setItem('eclesia_profiles', JSON.stringify(profiles));
   localStorage.setItem('quoteSheetState', JSON.stringify(state));
   
@@ -713,7 +784,7 @@ async function saveToLocalStorage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({
-        childInitials: state.childInitials.trim(),
+        childInitials: initials,
         quoteStatus: state.quoteStatus,
         providerName: state.providerName,
         placementType: state.placementType,
@@ -727,7 +798,8 @@ async function saveToLocalStorage() {
     showToast('✓ Patient Profile saved locally (offline)');
   }
   
-  populateProfileLoader();
+  await syncLocalProfilesToDB();
+  await populateProfileLoader();
 }
 
 async function loadProfile(initials) {
@@ -751,15 +823,24 @@ async function loadProfile(initials) {
   }
 
   // Fallback to local
-  const stored = localStorage.getItem('eclesia_profiles');
-  if (stored) {
+  const rawItems = getAllLocalStorageItems();
+  for (const raw of rawItems) {
     try {
-      const profiles = JSON.parse(stored);
-      if (profiles[initials]) {
-        state = { ...state, ...profiles[initials] };
-        restoreInputState();
-        updateDisplay();
-        showToast('✓ Profile loaded (local fallback)');
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.childInitials && parsed.childInitials.trim() === initials) {
+          state = { ...state, ...parsed };
+          restoreInputState();
+          updateDisplay();
+          showToast('✓ Profile loaded from local storage');
+          return;
+        } else if (parsed[initials]) {
+          state = { ...state, ...parsed[initials] };
+          restoreInputState();
+          updateDisplay();
+          showToast('✓ Profile loaded from local storage');
+          return;
+        }
       }
     } catch(e){}
   }
@@ -769,32 +850,69 @@ async function populateProfileLoader() {
   const loader = document.getElementById('profileLoader');
   if (!loader) return;
   
-  loader.innerHTML = '<option value="">-- Load Patient Profile --</option>';
-  
-  let remoteLoaded = false;
+  const profilesMap = new Map();
+
+  // 1. Check all local storage keys from both iframe and parent windows
+  const rawItems = getAllLocalStorageItems();
+  rawItems.forEach(raw => {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.childInitials && parsed.childInitials.trim() !== '') {
+          const key = parsed.childInitials.trim();
+          profilesMap.set(key, {
+            childInitials: key,
+            quoteStatus: parsed.quoteStatus || 'Draft',
+            source: 'local'
+          });
+        } else {
+          Object.keys(parsed).forEach(k => {
+            const p = parsed[k];
+            if (p && typeof p === 'object' && p.childInitials && p.childInitials.trim() !== '') {
+              const key = p.childInitials.trim();
+              profilesMap.set(key, {
+                childInitials: key,
+                quoteStatus: p.quoteStatus || 'Draft',
+                source: 'local'
+              });
+            }
+          });
+        }
+      }
+    } catch(e){}
+  });
+
+  // 2. Fetch from remote PostgreSQL database
   try {
     const response = await fetch(API_URL, { headers: getAuthHeaders() });
     if (response.ok) {
-      const quotes = await response.json();
-      quotes.forEach(q => {
-        loader.innerHTML += `<option value="${q.childInitials}">${q.childInitials} (${q.quoteStatus || 'Draft'})</option>`;
-      });
-      remoteLoaded = true;
+      const dbQuotes = await response.json();
+      if (Array.isArray(dbQuotes)) {
+        dbQuotes.forEach(q => {
+          if (q.childInitials && q.childInitials.trim() !== '') {
+            const key = q.childInitials.trim();
+            profilesMap.set(key, {
+              childInitials: key,
+              quoteStatus: q.quoteStatus || 'Draft',
+              source: 'db'
+            });
+          }
+        });
+      }
     }
   } catch(e) {
-    console.log('Using local fallback for profiles');
+    console.log('Error fetching remote profiles:', e);
   }
 
-  if (!remoteLoaded) {
-    const stored = localStorage.getItem('eclesia_profiles');
-    if (stored) {
-      try {
-        const profiles = JSON.parse(stored);
-        Object.keys(profiles).forEach(key => {
-          loader.innerHTML += `<option value="${key}">${key} (${profiles[key].quoteStatus || 'Draft'}) - Local</option>`;
-        });
-      } catch(e){}
-    }
+  // 3. Rebuild loader select options
+  const count = profilesMap.size;
+  if (count === 0) {
+    loader.innerHTML = '<option value="">-- Load Patient Profile (0 Saved) --</option>';
+  } else {
+    loader.innerHTML = `<option value="">-- Load Patient Profile (${count} Available) --</option>`;
+    profilesMap.forEach((val, key) => {
+      loader.innerHTML += `<option value="${key}">${key} (${val.quoteStatus})</option>`;
+    });
   }
 }
 
@@ -820,6 +938,55 @@ function clearSavedData() {
   }
 }
 
+function openCommunityModal() {
+  const modal = document.getElementById('communityModal');
+  if (!modal) return;
+  setVal('commHouseNo', state.unitHouseNo || '');
+  setVal('commStreet', state.unitStreet || '');
+  setVal('commTown', state.unitTown || '');
+  setVal('commCounty', state.unitCounty || '');
+  setVal('commPostCode', state.unitPostCode || '');
+  setVal('commComments', state.communityComments || '');
+  modal.style.display = 'flex';
+}
+
+function closeCommunityModal() {
+  const modal = document.getElementById('communityModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function saveCommunityModal() {
+  const houseNo = document.getElementById('commHouseNo')?.value || '';
+  const street = document.getElementById('commStreet')?.value || '';
+  const town = document.getElementById('commTown')?.value || '';
+  const county = document.getElementById('commCounty')?.value || '';
+  const postCode = document.getElementById('commPostCode')?.value || '';
+  const comments = document.getElementById('commComments')?.value || '';
+
+  state.unitHouseNo = houseNo;
+  state.unitStreet = street;
+  state.unitTown = town;
+  state.unitCounty = county;
+  state.unitPostCode = postCode;
+  state.communityComments = comments;
+
+  setVal('unitHouseNo', houseNo);
+  setVal('unitStreet', street);
+  setVal('unitTown', town);
+  setVal('unitCounty', county);
+  setVal('unitPostCode', postCode);
+  setVal('unitCommunityComments', comments);
+
+  const presetSelect = document.getElementById('presetAddressSelect');
+  if (presetSelect) presetSelect.value = '';
+
+  const editBtn = document.getElementById('btnEditCommunity');
+  if (editBtn) editBtn.style.display = 'inline';
+
+  closeCommunityModal();
+  showToast('✓ Community Placement details saved');
+}
+
 function gatherInputState() {
   // Gather text fields
   const textFields = ['childInitials', 'localAuthority', 'quoteStatus', 'providerName', 'headHouseNo', 'headStreet', 'headTown',
@@ -835,6 +1002,8 @@ function gatherInputState() {
   if (ptEl) state.placementType = ptEl.value;
   const isEl = document.getElementById('invoiceSchedule');
   if (isEl) state.invoiceSchedule = isEl.value;
+  const commComms = document.getElementById('unitCommunityComments');
+  if (commComms) state.communityComments = commComms.value;
 }
 
 function restoreInputState() {
@@ -858,6 +1027,12 @@ function restoreInputState() {
   setVal('unitPostCode', state.unitPostCode);
   setVal('placementType', state.placementType);
   setVal('invoiceSchedule', state.invoiceSchedule);
+  setVal('unitCommunityComments', state.communityComments || '');
+
+  const editBtn = document.getElementById('btnEditCommunity');
+  if (editBtn) {
+    editBtn.style.display = state.placementType === 'Community' ? 'inline' : 'none';
+  }
 
   // Weeks
   setVal('careWeeks', state.careWeeks);
@@ -944,6 +1119,8 @@ async function init() {
   // Bind all inputs
   bindInputs();
   
+  // Sync any local profiles to DB on startup
+  await syncLocalProfilesToDB();
   await populateProfileLoader();
   document.getElementById('profileLoader')?.addEventListener('change', (e) => {
     loadProfile(e.target.value);
@@ -962,6 +1139,12 @@ async function init() {
   document.getElementById('btnExport')?.addEventListener('click', exportPDF);
   document.getElementById('btnExportInvoice')?.addEventListener('click', exportInvoice);
   document.getElementById('btnClear')?.addEventListener('click', clearSavedData);
+
+  // Community Modal buttons
+  document.getElementById('btnCloseCommunityModal')?.addEventListener('click', closeCommunityModal);
+  document.getElementById('btnCancelCommunity')?.addEventListener('click', closeCommunityModal);
+  document.getElementById('btnSaveCommunity')?.addEventListener('click', saveCommunityModal);
+  document.getElementById('btnEditCommunity')?.addEventListener('click', openCommunityModal);
 
   // ---- Dynamic Print Hiding Hooks ----
   window.addEventListener('beforeprint', () => {
@@ -1057,32 +1240,57 @@ function buildPage() {
       </div>
     </div>
 
-    <!-- Grand Total Banner -->
-    <div class="grand-total-banner eclesia-style-banner">
-      <div class="label">Total cost per week (excluding one-off costs)</div>
-      <div class="amount"><span class="currency">£</span><span id="grandTotalAmount">0.00</span></div>
-    </div>
-    
-    <div class="print-disclaimer">
-      <p>If there is an error or omission in the cost information entered below, the price above and related cell(s) will show red. Please check the information entered and ensure it is complete and accurate prior to submitting this form.</p>
-      <p>Enter Core Costs, Additional Costs and One-off Costs as applicable in the tables below</p>
+    <!-- Sticky Header (Toolbar + Static Smaller Total Cost Banner + Category Totals) -->
+    <div class="sticky-header-wrapper">
+      <div class="app-header">
+        <div class="header-brand">
+          <span class="icon">📋</span>
+          <h1>Social Care Placement Cost Quote Sheet</h1>
+        </div>
+        <div class="header-actions">
+          <select class="form-select profile-select" id="profileLoader">
+            <option value="">-- Load Patient Profile --</option>
+          </select>
+          <button class="btn btn-primary btn-sm" id="btnSave">💾 SAVE PROFILE</button>
+          <button class="btn btn-secondary btn-sm" id="btnExport">📄 EXPORT QUOTE</button>
+          <button class="btn btn-secondary btn-sm" id="btnExportInvoice">📄 GENERATE INVOICE</button>
+          <button class="btn btn-danger btn-sm" id="btnClear">🗑 CLEAR ALL</button>
+        </div>
+      </div>
+
+      <!-- Grand Total Banner (Static & Smaller) -->
+      <div class="grand-total-banner eclesia-style-banner">
+        <div class="label">Total cost per week (excluding one-off costs)</div>
+        <div class="amount"><span class="currency">£</span><span id="grandTotalAmount">0.00</span></div>
+      </div>
+
+      <!-- Category Totals Summary Bar (Red Box - Sticky with header) -->
+      <div class="category-totals-bar">
+        <div class="category-total-item">
+          <span class="cat-label">Core Costs — Weekly</span>
+          <span class="cat-value" id="barTotalCore">£ 0.00</span>
+        </div>
+        <div class="category-total-item">
+          <span class="cat-label">Additional Costs — Staffing</span>
+          <span class="cat-value" id="barTotalStaffing">£ 0.00</span>
+        </div>
+        <div class="category-total-item">
+          <span class="cat-label">Additional Costs — Transport</span>
+          <span class="cat-value" id="barTotalTransport">£ 0.00</span>
+        </div>
+        <div class="category-total-item">
+          <span class="cat-label">Additional Costs — Other</span>
+          <span class="cat-value" id="barTotalOther">£ 0.00</span>
+        </div>
+        <div class="category-total-item">
+          <span class="cat-label">Retainer</span>
+          <span class="cat-value" id="barTotalRetainer">£ 0.00</span>
+        </div>
+      </div>
     </div>
 
-    <!-- App Header -->
-    <div class="app-header">
-      <h1>
-        <span class="icon">📋</span>
-        Social Care Placement Cost Quote Sheet
-      </h1>
-      <div class="header-actions">
-        <select class="form-select" id="profileLoader" style="max-width: 200px; border-color: var(--primary-500); cursor: pointer; color: var(--text-primary); background-color: var(--bg-card);">
-          <option value="">-- Load Profile --</option>
-        </select>
-        <button class="btn btn-primary" id="btnSave">💾 Save Profile</button>
-        <button class="btn btn-secondary" id="btnExport">📄 Export Quote</button>
-        <button class="btn btn-secondary" id="btnExportInvoice">📄 Generate Invoice</button>
-        <button class="btn btn-danger" id="btnClear">🗑 Clear All</button>
-      </div>
+    <div class="print-disclaimer">
+      <p>If there is an error or omission in the cost information entered below, the price above and related cell(s) will show red. Please check the information entered and ensure it is complete and accurate prior to submitting this form. Enter Core Costs, Additional Costs and One-off Costs as applicable in the tables below</p>
     </div>
 
     <!-- Provider Details -->
@@ -1105,7 +1313,7 @@ function buildPage() {
           </div>
           <div class="form-group">
             <label class="form-label">Child's/Young Person's Initials (Save Key)</label>
-            <input type="text" class="form-input" id="childInitials" placeholder="Enter initials to save profile" style="border: 1px solid #e1ad21;" />
+            <input type="text" class="form-input" id="childInitials" placeholder="Enter initials to save profile" />
           </div>
         </div>
 
@@ -1161,7 +1369,7 @@ function buildPage() {
         </div>
 
         <div class="form-group" style="margin-bottom: 20px;" id="presetAddressGroup">
-          <select class="form-select" id="presetAddressSelect" style="border-color: var(--primary-500); background-color: rgba(16, 185, 129, 0.05); color: #000;">
+          <select class="form-select" id="presetAddressSelect" style="border-color: var(--primary-500); background-color: var(--slate-800); color: #ffffff;">
             ${PRESET_ADDRESSES.map((a, i) => `<option value="${i}">${a.label}</option>`).join('')}
           </select>
         </div>
@@ -1191,7 +1399,10 @@ function buildPage() {
 
         <div class="form-grid-2" style="margin-top:16px">
           <div class="form-group">
-            <label class="form-label">Placement Type</label>
+            <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
+              <span>Placement Type</span>
+              <button type="button" id="btnEditCommunity" style="display:none;background:none;border:none;color:var(--primary-400);font-size:0.75rem;cursor:pointer;text-decoration:underline;padding:0">✏️ Edit Details & Comments</button>
+            </label>
             <select class="form-select" id="placementType">
               <option value="">Select type...</option>
               ${PLACEMENT_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
@@ -1203,6 +1414,11 @@ function buildPage() {
               ${INVOICE_SCHEDULES.map(s => `<option value="${s}">${s}</option>`).join('')}
             </select>
           </div>
+        </div>
+
+        <div class="form-group full-width" style="margin-top:16px" id="communityCommentsGroup">
+          <label class="form-label">Placement Comments / Notes</label>
+          <textarea class="form-input" id="unitCommunityComments" rows="3" placeholder="Enter comments or notes regarding this placement..."></textarea>
         </div>
       </div>
     </div>
@@ -1526,6 +1742,49 @@ function buildPage() {
         <span><strong>Phone:</strong> <span id="printPhone"></span></span>
         <span><strong>Address:</strong> <span id="printAddress"></span></span>
         <span><strong>E-mail:</strong> management@eclesia-limited.org</span>
+      </div>
+    </div>
+
+    <!-- Community Placement Form Modal -->
+    <div class="quote-modal-overlay" id="communityModal" style="display:none">
+      <div class="quote-modal-card">
+        <div class="quote-modal-header">
+          <h3>🏡 Community Placement Details & Comments</h3>
+          <button type="button" class="quote-modal-close" id="btnCloseCommunityModal">&times;</button>
+        </div>
+        <div class="quote-modal-body">
+          <p class="modal-desc">Please fill out the placement address details and comments for this Community Placement:</p>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">House Name / No.</label>
+              <input type="text" class="form-input" id="commHouseNo" placeholder="e.g. 65 or Flat 4" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Street Name</label>
+              <input type="text" class="form-input" id="commStreet" placeholder="e.g. Niclby Close" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Town</label>
+              <input type="text" class="form-input" id="commTown" placeholder="e.g. Thamesmead" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">County</label>
+              <input type="text" class="form-input" id="commCounty" placeholder="e.g. Kent" />
+            </div>
+            <div class="form-group full-width">
+              <label class="form-label">Post Code</label>
+              <input type="text" class="form-input" id="commPostCode" placeholder="e.g. SE28 8LY" />
+            </div>
+            <div class="form-group full-width">
+              <label class="form-label">Placement Comments / Notes</label>
+              <textarea class="form-input" id="commComments" rows="3" placeholder="Enter any specific placement details or comments..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="quote-modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCancelCommunity">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnSaveCommunity">💾 Save Placement Details</button>
+        </div>
       </div>
     </div>
 

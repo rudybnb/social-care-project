@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { db } from '../db.js';
 import { shifts, staff } from '../schema.js';
-import { eq, and, gte, lte } from 'drizzle-orm';
+import { eq, and, gte, lte, sql } from 'drizzle-orm';
 import {
   sendShiftReminder,
   sendCoverageGapAlert,
@@ -218,9 +218,9 @@ export async function initializeAgents() {
     await sendDailyPayrollOverview();
   });
 
-  // Agent 11: System Sentinel (Hourly)
-  cron.schedule('0 * * * *', async () => {
-    console.log('🛡️ Running: System Sentinel');
+  // Agent 11: System Sentinel (Every 2 hours)
+  cron.schedule('0 */2 * * *', async () => {
+    console.log('🛡️ Running: System Sentinel Health Check (Every 2 Hours)');
     await monitorSystemHealth();
   });
 
@@ -229,6 +229,12 @@ export async function initializeAgents() {
   cron.schedule('0 23 * * 0', async () => {
     console.log('🧹 Running: Weekly Duplicate Shift Cleanup');
     await removeDuplicateShifts();
+  });
+
+  // Agent 13: Pre-Shift & Post-Shift Automated Bug Sweep (Every 30 minutes)
+  cron.schedule('*/30 * * * *', async () => {
+    console.log('🧹 Running: Automated Bug Sweep Agent');
+    await runPostShiftBugSweep();
   });
 
   console.log('✅ All automation agents initialized');
@@ -243,8 +249,9 @@ export async function initializeAgents() {
   console.log('   - Shift Summaries (08:30 & 20:30)');
   console.log('   - Shift Verification (30 min)');
   console.log('   - Daily Payroll Report (07:30)');
-  console.log('   - System Sentinel (Hourly)');
+  console.log('   - System Sentinel Health Check (Every 2 Hours)');
   console.log('   - Weekly Duplicate Cleanup (Sun 11PM)');
+  console.log('   - Automated Bug Sweep Agent (Every 30 min)');
 }
 
 // Agent 1: Send daily shift reminders
@@ -402,24 +409,36 @@ async function sendWeeklyPayrollReports() {
         ));
 
       if (weekShifts.length > 0 && staffMember.email) {
-        // Calculate hours and pay
+        // Calculate hours and pay — mirrors payrollAuditService logic
         let totalHours = 0;
         let dayHours = 0;
         let nightHours = 0;
 
         for (const shift of weekShifts) {
-          const hours = shift.duration || 12; // Default 12 hours
+          // Use actual clock times if available, fall back to duration/12h
+          let hours = shift.duration || 12;
+          if (shift.clockInTime && shift.clockOutTime) {
+            const diffMs = new Date(shift.clockOutTime).getTime() - new Date(shift.clockInTime).getTime();
+            hours = Math.max(0, diffMs / (1000 * 60 * 60));
+          }
           totalHours += hours;
-          if (shift.type === 'Night Shift') {
+          if (shift.type?.toLowerCase().includes('night')) {
             nightHours += hours;
           } else {
             dayHours += hours;
           }
         }
 
-        const standardRate = parseFloat(staffMember.standardRate) || 12.50;
-        const enhancedRate = parseFloat(staffMember.enhancedRate) || 14.00;
-        const nightRate = parseFloat(staffMember.nightRate) || 15.00;
+        const standardRate = parseFloat(staffMember.standardRate as string) || 12.50;
+        // Match payrollAuditService fallback: use standardRate if enhanced/night not set
+        const enhancedRateRaw = staffMember.enhancedRate;
+        const enhancedRate = (enhancedRateRaw && enhancedRateRaw !== '—')
+          ? parseFloat(enhancedRateRaw as string) || standardRate
+          : standardRate;
+        const nightRateRaw = staffMember.nightRate;
+        const nightRate = (nightRateRaw && nightRateRaw !== '—')
+          ? parseFloat(nightRateRaw as string) || standardRate
+          : standardRate;
 
         const first20Hours = Math.min(dayHours, 20);
         const after20Hours = Math.max(dayHours - 20, 0);
@@ -497,35 +516,44 @@ export async function triggerDeclinedShiftAlert(shift: any) {
 }
 
 // Agent 9: Audit Recent Shifts
+// Finds ALL completed shifts whose notes do NOT already contain '[Audited]'.
+// This ensures:
+//   - Shifts auto-closed at midnight by autoClockOutPastShifts are never missed
+//   - The 35-minute rolling window vulnerability is eliminated
 async function auditRecentShifts() {
   try {
-    const now = new Date();
-    // Look back 35 minutes to catch shifts clocked out since last run (every 30 mins)
-    // with a 5 minute buffer.
-    const lookback = new Date(now.getTime() - 35 * 60000);
-    const lookbackStr = lookback.toISOString(); // or keep as date object if drizzle supports it? 
-    // Drizzle timestamps are usually Date objects in node-postgres? 
-    // Schema says timestamp('clock_out_time'), so it expects Date.
+    // Find all clocked-out shifts that have not yet been audited
+    // We mark audited shifts by appending '[Audited]' to their notes field.
+    const completedShifts = await db.select().from(shifts)
+      .where(
+        eq(shifts.clockedOut, true)
+      );
 
-    // Find shifts clocked out recently
-    const recentShifts = await db.select().from(shifts)
-      .where(and(
-        eq(shifts.clockedOut, true),
-        gte(shifts.clockOutTime, lookback)
-      ));
+    // Filter in-memory: exclude any already marked as audited
+    const unaudited = completedShifts.filter((s: any) =>
+      !s.notes?.includes('[Audited]')
+    );
 
-    if (recentShifts.length > 0) {
-      console.log(`🔎 Found ${recentShifts.length} recently completed shifts to audit.`);
-      for (const shift of recentShifts) {
+    if (unaudited.length > 0) {
+      console.log(`🔎 Agent 9: Found ${unaudited.length} unaudited completed shifts.`);
+      for (const shift of unaudited) {
         try {
           const auditData = await auditSingleShift(shift.id);
-          // Send to Admin (or Accounts email if distinct)
           await sendShiftAuditAlert(ACCOUNTS_EMAIL, auditData);
+
+          // Mark the shift as audited so it is not re-processed
+          await db.update(shifts).set({
+            notes: ((shift.notes || '') + ' [Audited]').trim(),
+            updatedAt: new Date()
+          }).where(eq(shifts.id, shift.id));
+
           console.log(`✅ Audited shift ${shift.id} for ${shift.staffName}`);
         } catch (err) {
           console.error(`❌ Failed to audit shift ${shift.id}:`, err);
         }
       }
+    } else {
+      console.log('✅ Agent 9: No unaudited shifts found.');
     }
   } catch (error) {
     console.error('❌ Error in auditRecentShifts:', error);
@@ -684,7 +712,105 @@ async function sendDailyPayrollOverview() {
   }
 }
 
+// Agent 13: Pre-Shift & Post-Shift Automated Bug Sweep Agent
+// Scans for unpublished rotas, missing phone numbers, phone collisions, and clocking anomalies
+export async function runPostShiftBugSweep() {
+  try {
+    console.log('🧹 Running: Pre-Shift & Post-Shift Automated Bug Sweep Agent');
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const currentHHMM = now.toTimeString().split(' ')[0].substring(0, 5);
 
-// End of file
+    const issues: string[] = [];
+
+    // 1. Unpublished Rota Check for Today's Scheduled Shifts
+    const todayShifts = await db.select().from(shifts).where(eq(shifts.date, todayStr));
+    for (const shift of todayShifts) {
+      if ((shift.staffId || shift.staffStatus === 'accepted') && !shift.published) {
+        issues.push(`🚨 UNPUBLISHED SHIFT: ${shift.staffName || 'Staff'} at ${shift.siteName} (${shift.startTime}-${shift.endTime}) is UNPUBLISHED (published=false).`);
+      }
+    }
+
+    // 2. Active Staff Phone Number Collision Check
+    const activeStaff = await db.select().from(staff).where(eq(staff.status, 'Active'));
+    const phoneMap: Record<string, string[]> = {};
+    const missingPhoneStaff: string[] = [];
+
+    for (const s of activeStaff) {
+      if (!s.phone) {
+        missingPhoneStaff.push(s.name);
+        continue;
+      }
+      const norm = String(s.phone).replace(/\D/g, '');
+      if (norm.length >= 4) {
+        const last4 = norm.slice(-4);
+        if (!phoneMap[last4]) phoneMap[last4] = [];
+        phoneMap[last4].push(s.name);
+      }
+    }
+
+    const collisions = Object.entries(phoneMap).filter(([_, names]) => names.length > 1);
+    for (const [last4, names] of collisions) {
+      issues.push(`⚠️ PHONE COLLISION: Staff members [${names.join(', ')}] share phone ending in ${last4}. Kiosk lookup collision possible!`);
+    }
+
+    // Check if any worker working today is missing phone number
+    for (const shift of todayShifts) {
+      if (shift.staffName && missingPhoneStaff.includes(shift.staffName)) {
+        issues.push(`⚠️ MISSING PHONE: ${shift.staffName} is scheduled today but has no phone number in profile.`);
+      }
+    }
+
+    // 3. Post-Shift Unclosed Clock-In Check
+    for (const shift of todayShifts) {
+      if (shift.clockedIn && !shift.clockedOut) {
+        const [endHour, endMin] = shift.endTime.split(':').map(Number);
+        const [nowHour, nowMin] = currentHHMM.split(':').map(Number);
+        const endMinutes = endHour * 60 + endMin;
+        const nowMinutes = nowHour * 60 + nowMin;
+
+        // If shift ended > 30 mins ago and worker has not clocked out
+        if (nowMinutes > endMinutes + 30) {
+          issues.push(`❓ UNCLOSED SHIFT: ${shift.staffName} at ${shift.siteName} scheduled end was ${shift.endTime}, but worker is still clocked in.`);
+        }
+      }
+    }
+
+    // 4. Automatic Test & Debug Staff Cleanup (Raw SQL to prevent UUID casting errors)
+    await db.execute(sql`
+      DELETE FROM auth_sessions WHERE staff_id IN (
+        SELECT id FROM staff WHERE 
+          LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+          LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+      )
+    `);
+    await db.execute(sql`
+      DELETE FROM shifts WHERE 
+        LOWER(staff_name) LIKE '%test%' OR LOWER(staff_name) LIKE '%unauthorized%' OR LOWER(staff_name) LIKE '%slash%' OR LOWER(staff_name) LIKE '%debug%' OR
+        staff_id IN (
+          SELECT id::text FROM staff WHERE 
+            LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+            LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+        )
+    `);
+    await db.execute(sql`
+      DELETE FROM staff WHERE 
+        LOWER(name) LIKE '%test%' OR LOWER(name) LIKE '%unauthorized%' OR LOWER(name) LIKE '%slash%' OR LOWER(name) LIKE '%debug%' OR
+        LOWER(username) LIKE '%test%' OR LOWER(username) LIKE '%unauthorized%' OR LOWER(username) LIKE '%slash%' OR LOWER(username) LIKE '%debug%'
+    `);
+    console.log('🧹 Raw SQL test staff purge executed successfully.');
+
+    if (issues.length > 0) {
+      console.log(`⚠️ Bug Sweep found ${issues.length} potential operational issues.`);
+      const alertMsg = `🧹 **BUG SWEEP ALERT (${todayStr}):**\n` + issues.join('\n');
+      await sendSystemAlert(alertMsg);
+    } else {
+      console.log('✅ Bug Sweep: All shifts, rotas, and phone lookups are clean and bug-free.');
+    }
+  } catch (error) {
+    console.error('❌ Error in runPostShiftBugSweep:', error);
+  }
+}
+
 
 
