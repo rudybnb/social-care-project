@@ -181,7 +181,8 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
                 warnings.forEach(w => report += `> ${w}\n`);
             }
 
-            // 1. Tally Hours (Using Pr            for (const shift of processedShifts) {
+            // 1. Tally Hours (Using Processed Shifts)
+            for (const shift of processedShifts) {
                 let hours = 0;
                 let timeStr = "Invalid Time";
                 let statusFlag = "";
@@ -233,7 +234,6 @@ export async function calculatePayForPeriod(startDate: string, endDate: string):
 
                 } catch (e) {
                     timeStr = "Error parsing time";
-                }
                     hours = 0;
                 }
 
