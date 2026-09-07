@@ -1475,6 +1475,28 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
       return res.status(200).json({ message: 'Already clocked in', shift });
     }
 
+    // VALIDATION: Shift date must be eligible for clock-in
+    // A shift is eligible if its date is today (UK) or yesterday (UK) with a late start time (overnight shift)
+    const now = new Date();
+    const ukToday = now.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+    const yesterdayDate = new Date(now);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const ukYesterday = yesterdayDate.toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+    const isToday = shift.date === ukToday;
+    const isYesterdayOvernight = shift.date === ukYesterday
+      && !shift.clockedOut
+      && (shift.startTime >= '18:00' || (shift.type && shift.type.toLowerCase().includes('night')));
+
+    if (!isToday && !isYesterdayOvernight) {
+      console.log(`[ClockIn] BLOCKED - Shift date ${shift.date} is not eligible (today=${ukToday}, yesterday=${ukYesterday})`);
+      return res.status(403).json({
+        error: 'This shift is not currently eligible for clock-in.',
+        shiftDate: shift.date,
+        todayDate: ukToday
+      });
+    }
+
 
     // Auto-Clock-Out Logic: If already clocked into another site/shift, close it first.
     try {
