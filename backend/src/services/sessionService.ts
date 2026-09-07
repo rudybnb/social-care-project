@@ -130,7 +130,9 @@ export async function validateSessionToken(db: DbLike, token: string, now = new 
     .limit(1);
 
   const user = users[0];
-  if (!user || user.status !== 'Active' || user.role !== 'Admin') return null;
+  // validateSessionToken only proves the identity of an Active staff member.
+  // Role authorization is enforced separately (e.g. via requireAdmin).
+  if (!user || user.status !== 'Active') return null;
 
   return {
     session: {

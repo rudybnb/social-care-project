@@ -52,6 +52,7 @@ const StaffApp: React.FC = () => {
     localStorage.removeItem('staff-token');
     localStorage.removeItem('staff-id');
     localStorage.removeItem('staff-name');
+    localStorage.removeItem('staff-expires-at');
     setStaffId('');
     setStaffName('');
     setCurrentView('login');

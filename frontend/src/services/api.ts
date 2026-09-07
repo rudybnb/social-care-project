@@ -104,6 +104,34 @@ export const authAPI = {
     const data = await response.json();
     return data?.user ?? null;
   },
+
+  // Staff/worker login — returns the same bearer-session contract as admin login.
+  async staffLogin(username: string, password: string): Promise<AdminLoginResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/auth/staff/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!response.ok) {
+      const body: AuthApiErrorBody = await response.json().catch(() => ({}));
+      throw new AuthApiError(body.error || 'Invalid credentials', response.status);
+    }
+    return response.json();
+  },
+
+  // Staff QR login — issues the same bearer-session contract as staff login.
+  async staffQrLogin(staffId: string): Promise<AdminLoginResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/auth/staff/qr-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ staffId }),
+    });
+    if (!response.ok) {
+      const body: AuthApiErrorBody = await response.json().catch(() => ({}));
+      throw new AuthApiError(body.error || 'Invalid QR code', response.status);
+    }
+    return response.json();
+  },
 };
 
 function getStoredToken(): string | null {

@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
 import logo from '../assets/logo.jpeg';
 import QRScanner from './QRScanner';
+import { authAPI } from '../services/api';
 
 interface StaffLoginProps {
   onLogin: (staffId: string, staffName: string) => void;
 }
+
+const storeStaffSession = (data: { token: string; expiresAt: string | Date; user: { id?: string; name: string } }) => {
+  const staffId = data.user.id?.toString() || '1';
+  localStorage.setItem('staff-token', data.token);
+  localStorage.setItem('staff-id', staffId);
+  localStorage.setItem('staff-name', data.user.name);
+  localStorage.setItem('staff-expires-at', new Date(data.expiresAt).toISOString());
+  return staffId;
+};
 
 const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
@@ -31,31 +41,11 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
       }
 
       const staffId = qrData.replace('STAFF_LOGIN:', '');
-
-      // Call backend to get staff details and generate token
-      const response = await fetch('https://social-care-backend.onrender.com/api/auth/staff/qr-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ staffId }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // /api/auth/login returns {success: true, user: {username, name, role, staffId}}
-        const staffId = data.user.id?.toString() || '1';
-        localStorage.setItem('staff-token', `staff-${staffId}`);
-        localStorage.setItem('staff-id', staffId);
-        localStorage.setItem('staff-name', data.user.name);
-        onLogin(staffId, data.user.name);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'QR login failed');
-      }
-    } catch (err) {
-      console.error('QR login error:', err);
-      setError('Network error. Please try again.');
+      const data = await authAPI.staffQrLogin(staffId);
+      const storedId = storeStaffSession(data);
+      onLogin(storedId, data.user.name);
+    } catch (err: any) {
+      setError(err?.message || 'QR login failed');
     } finally {
       setLoading(false);
     }
@@ -73,29 +63,11 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin }) => {
       setLoading(true);
       setError('');
 
-      const response = await fetch('https://social-care-backend.onrender.com/api/auth/staff/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // /api/auth/login returns {success: true, user: {username, name, role, staffId}}
-        const staffId = data.user.id?.toString() || '1';
-        localStorage.setItem('staff-token', `staff-${staffId}`);
-        localStorage.setItem('staff-id', staffId);
-        localStorage.setItem('staff-name', data.user.name);
-        onLogin(staffId, data.user.name);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Invalid credentials');
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-      setError('Network error. Please try again.');
+      const data = await authAPI.staffLogin(username, password);
+      const storedId = storeStaffSession(data);
+      onLogin(storedId, data.user.name);
+    } catch (err: any) {
+      setError(err?.message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }

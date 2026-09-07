@@ -17,6 +17,8 @@ import { sendDailyPayrollReport, sendRemittanceAdvice } from './services/emailSe
 import { getWeekDeadline } from './jobs/autoAcceptShifts.js';
 import { initAuditLog, logActivity } from './services/auditLogService.js';
 import { sendAdminTelegram } from './services/telegramService.js';
+import { createSession } from './services/sessionService.js';
+import { sanitizeStaffForAuth } from './services/authSanitizer.js';
 process.env.TZ = 'Europe/London'; // Force UK time zone for all dates
 
 const allowedOrigins = [
@@ -829,11 +831,24 @@ app.post('/api/auth/staff/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Return user data (excluding password)
-    const { password: _, ...userWithoutPassword } = user;
+    // Inactive accounts must not receive sessions (keeps session validator and
+    // issued tokens consistent — no "login succeeded but token instantly invalid").
+    if (user.status !== 'Active') {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Issue a real, server-side session so the token is accepted by protected
+    // staff endpoints (same bearer-session contract the admin flow uses).
+    const session = await createSession(db, user.id, {
+      userAgent: req.get('user-agent') || undefined,
+      ipAddress: req.ip,
+    });
+
     res.json({
-      user: userWithoutPassword,
-      token: `staff-${user.id}` // Simple token for demo
+      success: true,
+      token: session.token,
+      expiresAt: session.expiresAt,
+      user: sanitizeStaffForAuth(user),
     });
   } catch (error) {
     console.error('Error during staff login:', error);
@@ -860,11 +875,22 @@ app.post('/api/auth/staff/qr-login', async (req: Request, res: Response) => {
 
     const user = staffMember[0];
 
-    // Return user data (excluding password)
-    const { password: _, ...userWithoutPassword } = user;
+    // Inactive accounts must not receive sessions.
+    if (user.status !== 'Active') {
+      return res.status(401).json({ error: 'Invalid QR code' });
+    }
+
+    // Issue a real, server-side session (same contract as staff login).
+    const session = await createSession(db, user.id, {
+      userAgent: req.get('user-agent') || undefined,
+      ipAddress: req.ip,
+    });
+
     res.json({
-      user: userWithoutPassword,
-      token: `staff-${user.id}` // Simple token for demo
+      success: true,
+      token: session.token,
+      expiresAt: session.expiresAt,
+      user: sanitizeStaffForAuth(user),
     });
   } catch (error) {
     console.error('Error during QR login:', error);

@@ -22,28 +22,45 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
-      // Real Phase 1A admin login — returns a server-side session token
-      const data = await authAPI.adminLogin(username, password);
-      const { token, expiresAt, user: serverUser } = data;
+      // Route staff through the staff login first — it authenticates any Active
+      // staff member without the admin-only role gate, so a Worker is never sent
+      // through /api/auth/admin/login.
+      const staffData = await authAPI.staffLogin(username, password);
+      const serverUser = staffData.user;
+      const isAdmin = serverUser.role === 'Admin' || serverUser.role === 'Site Manager';
 
-      const role: 'admin' | 'worker' =
-        serverUser.role === 'Admin' || serverUser.role === 'Site Manager' ? 'admin' : 'worker';
-      const sessionUser = {
-        id: serverUser.staffId || serverUser.id,
-        email: serverUser.email || '',
-        name: serverUser.name,
-        role,
-      };
+      if (isAdmin) {
+        // Real Phase 1A admin login — returns a server-side admin session.
+        const adminData = await authAPI.adminLogin(username, password);
+        const sessionUser = {
+          id: adminData.user.staffId || adminData.user.id,
+          email: adminData.user.email || '',
+          name: adminData.user.name,
+          role: 'admin' as const,
+        };
 
-      login(sessionUser, token, expiresAt);
+        login(sessionUser, adminData.token, adminData.expiresAt);
 
-      if (serverUser.staffId) {
-        localStorage.setItem('staffId', serverUser.staffId.toString());
-        localStorage.setItem('staffName', serverUser.name);
+        if (adminData.user.staffId) {
+          localStorage.setItem('staffId', adminData.user.staffId.toString());
+          localStorage.setItem('staffName', adminData.user.name);
+        }
+
+        console.log('Login successful, navigating to: admin');
+        navigate('/admin');
+        return;
       }
 
-      console.log('Login successful, navigating to:', sessionUser.role);
-      navigate(sessionUser.role === 'admin' ? '/admin' : '/worker');
+      // Worker/Staff: store the same staff session values used by StaffLogin.tsx
+      // and redirect to the existing Staff Dashboard (/staff).
+      const staffId = serverUser.id?.toString() || '1';
+      localStorage.setItem('staff-token', staffData.token);
+      localStorage.setItem('staff-id', staffId);
+      localStorage.setItem('staff-name', serverUser.name);
+      localStorage.setItem('staff-expires-at', new Date(staffData.expiresAt).toISOString());
+
+      console.log('Login successful, navigating to: staff dashboard');
+      navigate('/staff');
     } catch (error) {
       console.error('Login failed:', error);
       alert(error instanceof AuthApiError ? error.message : 'Login failed. Please try again.');

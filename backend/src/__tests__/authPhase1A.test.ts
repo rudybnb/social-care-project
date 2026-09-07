@@ -320,16 +320,30 @@ test('invalid, expired and revoked sessions fail before trusting staff identity'
   assert.equal(revokedDb.selectCalls.length, 1);
 });
 
-test('current account status and database role are checked on every request', async () => {
+test('current account status is checked on every request; role is enforced by authorization separately', async () => {
   const workerToken = generateSessionToken();
   const inactiveToken = generateSessionToken();
+  // A Worker session now authenticates (valid Active identity).
   const workerDb = new FakeDb({ selectQueue: [[makeSession(workerToken)], [makeStaff({ role: 'Worker' })]] });
   const inactiveDb = new FakeDb({ selectQueue: [[makeSession(inactiveToken)], [makeStaff({ status: 'Inactive' })]] });
 
-  assert.equal(await validateSessionToken(workerDb, workerToken), null);
-  assert.equal(await validateSessionToken(inactiveDb, inactiveToken), null);
+  const workerAuth = await validateSessionToken(workerDb, workerToken);
+  assert.notEqual(workerAuth, null, 'worker identity should authenticate');
+  assert.equal(workerAuth!.user.role, 'Worker');
+  assert.equal(await validateSessionToken(inactiveDb, inactiveToken), null, 'inactive identity must not authenticate');
   assert.equal(workerDb.selectCalls.length, 2);
   assert.equal(inactiveDb.selectCalls.length, 2);
+});
+
+test('Worker is blocked from admin endpoints by requireAdmin', () => {
+  const req: any = { authUser: sanitizeStaffForAuth(makeStaff({ role: 'Worker' })) };
+  const res = makeResponse();
+  let nextCalled = false;
+
+  requireAdmin(req, res as any, () => { nextCalled = true; });
+
+  assert.equal(nextCalled, false);
+  assert.equal(res.statusCode, 403);
 });
 
 test('Site Manager fails requireAdmin', () => {
