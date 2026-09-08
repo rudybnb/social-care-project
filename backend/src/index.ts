@@ -19,6 +19,7 @@ import { initAuditLog, logActivity } from './services/auditLogService.js';
 import { sendAdminTelegram } from './services/telegramService.js';
 import { createSession } from './services/sessionService.js';
 import { sanitizeStaffForAuth } from './services/authSanitizer.js';
+import { getShiftPublicationError, isShiftPublished } from './services/shiftPublicationPolicy.js';
 process.env.TZ = 'Europe/London'; // Force UK time zone for all dates
 
 const allowedOrigins = [
@@ -880,7 +881,7 @@ app.get('/api/staff/:id/shifts', async (req: Request, res: Response) => {
     if (!db) return res.status(500).json({ error: 'Database not configured' });
     const id = req.params.id as string;
     const staffShifts = await db.select().from(shifts).where(eq(shifts.staffId, id));
-    res.json(staffShifts);
+    res.json(staffShifts.filter(isShiftPublished));
   } catch (error) {
     console.error('Error fetching staff shifts:', error);
     res.status(500).json({ error: 'Failed to fetch staff shifts' });
@@ -1376,6 +1377,11 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
       return res.status(403).json({ error: 'You are not assigned to this shift' });
     }
 
+    const publicationError = getShiftPublicationError(shift);
+    if (publicationError) {
+      return res.status(403).json({ error: publicationError });
+    }
+
     // Verify site exists
     const siteResult = await db.select().from(sites).where(eq(sites.id, shift.siteId));
     if (siteResult.length === 0) {
@@ -1802,6 +1808,18 @@ app.patch('/api/shifts/:id/status', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Valid staffStatus is required (accepted, declined, or pending)' });
     }
 
+    if (staffStatus === 'accepted') {
+      const existing = await db.select().from(shifts).where(eq(shifts.id, id)).limit(1);
+      if (existing.length === 0) {
+        return res.status(404).json({ error: 'Shift not found' });
+      }
+
+      const publicationError = getShiftPublicationError(existing[0]);
+      if (publicationError) {
+        return res.status(403).json({ error: publicationError });
+      }
+    }
+
     const updateData: any = {
       staffStatus,
       updatedAt: new Date()
@@ -1811,12 +1829,18 @@ app.patch('/api/shifts/:id/status', async (req: Request, res: Response) => {
       updateData.declineReason = declineReason;
     }
 
+    const updateCondition = staffStatus === 'accepted'
+      ? and(eq(shifts.id, id), eq(shifts.published, true))
+      : eq(shifts.id, id);
     const updated = await db.update(shifts)
       .set(updateData)
-      .where(eq(shifts.id, id))
+      .where(updateCondition)
       .returning();
 
     if (updated.length === 0) {
+      if (staffStatus === 'accepted') {
+        return res.status(403).json({ error: 'This shift has not been published yet.' });
+      }
       return res.status(404).json({ error: 'Shift not found' });
     }
 
