@@ -1140,10 +1140,9 @@ const Rota: React.FC = () => {
     }
 
     try {
-      // Use API to publish by date range
+      // Publish only the draft shifts shown in the confirmation.
       await shiftsAPI.publish({
-        startDate: weekStart,
-        endDate: weekEnd
+        shiftIds: unpublishedShifts.map(shift => shift.id)
       });
 
       alert(`✅ ${unpublishedShifts.length} shifts published successfully!`);

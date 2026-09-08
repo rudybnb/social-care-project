@@ -7,7 +7,7 @@ import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { users, staff, sites, shifts, approvalRequests, quotes, remittances, remittanceWorkers } from './schema.js';
-import { eq, and, or, sql } from 'drizzle-orm';
+import { eq, and, or, sql, inArray } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import { createAuthRouter } from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
@@ -19,7 +19,7 @@ import { initAuditLog, logActivity } from './services/auditLogService.js';
 import { sendAdminTelegram } from './services/telegramService.js';
 import { createSession } from './services/sessionService.js';
 import { sanitizeStaffForAuth } from './services/authSanitizer.js';
-import { getShiftPublicationError, isShiftPublished } from './services/shiftPublicationPolicy.js';
+import { getShiftPublicationError, getUniqueShiftIds, isShiftPublished } from './services/shiftPublicationPolicy.js';
 import { isQrCodeForSite } from './services/siteQrPolicy.js';
 process.env.TZ = 'Europe/London'; // Force UK time zone for all dates
 
@@ -1205,9 +1205,13 @@ app.post('/api/shifts/publish', async (req: Request, res: Response) => {
 
     if (shiftIds && Array.isArray(shiftIds) && shiftIds.length > 0) {
       // Publish specific shifts
+      const uniqueShiftIds = getUniqueShiftIds(shiftIds);
       updated = await db.update(shifts)
         .set({ published: true, updatedAt: new Date() })
-        .where(sql`${shifts.id} IN ${shiftIds}`)
+        .where(and(
+          inArray(shifts.id, uniqueShiftIds),
+          eq(shifts.published, false)
+        ))
         .returning();
     } else if (siteId && startDate && endDate) {
       // Publish by range

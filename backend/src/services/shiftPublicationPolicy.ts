@@ -7,3 +7,7 @@ export function isShiftPublished(shift: { published?: boolean | null }): boolean
 export function getShiftPublicationError(shift: { published?: boolean | null }): string | null {
   return isShiftPublished(shift) ? null : UNPUBLISHED_SHIFT_MESSAGE;
 }
+
+export function getUniqueShiftIds(shiftIds: string[]): string[] {
+  return [...new Set(shiftIds)];
+}
