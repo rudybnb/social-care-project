@@ -20,6 +20,7 @@ import { sendAdminTelegram } from './services/telegramService.js';
 import { createSession } from './services/sessionService.js';
 import { sanitizeStaffForAuth } from './services/authSanitizer.js';
 import { getShiftPublicationError, isShiftPublished } from './services/shiftPublicationPolicy.js';
+import { isQrCodeForSite } from './services/siteQrPolicy.js';
 process.env.TZ = 'Europe/London'; // Force UK time zone for all dates
 
 const allowedOrigins = [
@@ -1393,9 +1394,7 @@ app.post('/api/shifts/:shiftId/clock-in', async (req: Request, res: Response) =>
     // Accept exact matches only:
     // 1. qrCode equals the shift's siteId directly
     // 2. qrCode equals SITE_{siteId} (kiosk format)
-    const isValidQR =
-      qrCode === shift.siteId ||
-      qrCode === `SITE_${shift.siteId}`;
+    const isValidQR = isQrCodeForSite(qrCode, shift.siteId);
 
     if (!isValidQR) {
       console.log(`[ClockIn] Invalid QR. Shift Site: ${shift.siteId}, Scanned: ${qrCode}`);
@@ -1610,9 +1609,7 @@ app.post('/api/shifts/:shiftId/clock-out', async (req: Request, res: Response) =
     }
 
     // QR Code Validation (exact matches only)
-    const isValidQR =
-      qrCode === shift[0].siteId ||
-      qrCode === `SITE_${shift[0].siteId}`;
+    const isValidQR = isQrCodeForSite(qrCode, shift[0].siteId);
 
     if (!isValidQR) {
       return res.status(400).json({ error: 'Invalid QR code for this site' });
