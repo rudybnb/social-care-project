@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
-import { getSites, getStaff, subscribeToSitesChange, Site as SharedSite, StaffMember, getShifts, setShifts as setSharedShifts, subscribeToDataChange, addShift, updateShift, removeShift, getAllWorkers, Shift } from '../data/sharedData';
+import { getSites, getStaff, subscribeToSitesChange, Site as SharedSite, StaffMember, getShifts, setShifts as setSharedShifts, subscribeToDataChange, addShift, updateShift, removeShift, getAllWorkers, Shift, markShiftsPublished } from '../data/sharedData';
 import { shiftsAPI, leaveAPI } from '../services/api';
 import { calculateDuration, calculateEndTime } from '../utils/calculateDuration';
 import { exportToExcel } from '../utils/excelExport';
@@ -519,6 +519,7 @@ const Rota: React.FC = () => {
     }
 
     // All validations passed, create all shifts
+    const failedShifts: string[] = [];
     for (const shift of shiftsToCreate) {
       // Check if replacing declined shift
       const declinedShift = shifts.find(s =>
@@ -531,7 +532,22 @@ const Rota: React.FC = () => {
         await removeShift(declinedShift.id);
       }
 
-      await addShift(shift);
+      try {
+        await addShift(shift);
+      } catch (err: any) {
+        console.error('Shift creation failed:', err);
+        failedShifts.push(`${shift.staffName} — ${shift.date} ${shift.type} ${shift.siteName}`);
+      }
+    }
+
+    if (failedShifts.length > 0) {
+      alert(
+        `❌ SHIFT CREATION FAILED\n\n` +
+        `The following shifts could not be saved to the database:\n\n` +
+        failedShifts.join('\n') +
+        `\n\nNo phantom shifts were created.  ` +
+        `Please check your connection and try again.`
+      );
     }
 
     // Refresh shifts from shared data
@@ -1140,20 +1156,38 @@ const Rota: React.FC = () => {
     }
 
     try {
-      // Publish only the draft shifts shown in the confirmation.
-      await shiftsAPI.publish({
+      const result = await shiftsAPI.publish({
         shiftIds: unpublishedShifts.map(shift => shift.id)
       });
 
-      alert(`✅ ${unpublishedShifts.length} shifts published successfully!`);
+      const publishedCount = result.count || 0;
+      const publishedIds = result.publishedShiftIds || [];
 
-      // Refresh shifts
+      // Mark only server-confirmed shifts as published in local state
+      if (publishedIds.length > 0) {
+        markShiftsPublished(publishedIds);
+        setShifts(getShifts());
+      }
+
+      if (publishedCount === 0) {
+        alert('⚠️ No shifts were published. The server did not confirm any of the selected shifts.');
+      } else if (publishedCount < unpublishedShifts.length) {
+        alert(
+          `⚠️ PARTIAL PUBLISH\n\n` +
+          `${publishedCount} of ${unpublishedShifts.length} shifts published successfully.\n\n` +
+          `${unpublishedShifts.length - publishedCount} shift(s) were not found in the database ` +
+          `and were skipped.  This can happen if shifts were created locally but failed to save.`
+        );
+      } else {
+        alert(`✅ ${publishedCount} shifts published successfully!`);
+      }
+
+      // Refresh shifts from server for full sync
       const freshShifts = await shiftsAPI.getAll();
       setShifts(freshShifts);
-
     } catch (error: any) {
-      console.error('Failed to publish shifts:', error);
-      alert('❌ Failed to publish shifts. Please try again.');
+      console.error('Publish failed:', error);
+      alert(`❌ Publish failed: ${error.message || 'Unknown error'}\n\nNo shifts were marked as published.`);
     }
   };
 

@@ -415,7 +415,7 @@ export const shiftsAPI = {
   },
 
   // Publish shifts (convert draft to published)
-  async publish(data: { siteId?: string; startDate?: string; endDate?: string; shiftIds?: string[] }): Promise<any> {
+  async publish(data: { siteId?: string; startDate?: string; endDate?: string; shiftIds?: string[] }): Promise<{ success: boolean; count: number; publishedShiftIds: string[]; message: string }> {
     const response = await fetch(`${API_BASE_URL}/api/shifts/publish`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

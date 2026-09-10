@@ -370,18 +370,22 @@ export const setShifts = async (newShifts: any[]): Promise<void> => {
 };
 
 export const addShift = async (shift: any): Promise<void> => {
-  try {
-    // Save to backend database
-    const createdShift = await shiftsAPI.create(shift);
-    // Update local cache with the shift from backend (which has the correct ID)
-    shifts.push(createdShift);
-    notifyDataChanged();
-  } catch (error) {
-    console.error('Failed to create shift:', error);
-    // Fallback: save to local cache only
-    shifts.push(shift);
-    notifyDataChanged();
-  }
+  // Save to backend database — the DB is the source of truth.
+  // If creation fails, propagate the error so the caller can show a clear
+  // admin-facing message.  Do NOT create a local phantom shift.
+  const createdShift = await shiftsAPI.create(shift);
+  shifts.push(createdShift);
+  notifyDataChanged();
+};
+
+/**
+ * Mark shifts as published in the local cache using the IDs confirmed
+ * by the server publish response.  Called after a successful publish.
+ */
+export const markShiftsPublished = (publishedIds: string[]): void => {
+  const idSet = new Set(publishedIds);
+  shifts = shifts.map(s => idSet.has(s.id) ? { ...s, published: true } : s);
+  notifyDataChanged();
 };
 
 export const updateShift = async (id: string, updates: Partial<Shift>): Promise<void> => {

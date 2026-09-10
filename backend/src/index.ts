@@ -1239,7 +1239,8 @@ app.post('/api/shifts/publish', async (req: Request, res: Response) => {
     res.json({
       success: true,
       count: updated.length,
-      message: `Successfully published ${updated.length} shifts.`
+      publishedShiftIds: updated.map((s: any) => s.id),
+      message: `Successfully published ${updated.length} shifts`
     });
   } catch (error) {
     console.error('Error publishing shifts:', error);

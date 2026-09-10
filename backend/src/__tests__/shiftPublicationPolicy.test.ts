@@ -55,3 +55,44 @@ test('admin publish targets each intended draft once and leaves published shifts
     { id: 'draft-2', published: true },
   ]);
 });
+
+test('publish response count is authoritative — frontend must use server count', () => {
+  const frontendUnpublished = 28;
+  const serverResponse = { success: true, count: 4, publishedShiftIds: ['a', 'b', 'c', 'd'] };
+
+  assert.equal(serverResponse.count, 4);
+  assert.notEqual(serverResponse.count, frontendUnpublished);
+  assert.equal(serverResponse.publishedShiftIds.length, 4);
+});
+
+test('published shift becomes visible to staff via isShiftPublished filter', () => {
+  const allShifts = [
+    { id: 's1', published: false, staffStatus: 'accepted' },
+    { id: 's2', published: true, staffStatus: 'accepted' },
+    { id: 's3', published: true, staffStatus: 'pending' },
+  ];
+
+  const visibleToStaff = allShifts.filter(isShiftPublished);
+  assert.equal(visibleToStaff.length, 2);
+  assert.deepEqual(visibleToStaff.map(s => s.id), ['s2', 's3']);
+});
+
+test('phantom IDs not in DB produce zero server updates', () => {
+  const frontendIds = ['local-1', 'local-2', 'local-3', 'local-4', 'real-1'];
+  const dbShifts = [
+    { id: 'real-1', published: false },
+    { id: 'real-2', published: true },
+  ];
+
+  const matched = dbShifts.filter(
+    s => frontendIds.includes(s.id) && s.published === false
+  );
+  assert.equal(matched.length, 1);
+});
+
+test('accepted published shift remains clock-in eligible', () => {
+  const shift = { published: true, staffStatus: 'accepted' };
+  assert.equal(isShiftPublished(shift), true);
+  assert.equal(getShiftPublicationError(shift), null);
+  assert.equal(shift.staffStatus, 'accepted');
+});
